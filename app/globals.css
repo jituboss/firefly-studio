@@ -1,0 +1,283 @@
+@import 'tailwindcss';
+
+/* next-themes applies `.dark` on <html>. An explicit user choice therefore wins
+   over the OS preference in both directions, which a bare prefers-color-scheme
+   media query cannot do. `enableSystem` maps "system" onto the same class. */
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   E1-02 — design tokens (PROJECT_PLAN.md §5.2)
+
+   Neutral slate base plus semantic accounting tokens. Every colour is declared
+   here in the light palette first; the dark block below redefines the same
+   names. No colour may exist only inside the dark block.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --radius: 0.625rem;
+
+  /* surfaces */
+  --background: oklch(0.99 0.002 247);
+  --foreground: oklch(0.21 0.03 257);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.03 257);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.03 257);
+  --muted: oklch(0.968 0.007 247);
+  --muted-foreground: oklch(0.554 0.032 257);
+
+  /* brand */
+  --primary: oklch(0.52 0.16 258);
+  --primary-foreground: oklch(0.985 0.002 247);
+  --secondary: oklch(0.968 0.007 247);
+  --secondary-foreground: oklch(0.28 0.035 257);
+  --accent: oklch(0.968 0.007 247);
+  --accent-foreground: oklch(0.28 0.035 257);
+
+  /* chrome */
+  --border: oklch(0.923 0.009 247);
+  --input: oklch(0.923 0.009 247);
+  --ring: oklch(0.52 0.16 258);
+
+  /* ------------------------------------------------------------------
+     Accounting semantics. Colour NEVER carries meaning alone — every
+     amount also renders a +/- glyph and a screen-reader label (E21-02).
+     ------------------------------------------------------------------ */
+  --income: oklch(0.58 0.14 155);
+  --income-foreground: oklch(0.985 0.002 247);
+  --income-muted: oklch(0.94 0.04 155);
+
+  --expense: oklch(0.58 0.2 20);
+  --expense-foreground: oklch(0.985 0.002 247);
+  --expense-muted: oklch(0.95 0.035 20);
+
+  --transfer: oklch(0.58 0.12 245);
+  --transfer-foreground: oklch(0.985 0.002 247);
+  --transfer-muted: oklch(0.94 0.035 245);
+
+  --warning: oklch(0.72 0.16 75);
+  --warning-foreground: oklch(0.26 0.05 75);
+  --warning-muted: oklch(0.96 0.05 85);
+
+  --over-budget: oklch(0.55 0.21 12);
+  --over-budget-foreground: oklch(0.985 0.002 247);
+
+  --destructive: oklch(0.58 0.2 20);
+  --destructive-foreground: oklch(0.985 0.002 247);
+
+  /* ------------------------------------------------------------------
+     Categorical chart palette (E21-03). Eight hues, ordered so that
+     adjacent pairs stay distinguishable under deuteranopia and
+     protanopia — verified before any new hue is added here.
+     ------------------------------------------------------------------ */
+  --chart-1: oklch(0.58 0.13 250);
+  --chart-2: oklch(0.65 0.14 155);
+  --chart-3: oklch(0.72 0.15 75);
+  --chart-4: oklch(0.6 0.19 20);
+  --chart-5: oklch(0.6 0.15 305);
+  --chart-6: oklch(0.68 0.11 200);
+  --chart-7: oklch(0.55 0.1 120);
+  --chart-8: oklch(0.7 0.13 40);
+
+  /* sidebar */
+  --sidebar: oklch(0.985 0.002 247);
+  --sidebar-foreground: oklch(0.21 0.03 257);
+  --sidebar-primary: oklch(0.52 0.16 258);
+  --sidebar-primary-foreground: oklch(0.985 0.002 247);
+  --sidebar-accent: oklch(0.955 0.008 247);
+  --sidebar-accent-foreground: oklch(0.28 0.035 257);
+  --sidebar-border: oklch(0.923 0.009 247);
+}
+
+.dark {
+  --background: oklch(0.16 0.015 260);
+  --foreground: oklch(0.96 0.005 247);
+  --card: oklch(0.2 0.018 260);
+  --card-foreground: oklch(0.96 0.005 247);
+  --popover: oklch(0.2 0.018 260);
+  --popover-foreground: oklch(0.96 0.005 247);
+  --muted: oklch(0.26 0.02 260);
+  --muted-foreground: oklch(0.7 0.025 257);
+
+  --primary: oklch(0.68 0.15 258);
+  --primary-foreground: oklch(0.16 0.015 260);
+  --secondary: oklch(0.26 0.02 260);
+  --secondary-foreground: oklch(0.96 0.005 247);
+  --accent: oklch(0.28 0.022 260);
+  --accent-foreground: oklch(0.96 0.005 247);
+
+  --border: oklch(0.3 0.02 260);
+  --input: oklch(0.32 0.02 260);
+  --ring: oklch(0.68 0.15 258);
+
+  /* Lifted lightness and reduced chroma so semantic hues stay ≥4.5:1 on the
+     dark ground without vibrating against it. */
+  --income: oklch(0.72 0.15 155);
+  --income-foreground: oklch(0.16 0.015 260);
+  --income-muted: oklch(0.28 0.05 155);
+
+  --expense: oklch(0.7 0.17 20);
+  --expense-foreground: oklch(0.16 0.015 260);
+  --expense-muted: oklch(0.3 0.06 20);
+
+  --transfer: oklch(0.72 0.12 245);
+  --transfer-foreground: oklch(0.16 0.015 260);
+  --transfer-muted: oklch(0.29 0.05 245);
+
+  --warning: oklch(0.8 0.15 80);
+  --warning-foreground: oklch(0.2 0.04 80);
+  --warning-muted: oklch(0.3 0.06 80);
+
+  --over-budget: oklch(0.68 0.19 12);
+  --over-budget-foreground: oklch(0.16 0.015 260);
+
+  --destructive: oklch(0.7 0.17 20);
+  --destructive-foreground: oklch(0.16 0.015 260);
+
+  --chart-1: oklch(0.68 0.14 250);
+  --chart-2: oklch(0.74 0.14 155);
+  --chart-3: oklch(0.8 0.14 75);
+  --chart-4: oklch(0.7 0.17 20);
+  --chart-5: oklch(0.7 0.15 305);
+  --chart-6: oklch(0.76 0.1 200);
+  --chart-7: oklch(0.66 0.1 120);
+  --chart-8: oklch(0.78 0.12 40);
+
+  --sidebar: oklch(0.19 0.017 260);
+  --sidebar-foreground: oklch(0.96 0.005 247);
+  --sidebar-primary: oklch(0.68 0.15 258);
+  --sidebar-primary-foreground: oklch(0.16 0.015 260);
+  --sidebar-accent: oklch(0.26 0.02 260);
+  --sidebar-accent-foreground: oklch(0.96 0.005 247);
+  --sidebar-border: oklch(0.3 0.02 260);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-income: var(--income);
+  --color-income-foreground: var(--income-foreground);
+  --color-income-muted: var(--income-muted);
+  --color-expense: var(--expense);
+  --color-expense-foreground: var(--expense-foreground);
+  --color-expense-muted: var(--expense-muted);
+  --color-transfer: var(--transfer);
+  --color-transfer-foreground: var(--transfer-foreground);
+  --color-transfer-muted: var(--transfer-muted);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-muted: var(--warning-muted);
+  --color-over-budget: var(--over-budget);
+  --color-over-budget-foreground: var(--over-budget-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /* §5.1 principle 1: money is always tabular so columns of digits align. */
+  .tabular,
+  [data-slot='amount'] {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings:
+      'tnum' 1,
+      'lnum' 1;
+  }
+
+  /* E3-14 — privacy toggle. */
+  [data-hide-balances='true'] [data-slot='amount'] {
+    @apply blur-[6px] select-none;
+    transition: filter 150ms ease-out;
+  }
+  [data-hide-balances='true'] [data-slot='amount']:hover {
+    @apply blur-none;
+  }
+
+  :focus-visible {
+    @apply outline-ring outline-2 outline-offset-2;
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  /* E21-06 — visually hidden but available to screen readers. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* E21-12 — honour the OS motion preference everywhere, unconditionally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

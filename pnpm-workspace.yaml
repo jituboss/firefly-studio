@@ -1,0 +1,12 @@
+# pnpm 12 gates package build scripts. Only these need a native postinstall
+# step (binary download / platform binding); everything else stays blocked.
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+  sharp: true
+  '@tailwindcss/oxide': true
+  # Deliberately NOT approved: @sentry/cli's postinstall downloads a ~20MB
+  # binary used only to upload source maps, which needs SENTRY_AUTH_TOKEN
+  # anyway. Approve it in the release job that uploads, not for every
+  # developer install (see E1-16).
+  '@sentry/cli': false

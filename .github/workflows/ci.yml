@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+  # Deterministic throwaway values so build and tests can boot. Never real keys.
+  APP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  AUTH_SECRET: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
+  DATABASE_URL: postgresql://firefly_studio:firefly_studio@localhost:5432/firefly_studio
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: firefly_studio
+          POSTGRES_PASSWORD: firefly_studio
+          POSTGRES_DB: firefly_studio
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U firefly_studio"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:cov
+
+      # Proves the committed migrations actually apply to a clean database,
+      # which `drizzle-kit generate` alone does not (E25-02).
+      - name: Apply migrations to a clean database
+        run: pnpm db:migrate
+
+      - name: Build
+        run: pnpm build
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  spec-drift:
+    name: Firefly III spec drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Informational: a new upstream release should not block a merge, but it
+    # should be visible. `spec:update --check` exits 2 on removed operations.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check for a newer Firefly III specification
+        run: pnpm spec:update --check
+
+      # The committed spec/generated output must match what the script produces.
+      - name: Verify generated output is current
+        run: |
+          pnpm spec:codegen
+          if ! git diff --quiet -- spec/generated; then
+            echo "::error::spec/generated is stale. Run 'pnpm spec:codegen' and commit the result."
+            git diff --stat -- spec/generated
+            exit 1
+          fi
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Audit
+        run: pnpm audit --audit-level high
+
+  docker:
+    name: Build production image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          tags: firefly-studio:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

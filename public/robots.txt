@@ -1,0 +1,5 @@
+# Firefly Studio is a private personal-finance application. Nothing here should
+# ever be indexed. The app additionally sends `robots: noindex, nofollow` via
+# the root layout metadata.
+User-agent: *
+Disallow: /

@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.github
+coverage
+drizzle/meta
+*.log
+.env
+.env.*
+!.env.example
+tests/
+docs/
+README.md
+PROJECT_PLAN.md
