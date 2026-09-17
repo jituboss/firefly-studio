@@ -190,16 +190,22 @@ export default async function AvailableBudgetsPage({
             const t = totals[currency]!;
             return (
               <React.Fragment key={currency}>
-                <Card>
-                  <CardContent className="p-5">
+                <Card className="min-w-0 overflow-hidden">
+                  <CardContent className="min-w-0 p-4">
                     <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                       Total envelope
                     </p>
-                    <Amount value={t.amount} currency={currency} size="xl" />
+                    <Amount
+                      value={t.amount}
+                      currency={currency}
+                      size="xl"
+                      compact
+                      className="block truncate"
+                    />
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="p-5">
+                <Card className="min-w-0 overflow-hidden">
+                  <CardContent className="min-w-0 p-4">
                     <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                       Spent in budgets
                     </p>
@@ -209,11 +215,13 @@ export default async function AvailableBudgetsPage({
                       size="xl"
                       tone="expense"
                       showSign={false}
+                      compact
+                      className="block truncate"
                     />
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="p-5">
+                <Card className="min-w-0 overflow-hidden">
+                  <CardContent className="min-w-0 p-4">
                     <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                       Spent outside budgets
                     </p>
@@ -223,11 +231,13 @@ export default async function AvailableBudgetsPage({
                       size="xl"
                       tone="expense"
                       showSign={false}
+                      compact
+                      className="block truncate"
                     />
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="p-5">
+                <Card className="min-w-0 overflow-hidden">
+                  <CardContent className="min-w-0 p-4">
                     <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                       Remaining
                     </p>
@@ -236,6 +246,8 @@ export default async function AvailableBudgetsPage({
                       currency={currency}
                       size="xl"
                       tone={toDecimal(t.remaining).isNegative() ? 'expense' : 'income'}
+                      compact
+                      className="block truncate"
                     />
                   </CardContent>
                 </Card>

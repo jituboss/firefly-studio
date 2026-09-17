@@ -61,7 +61,6 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
     heading: 'Plan',
     items: [
       { href: '/budgets', label: 'Budgets', icon: Banknote },
-      { href: '/available-budgets', label: 'Available budgets', icon: Wallet },
       { href: '/categories', label: 'Categories', icon: Shapes },
       { href: '/bills', label: 'Subscriptions', icon: Receipt },
       { href: '/piggy-banks', label: 'Piggy banks', icon: PiggyBank },
