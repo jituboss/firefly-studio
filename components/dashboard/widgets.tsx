@@ -64,7 +64,15 @@ export function KpiTile({
           {label}
         </p>
         <div className="mt-1.5 min-w-0">
-          <Amount value={value} currency={currency} tone={tone} size="xl" showSign={false} />
+          <Amount
+            value={value}
+            currency={currency}
+            tone={tone}
+            size="xl"
+            showSign={false}
+            compact
+            className="block truncate"
+          />
         </div>
         {change ? (
           <p className="text-muted-foreground mt-1 text-xs">

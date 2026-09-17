@@ -30,11 +30,25 @@ const qs = (params: Record<string, string | number | undefined | null>) => {
 export const getBasicSummary = (start: string, end: string) =>
   fireflyGetSafe<BasicSummary>(`/v1/summary/basic${qs({ start, end })}`, {});
 
+/** Choose daily buckets for month-or-shorter ranges so the line has points to
+ * draw; use monthly buckets for longer ranges to keep the chart readable.
+ */
+function chartPeriod(start: string, end: string): '1D' | '1M' {
+  const days = (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000 + 1;
+  return days <= 31 ? '1D' : '1M';
+}
+
 export const getBalanceChart = (start: string, end: string) =>
-  fireflyGetSafe<ChartEntry[]>(`/v1/chart/balance/balance${qs({ start, end })}`, []);
+  fireflyGetSafe<ChartEntry[]>(
+    `/v1/chart/balance/balance${qs({ start, end, period: chartPeriod(start, end) })}`,
+    [],
+  );
 
 export const getAccountOverviewChart = (start: string, end: string) =>
-  fireflyGetSafe<ChartEntry[]>(`/v1/chart/account/overview${qs({ start, end })}`, []);
+  fireflyGetSafe<ChartEntry[]>(
+    `/v1/chart/account/overview${qs({ start, end, period: chartPeriod(start, end) })}`,
+    [],
+  );
 
 export const getExpenseByCategory = (start: string, end: string) =>
   fireflyGetSafe<InsightEntry[]>(`/v1/insight/expense/category${qs({ start, end })}`, []);
