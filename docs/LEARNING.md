@@ -344,7 +344,7 @@ instance first. See §9 for how to spin one up. Don't trust the OpenAPI spec's f
 - **`lib/` coverage is a CI gate at 70 %** (`vitest.config.mts`), currently sitting at
   ~95 % statements / 85 % branches. The single `release.yml` pipeline runs `test:cov` on
   every trigger, so the gate that reddens a pull request is the same one a release has to
-  clear. This was not always true: CI and Release were separate files running `test:cov`
+  clear. Only a `v*` tag publishes to Docker Hub; a push to `main` is a gate. This was not always true: CI and Release were separate files running `test:cov`
   and plain `pnpm test` respectively, which let a coverage regression ship in a green
   release while main was red.
 - Two modules are deliberately under-covered. `image-compress.ts` needs

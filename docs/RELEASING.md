@@ -13,22 +13,21 @@ disagrees with it, so the two can never drift apart silently.
 
 ## Image tags
 
-| Release              | Tags published                |
-| -------------------- | ----------------------------- |
-| `1.2.3` (stable)     | `1.2.3`, `1.2`, `1`, `latest` |
-| `0.1.0-alpha.1`      | `0.1.0-alpha.1`, `alpha`      |
-| `0.2.0-beta.1`       | `0.2.0-beta.1`, `beta`        |
-| `1.0.0-rc.1`         | `1.0.0-rc.1`, `rc`            |
-| any commit on `main` | `edge`                        |
+| Release                                                                       | Tags published                |
+| ----------------------------------------------------------------------------- | ----------------------------- |
+| `1.2.3` (stable)                                                              | `1.2.3`, `1.2`, `1`, `latest` |
+| `0.1.0-alpha.1`                                                               | `0.1.0-alpha.1`, `alpha`      |
+| `0.2.0-beta.1`                                                                | `0.2.0-beta.1`, `beta`        |
+| `1.0.0-rc.1`                                                                  | `1.0.0-rc.1`, `rc`            |
+| **`latest` never points at a prerelease.** Someone running                    |
+| `docker pull jituboss/firefly-studio` with no tag is asking for the stable    |
+| line; handing them an alpha would be a trap. Prereleases get a moving channel |
+| tag instead, so `:alpha` always means "the newest alpha".                     |
 
-**`latest` never points at a prerelease.** Someone running
-`docker pull jituboss/firefly-studio` with no tag is asking for the stable
-line; handing them an alpha would be a trap. Prereleases get a moving channel
-tag instead, so `:alpha` always means "the newest alpha".
-
-`edge` is the tip of `main`, republished by every green pipeline run. It is not
-a release: it has had no changelog entry written for it and no version tag, so
-treat it as a preview rather than something to pin a deployment to.
+Nothing else is published. A push to `main` builds both architectures to prove
+the image still compiles and stops there — an untagged commit has no version, so
+any tag it could write would have to be a moving one, and a moving tag written
+by every merge is a release nobody decided to make.
 
 Every image is built for `linux/amd64` and `linux/arm64` and carries OCI
 labels; `/api/health` reports the version and the commit it was built from.
@@ -80,7 +79,7 @@ those is only how far it goes:
 | Trigger         | Gate | Image built | Pushed to Docker Hub | GitHub release |
 | --------------- | ---- | ----------- | -------------------- | -------------- |
 | pull request    | ✅   | ✅          | —                    | —              |
-| push to `main`  | ✅   | ✅          | `edge`               | —              |
+| push to `main`  | ✅   | ✅          | —                    | —              |
 | push a `v*` tag | ✅   | ✅          | version tags         | ✅             |
 
 Three things keep it quick:

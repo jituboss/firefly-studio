@@ -1,11 +1,14 @@
 name: Release
 
-# One pipeline. It gates every push and pull request, and the same run that
-# goes green is the one that publishes:
+# One pipeline. It gates every push and pull request; only a tag publishes.
 #
 #   pull_request        verify + build both arches, push nothing
-#   push to main        ... and push the moving `edge` tag
+#   push to main        the same — a gate, not a release
 #   push a `v*` tag     ... and push the version tags, open the GitHub release
+#
+# Pushing a branch and its tag together (`git push origin main v0.4.0`) starts
+# two runs for the one commit. Only the tag's run may publish; the branch's is
+# a gate. Anything else has them racing to write the same Docker Hub tags.
 #
 # `pnpm release <version>` creates the tag; pushing it is what publishes.
 on:
@@ -52,23 +55,27 @@ jobs:
 
           {
             echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            # Pull requests never publish: fork runs have no secrets, and an
-            # unreviewed branch has no business owning a Docker Hub tag.
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              echo "publish=false"
-            else
+            # Only a version tag publishes. A branch push builds both
+            # architectures to prove the image still compiles and stops there:
+            # an untagged commit has no version, so any tag it wrote would have
+            # to be a moving one, and a moving tag written by every merge is a
+            # release nobody decided to make.
+            if [[ "$GITHUB_REF" == refs/tags/v* && "${{ github.event_name }}" == "push" ]]; then
               echo "publish=true"
+            else
+              echo "publish=false"
             fi
           } >> "$GITHUB_OUTPUT"
 
           if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
-            # main and manual runs ship as `edge`, stamped with the in-progress
-            # version so a running container can still say what it is.
+            # Not a release. The version is still stamped into the image so a
+            # container built from a branch can say what it is, even though this
+            # build is never pushed anywhere.
             {
               echo "release=false"
               echo "version=${PKG}+${GITHUB_SHA::7}"
               echo "prerelease=false"
-              echo "channel=edge"
+              echo "channel=none"
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -201,7 +208,7 @@ jobs:
             APP_VERSION=${{ needs.meta.outputs.version }}
             VCS_REF=${{ github.sha }}
             BUILD_DATE=${{ needs.meta.outputs.build_date }}
-          # A pull request only has to prove the image still builds.
+          # A branch or pull request only has to prove the image still builds.
           outputs: >-
             ${{ needs.meta.outputs.publish == 'true'
               && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE)
@@ -254,8 +261,8 @@ jobs:
 
       # `latest` must never point at a prerelease: someone running
       # `docker pull jituboss/firefly-studio` expects the stable line. An alpha
-      # gets its exact version plus a moving channel tag (`alpha`) instead, and
-      # an untagged commit on main gets `edge` and nothing else.
+      # gets its exact version plus a moving channel tag (`alpha`) instead.
+      # This job only runs for a tag, so every tag computed here is a real one.
       - name: Compute tags
         id: meta
         uses: docker/metadata-action@v5
@@ -269,7 +276,6 @@ jobs:
             type=semver,pattern={{major}},enable=${{ needs.meta.outputs.release == 'true' && needs.meta.outputs.prerelease == 'false' }}
             type=raw,value=latest,enable=${{ needs.meta.outputs.release == 'true' && needs.meta.outputs.prerelease == 'false' }}
             type=raw,value=${{ needs.meta.outputs.channel }},enable=${{ needs.meta.outputs.release == 'true' && needs.meta.outputs.prerelease == 'true' }}
-            type=raw,value=edge,enable=${{ needs.meta.outputs.release == 'false' }}
 
       # One multi-arch manifest over the two digests, published under every
       # tag at once. No layer is re-uploaded — they are already in the registry.
