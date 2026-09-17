@@ -42,6 +42,7 @@ export default async function OnboardingPage({
       currency={options.currency}
       accounts={options.accounts}
       timezone={session.user.timezone}
+      email={session.user.email}
     />
   );
 }

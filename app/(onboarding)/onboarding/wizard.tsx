@@ -10,6 +10,7 @@ import {
   type ProbeState,
   type TokenState,
 } from '@/server/onboarding/actions';
+import { signOutAction } from '@/server/auth/actions';
 import { Input, Label } from '@/components/ui/input';
 import { FormMessage, SubmitButton } from '@/components/auth/form-shell';
 
@@ -72,6 +73,8 @@ export function OnboardingWizard(props: {
   currency: string | null;
   accounts: AssetAccount[];
   timezone: string;
+  /** Shown in the footer so it is obvious which account is being set up. */
+  email: string;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(props.initialStep);
 
@@ -313,6 +316,26 @@ export function OnboardingWizard(props: {
               <Submit>Finish setup</Submit>
             </form>
           ) : null}
+        </div>
+
+        {/*
+          Onboarding is the one authenticated area with no app shell, so it had
+          no way out: a user who signed in to the wrong account, or who does not
+          have a token to hand yet, was stuck on this screen. Their work is
+          saved either way — the wizard re-derives its step from the database on
+          the next sign-in.
+        */}
+        <div className="text-muted-foreground mt-6 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm">
+          <span className="truncate">Signed in as {props.email}</span>
+          <span aria-hidden="true">·</span>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="hover:text-foreground underline underline-offset-4 transition-colors"
+            >
+              Sign out
+            </button>
+          </form>
         </div>
       </div>
     </main>
