@@ -139,27 +139,3 @@ jobs:
           tags: firefly-studio:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  release:
-    name: Release image with source maps
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: verify
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      # E1-16 — @sentry/cli is blocked for ordinary installs (it downloads a
-      # ~20MB binary). Approve it only here, where source maps are uploaded.
-      - name: Install with Sentry CLI approved
-        run: pnpm install --frozen-lockfile --allow-build=@sentry/cli
-      - name: Build and upload source maps
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-        run: pnpm build
