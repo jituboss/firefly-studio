@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection, fireflyGetSafe } from '@/server/firefly/api';
-import { getAccount } from '@/server/firefly/queries';
+import { getAccount, getBudget, getCategory } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { add, toDecimal } from '@/lib/money';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -78,6 +78,14 @@ export default async function TransactionsPage({
   const accountId = typeof params.account === 'string' ? params.account : undefined;
   const search = typeof params.q === 'string' ? params.q.trim() : '';
 
+  // E14-12 — report drill-through. Each of these scopes the list to one
+  // Firefly resource using its own `/…/{id}/transactions` endpoint, the same
+  // way `?account=` already does, so a chart element can link to exactly the
+  // rows behind it.
+  const categoryId = typeof params.category === 'string' ? params.category : undefined;
+  const budgetId = typeof params.budget === 'string' ? params.budget : undefined;
+  const tag = typeof params.tag === 'string' ? params.tag.trim() : undefined;
+
   const query = new URLSearchParams({
     start: range.start,
     end: range.end,
@@ -101,9 +109,15 @@ export default async function TransactionsPage({
     ? `/v1/search/transactions?query=${encodeURIComponent(searchQuery)}&page=${page}&limit=50`
     : accountId
       ? `/v1/accounts/${accountId}/transactions?${query.toString()}`
-      : `/v1/transactions?${query.toString()}`;
+      : categoryId
+        ? `/v1/categories/${categoryId}/transactions?${query.toString()}`
+        : budgetId
+          ? `/v1/budgets/${budgetId}/transactions?${query.toString()}`
+          : tag
+            ? `/v1/tags/${encodeURIComponent(tag)}/transactions?${query.toString()}`
+            : `/v1/transactions?${query.toString()}`;
 
-  const [result, pinnedAccount] = await Promise.all([
+  const [result, pinnedAccount, scopeName] = await Promise.all([
     fireflyGetSafe<Paged<Transaction>>(basePath, { data: [], meta: {} }),
     // An `?account=` filter showed up as nothing but an id in the URL, so the
     // list looked mysteriously short with no visible reason.
@@ -112,6 +126,19 @@ export default async function TransactionsPage({
           .then((response) => response.data.attributes.name)
           .catch(() => null)
       : Promise.resolve(null),
+    // Same problem for a report drill-through: the header has to name what the
+    // list is scoped to, or the short list looks like a bug.
+    categoryId
+      ? getCategory(categoryId)
+          .then((response) => `category: ${response.data.attributes.name}`)
+          .catch(() => null)
+      : budgetId
+        ? getBudget(budgetId)
+            .then((response) => `budget: ${response.data.attributes.name}`)
+            .catch(() => null)
+        : tag
+          ? Promise.resolve(`tag: ${tag}`)
+          : Promise.resolve(null),
   ]);
 
   const data =
@@ -123,7 +150,7 @@ export default async function TransactionsPage({
   const totals = pageTotals(data, connection.primaryCurrency);
   const savedViewsList = await listSavedViews(session.user.id, 'transactions');
 
-  const filtered = Boolean(search) || Boolean(accountId) || type !== 'all';
+  const filtered = Boolean(search) || Boolean(accountId) || Boolean(scopeName) || type !== 'all';
 
   return (
     <div className="mx-auto w-full max-w-7xl min-w-0 space-y-5">
@@ -138,6 +165,7 @@ export default async function TransactionsPage({
               ? ` · searching “${search}” in ${range.label.toLowerCase()}`
               : ` · ${range.label}`}
             {pinnedAccount ? ` · ${pinnedAccount}` : ''}
+            {scopeName ? ` · ${scopeName}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -153,7 +181,12 @@ export default async function TransactionsPage({
       </header>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <TransactionFilters type={type} search={search} accountId={accountId} />
+        <TransactionFilters
+          type={type}
+          search={search}
+          accountId={accountId}
+          scopeLabel={scopeName}
+        />
         <SavedViews
           views={savedViewsList}
           currentQuery={{

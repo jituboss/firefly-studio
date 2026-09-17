@@ -11,10 +11,13 @@ export function TransactionFilters({
   type,
   search,
   accountId,
+  scopeLabel,
 }: {
   type: string;
   search: string;
   accountId?: string;
+  /** E14-12 — set when a report drilled through to a category/budget/tag. */
+  scopeLabel?: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -86,13 +89,26 @@ export function TransactionFilters({
         <option value="compact">Compact</option>
       </select>
 
-      {search || accountId || type !== 'all' ? (
+      {scopeLabel ? (
+        <span className="bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs">
+          {scopeLabel}
+        </span>
+      ) : null}
+
+      {search || accountId || scopeLabel || type !== 'all' ? (
         <Button
           variant="ghost"
           size="sm"
           onClick={() => {
             setTerm('');
-            update({ q: null, account: null, type: null });
+            update({
+              q: null,
+              account: null,
+              type: null,
+              category: null,
+              budget: null,
+              tag: null,
+            });
           }}
         >
           <X className="size-4" aria-hidden="true" />

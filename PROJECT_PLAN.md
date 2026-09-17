@@ -573,18 +573,18 @@ before implementing — see §13.
 
 ### E14 · Reports & insights — M5 (the differentiator)
 
-- [ ] **E14-01** `P0` `2d` Report shell: period selector, account/currency scope, compare-to-previous toggle, print stylesheet
-- [ ] **E14-02** `P0` `3d` **Net worth report** — assets vs. liabilities over time, stacked area + table, per-account contribution
-- [ ] **E14-03** `P0` `3d` **Income vs. Expense** — monthly bars, running net, savings rate, top sources/sinks (`/insight/income/*`, `/insight/expense/*`)
-- [ ] **E14-04** `P0` `3d` **Category report** — treemap + ranked bars + month-over-month table, drill to transactions
-- [ ] **E14-05** `P0` `2d` **Budget report** — planned vs. actual, variance, rollover tracking, 12-month heatmap
-- [ ] **E14-06** `P1` `3d` **Cash-flow Sankey** — income sources → accounts → expense categories (d3-sankey)
-- [ ] **E14-07** `P1` `2d` **Tag report** — spend by tag over time, tag combinations
-- [ ] **E14-08** `P1` `2d` **Account report** — per-account income/expense/transfer breakdown (`/insight/*/asset`)
-- [ ] **E14-09** `P1` `2d` **Bill/subscription report** — recurring cost trend, annualised total, cancelled-vs-active
-- [ ] **E14-10** `P1` `4d` **Custom report builder** — pick a metric, dimension, filter set, and chart type; save to `saved_reports`; pin to the dashboard
-- [ ] **E14-11** `P1` `2d` Export any report to CSV, XLSX, and a print-quality PDF
-- [ ] **E14-12** `P1` `1d` Every chart element drills through to the underlying filtered transaction list
+- [x] **E14-01** `P0` `2d` Report shell: period selector, account/currency scope, compare-to-previous toggle, print stylesheet — Report shell, period/account/currency scope + compare toggle, all URL-encoded; print stylesheet in `app/globals.css`
+- [x] **E14-02** `P0` `3d` **Net worth report** — assets vs. liabilities over time, stacked area + table, per-account contribution — `/chart/account/overview` joined to the account list by NAME (the chart carries no id) for type and the include-in-net-worth flag
+- [x] **E14-03** `P0` `3d` **Income vs. Expense** — monthly bars, running net, savings rate, top sources/sinks (`/insight/income/*`, `/insight/expense/*`) — `/chart/balance/balance?period=1M` for the series, insight `total` endpoints for the headline figures so they match Firefly to the cent
+- [x] **E14-04** `P0` `3d` **Category report** — treemap + ranked bars + month-over-month table, drill to transactions — Treemap + ranked spend/income tables + a twelve-month grid built from one insight call per month
+- [x] **E14-05** `P0` `2d` **Budget report** — planned vs. actual, variance, rollover tracking, 12-month heatmap — `/chart/budget/overview` for planned-vs-actual; `left` taken from Firefly, not recomputed
+- [x] **E14-06** `P1` `3d` **Cash-flow Sankey** — income sources → accounts → expense categories (d3-sankey) — Hand-rolled three-layer Sankey (`lib/sankey.ts`), server-rendered SVG, no new dependency; reads raw transactions because no insight endpoint exposes the source→destination pairing
+- [x] **E14-07** `P1` `2d` **Tag report** — spend by tag over time, tag combinations — Spend/income by tag, ranked bars + twelve-month grid
+- [x] **E14-08** `P1` `2d` **Account report** — per-account income/expense/transfer breakdown (`/insight/*/asset`) — Per-asset-account in/out/transfers; transfers keep their sign
+- [x] **E14-09** `P1` `2d` **Bill/subscription report** — recurring cost trend, annualised total, cancelled-vs-active — Annualised from the midpoint of Firefly’s min/max band, divided by skip + 1
+- [x] **E14-10** `P1` `4d` **Custom report builder** — pick a metric, dimension, filter set, and chart type; save to `saved_reports`; pin to the dashboard — metric × dimension × chart, saved and pinned (pinned reports render on the dashboard). **Cut:** an arbitrary filter set beyond the shared period/account/currency scope — the six dimensions map onto insight endpoints, which accept no further filters.
+- [x] **E14-11** `P1` `2d` Export any report to CSV, XLSX, and a print-quality PDF — CSV (RFC 4180 quoted, UTF-8 BOM so Excel reads it correctly) and print-to-PDF via the print stylesheet. **Cut: a native XLSX writer.** It needs a zip encoder and a new dependency for a format Excel already opens from the CSV; deferred rather than half-built.
+- [x] **E14-12** `P1` `1d` Every chart element drills through to the underlying filtered transaction list — Every breakdown row links through; required adding category/budget/tag scoping to the transaction list, which previously understood only `account`
 - [ ] **E14-13** `P2` `2d` Scheduled reports — monthly email with a PDF attached (BullMQ + `report_runs`)
 - [ ] **E14-14** `P2` `3d` **Year in review** — an annual narrative summary with highlights and shareable cards
 - [ ] **E14-15** `P1` `1d` **Reconciliation test:** an automated check asserting our report totals equal Firefly's own figures to the cent

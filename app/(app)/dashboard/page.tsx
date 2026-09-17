@@ -31,6 +31,8 @@ import {
   WidgetCard,
 } from '@/components/dashboard/widgets';
 import { HideBalancesToggle } from '@/components/hide-balances';
+import { listSavedReports } from '@/server/reports';
+import { describeConfig, parseConfig } from '@/lib/custom-report';
 import { Amount } from '@/components/ui/amount';
 import type { BasicSummary } from '@/server/firefly/types';
 
@@ -108,6 +110,12 @@ export default async function DashboardPage({
     getBudgetLimits(range.start, range.end),
     getNetWorthAccounts(),
   ]);
+
+  // E14-10 — custom reports the user pinned. Read after the widget fan-out and
+  // tolerant of failure, so the dashboard is never blocked or blanked by it.
+  const pinnedReports = await listSavedReports(session.user.id)
+    .then((rows) => rows.filter((row) => row.isPinned))
+    .catch(() => []);
 
   const currency = connection.primaryCurrency;
 
@@ -267,6 +275,29 @@ export default async function DashboardPage({
             defaultCurrency={currency}
           />
         </WidgetCard>
+
+        {pinnedReports.length > 0 ? (
+          <WidgetCard title="Pinned reports" href="/reports">
+            <ul className="space-y-2">
+              {pinnedReports.map((report) => {
+                const config = parseConfig(report.config);
+                return (
+                  <li key={report.id}>
+                    <a
+                      href={`/reports/custom?range=${range.preset}&metric=${config.metric}&dimension=${config.dimension}&chart=${config.chart}&limit=${config.limit}`}
+                      className="hover:bg-accent -mx-2 block rounded-md px-2 py-1.5"
+                    >
+                      <p className="truncate text-sm font-medium">{report.name}</p>
+                      <p className="text-muted-foreground truncate text-xs">
+                        {describeConfig(config)}
+                      </p>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </WidgetCard>
+        ) : null}
       </div>
     </div>
   );

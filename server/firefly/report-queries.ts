@@ -130,3 +130,11 @@ export const getTransactionsInRange = (scope: ScopeParams, limit = 500) =>
     data: [],
     meta: {},
   });
+
+/**
+ * E14-10 — the custom builder resolves a metric/dimension pair to one of the
+ * insight paths above and fetches it through here. `path` is never taken from
+ * user input directly: `insightPathFor` in lib/custom-report.ts maps a
+ * validated enum pair onto it, so an arbitrary string cannot reach the URL.
+ */
+export const getInsightByPath = (path: string, scope: ScopeParams) => insight(path, scope);
