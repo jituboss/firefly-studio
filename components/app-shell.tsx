@@ -10,7 +10,6 @@ import {
   ChartPie,
   Coins,
   Flame,
-  Folder,
   LayoutDashboard,
   LogOut,
   Menu,
