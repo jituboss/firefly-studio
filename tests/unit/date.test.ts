@@ -84,3 +84,20 @@ describe('formatDate', () => {
     );
   });
 });
+
+describe('formatDate relative style', () => {
+  it('names the days around today in the user timezone', async () => {
+    const { formatAxisDate, now, toApiDate } = await import('@/lib/date');
+    const timezone = 'Asia/Dhaka';
+    const today = toApiDate(now(timezone), timezone);
+
+    expect(formatDate(today, { timezone, style: 'relative' })).toBe('Today');
+
+    // A date far from today falls through to an absolute rendering rather than
+    // "in 8,411 days", which no one can read.
+    expect(formatDate('2001-01-15', { timezone, style: 'relative' })).toMatch(/2001/);
+
+    // The axis formatter is short by design: a tick has a few dozen pixels.
+    expect(formatAxisDate('2026-08-03', timezone)).toBe('Aug 3');
+  });
+});
