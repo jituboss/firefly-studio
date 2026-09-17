@@ -30,7 +30,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (hasSession && isPublic && pathname !== '/verify-email' && pathname !== '/reset-password') {
+  // `startsWith`, not equality: /verify-email/confirm has to run even for
+  // someone who already has a session — confirming a second address, or
+  // finishing a link opened after signing in elsewhere. Bouncing them to the
+  // dashboard would leave the address unconfirmed with no visible reason.
+  if (
+    hasSession &&
+    isPublic &&
+    !pathname.startsWith('/verify-email') &&
+    !pathname.startsWith('/reset-password')
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     url.search = '';

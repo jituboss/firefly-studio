@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
+import { appVersion } from '@/server/version';
 import { SettingsTabs } from './settings/tabs';
 import { getSession } from '@/server/auth/session';
 import { listConnections } from '@/server/connections';
@@ -37,6 +38,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
         isDefault: entry.isDefault,
       }))}
       notifications={notifications}
+      version={appVersion()}
     >
       {/* The tab bar belongs to the whole section, so it lives here rather than
           being repeated on each page. Its container matches the `max-w-3xl`

@@ -94,7 +94,10 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
 
   const token = await issueToken(userId, 'verify_email');
   await sendMail(
-    verificationMail(email, `${getEnv().APP_URL}/verify-email?token=${encodeURIComponent(token)}`),
+    verificationMail(
+      email,
+      `${getEnv().APP_URL}/verify-email/confirm?token=${encodeURIComponent(token)}`,
+    ),
   );
 
   await recordAudit({ userId, action: 'auth.signup', ...meta });
@@ -154,7 +157,7 @@ export async function resendVerificationAction(
     await sendMail(
       verificationMail(
         email,
-        `${getEnv().APP_URL}/verify-email?token=${encodeURIComponent(token)}`,
+        `${getEnv().APP_URL}/verify-email/confirm?token=${encodeURIComponent(token)}`,
       ),
     );
     await recordAudit({ userId: user.id, action: 'auth.verification_resent', ...meta });

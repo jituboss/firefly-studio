@@ -82,11 +82,11 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
   },
 ];
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarNav({ onNavigate, version }: { onNavigate?: () => void; version?: string }) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Main" className="flex flex-col gap-6 p-3">
+    <nav aria-label="Main" className="flex flex-1 flex-col gap-6 p-3">
       {NAV_SECTIONS.map((section) => (
         <div key={section.heading}>
           <p className="text-muted-foreground px-3 pb-1.5 text-[0.6875rem] font-semibold tracking-wider uppercase">
@@ -127,6 +127,20 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           </ul>
         </div>
       ))}
+
+      {/*
+        Pinned to the bottom of the nav rather than sitting under the last
+        item, so it does not read as another destination. `mt-auto` needs the
+        nav to be a flex column that grows, which is why it is `flex-1`.
+      */}
+      {version ? (
+        <p
+          className="text-muted-foreground mt-auto px-3 pt-4 text-[0.6875rem] tabular-nums"
+          title={`Firefly Studio ${version}`}
+        >
+          v{version}
+        </p>
+      ) : null}
     </nav>
   );
 }
@@ -136,12 +150,15 @@ export function AppShell({
   userName,
   connections = [],
   notifications,
+  version,
 }: {
   children: React.ReactNode;
   userName?: string;
   /** E2-23 — every Firefly instance this user has attached. */
   connections?: SwitchableConnection[];
   notifications?: NotificationRow[];
+  /** The running build, from server/version.ts. */
+  version?: string;
 }): React.JSX.Element {
   const active = connections.find((entry) => entry.isDefault) ?? connections[0] ?? null;
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -191,7 +208,7 @@ export function AppShell({
           <Flame className="text-primary size-5" aria-hidden="true" />
           <span className="font-semibold tracking-tight">Firefly Studio</span>
         </div>
-        <SidebarNav />
+        <SidebarNav version={version} />
       </aside>
 
       {/* Mobile drawer */}
@@ -210,7 +227,7 @@ export function AppShell({
               <Flame className="text-primary size-5" aria-hidden="true" />
               <span className="font-semibold tracking-tight">Firefly Studio</span>
             </div>
-            <SidebarNav onNavigate={() => setMobileOpen(false)} />
+            <SidebarNav onNavigate={() => setMobileOpen(false)} version={version} />
           </aside>
         </div>
       ) : null}
