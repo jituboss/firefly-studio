@@ -3,13 +3,19 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { getActiveConnection } from '@/server/firefly/api';
+import { getSession } from '@/server/auth/session';
+import { now, toApiDate } from '@/lib/date';
 import { PiggyForm } from '../piggy-form';
 
 export const metadata: Metadata = { title: 'New piggy bank' };
 
 export default async function NewPiggyBankPage() {
+  const session = await getSession();
+  if (!session) redirect('/sign-in');
   const connection = await getActiveConnection();
   if (!connection) redirect('/onboarding');
+
+  const timezone = session.user.timezone;
 
   return (
     <div className="mx-auto w-full max-w-2xl min-w-0 space-y-6">
@@ -21,7 +27,10 @@ export default async function NewPiggyBankPage() {
         Piggy banks
       </Link>
       <h1 className="text-2xl font-semibold tracking-tight">New piggy bank</h1>
-      <PiggyForm defaultCurrency={connection.primaryCurrency} />
+      <PiggyForm
+        defaultCurrency={connection.primaryCurrency}
+        today={toApiDate(now(timezone), timezone)}
+      />
     </div>
   );
 }

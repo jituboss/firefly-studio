@@ -10,15 +10,17 @@ import {
   getBudgetLimits,
   getBudgets,
   getExpenseByCategory,
+  getNetWorthAccounts,
   getPiggyBanks,
   getTransactions,
 } from '@/server/firefly/queries';
 import type { Budget, BudgetLimit } from '@/server/firefly/types';
 import { previousPeriod, resolveRangeFromParams } from '@/lib/date-range';
+import { buildBalanceTrend } from '@/lib/balance-trend';
 import { toDecimal } from '@/lib/money';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
-import { AreaTrend, type TrendPoint } from '@/components/charts/area-trend';
+import { BalanceTrend } from '@/components/charts/balance-trend';
 import { CategoryBars } from '@/components/charts/category-bars';
 import {
   AccountBalanceList,
@@ -30,7 +32,7 @@ import {
 } from '@/components/dashboard/widgets';
 import { HideBalancesToggle } from '@/components/hide-balances';
 import { Amount } from '@/components/ui/amount';
-import type { BasicSummary, ChartEntry } from '@/server/firefly/types';
+import type { BasicSummary } from '@/server/firefly/types';
 
 export const metadata: Metadata = { title: 'Dashboard' };
 
@@ -61,27 +63,6 @@ function summaryValue(
   return { value: String(chosen[1].monetary_value), currency: chosen[1].currency_code };
 }
 
-/** /chart/* returns one object per series, each with a date→value map. */
-function toTrend(charts: ChartEntry[]): { points: TrendPoint[]; series: string[] } {
-  if (charts.length === 0) return { points: [], series: [] };
-
-  const series = charts.map((chart) => chart.label);
-  const dates = new Set<string>();
-  for (const chart of charts) for (const date of Object.keys(chart.entries)) dates.add(date);
-
-  const points = [...dates].sort().map((date) => {
-    const point: TrendPoint = { date: date.slice(0, 10) };
-    for (const chart of charts) {
-      // Chart values are Firefly amounts. Recharts needs a number, so this is
-      // the render boundary where lib/money hands one over.
-      point[chart.label] = toDecimal(chart.entries[date] ?? 0).toNumber();
-    }
-    return point;
-  });
-
-  return { points, series };
-}
-
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -110,6 +91,7 @@ export default async function DashboardPage({
     piggies,
     budgetsResult,
     limitsResult,
+    netWorthAccounts,
   ] = await Promise.all([
     getBasicSummary(range.start, range.end),
     getBasicSummary(previous.start, previous.end),
@@ -124,6 +106,7 @@ export default async function DashboardPage({
     getPiggyBanks(),
     getBudgets(range.start, range.end),
     getBudgetLimits(range.start, range.end),
+    getNetWorthAccounts(),
   ]);
 
   const currency = connection.primaryCurrency;
@@ -133,7 +116,25 @@ export default async function DashboardPage({
   const earned = summaryValue(summary, 'earned-in-', currency);
   const balance = summaryValue(summary, 'balance-in-', currency);
 
-  const trend = toTrend(balanceChart);
+  // `/chart/account/overview?preselected=all` reports EVERY asset and liability
+  // account, including archived ones and ones the user flagged out of net
+  // worth. Firefly's own net-worth figure skips both. Without matching that,
+  // this chart's total contradicts the Net worth tile directly above it —
+  // measured on a real ledger, the two differed by 4.7M and then by a constant
+  // 56,499.60 once only the opt-outs were handled, the remainder being three
+  // archived accounts.
+  const excludedFromNetWorth = new Set(
+    netWorthAccounts
+      .filter(
+        (account) =>
+          account.attributes.include_net_worth === false || account.attributes.active === false,
+      )
+      .map((account) => account.attributes.name),
+  );
+
+  const trend = buildBalanceTrend(balanceChart, currency, {
+    excludeLabels: excludedFromNetWorth,
+  });
 
   const topCategories = categorySpend
     .map((entry) => ({
@@ -189,14 +190,47 @@ export default async function DashboardPage({
       </div>
 
       <Card className="min-w-0 overflow-hidden">
-        <CardContent className="min-w-0 p-4 sm:p-5">
-          <h2 className="mb-4 text-sm font-medium">Balance over time</h2>
-          <AreaTrend
-            data={trend.points}
-            series={trend.series}
-            currency={currency}
-            positiveLabel="Earned"
-            negativeLabel="Spent"
+        <CardContent className="min-w-0 space-y-4 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium">Net worth over time</h2>
+              <p className="text-muted-foreground text-xs">{range.label}</p>
+            </div>
+
+            {trend.points.length > 0 ? (
+              <div className="min-w-0 text-right">
+                <Amount
+                  value={trend.closing}
+                  currency={trend.currency}
+                  size="lg"
+                  showSign={false}
+                  tone="neutral"
+                  compact
+                />
+                <p className="text-muted-foreground mt-0.5 flex items-center justify-end gap-1 text-xs">
+                  <Amount
+                    value={trend.change}
+                    currency={trend.currency}
+                    size="sm"
+                    compact
+                    tone="auto"
+                  />
+                  {trend.changePercent === null ? null : (
+                    <span className={trend.change >= 0 ? 'text-income' : 'text-expense'}>
+                      ({trend.changePercent >= 0 ? '+' : ''}
+                      {trend.changePercent.toFixed(1)}%)
+                    </span>
+                  )}
+                  <span>this period</span>
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <BalanceTrend
+            data={trend}
+            timezone={session.user.timezone}
+            locale={session.user.locale}
           />
         </CardContent>
       </Card>

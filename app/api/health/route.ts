@@ -13,6 +13,10 @@ export function GET() {
     {
       status: 'ok',
       service: 'firefly-studio',
+      // Stamped into the image at build time, so "which build is deployed"
+      // has an answer that does not depend on reading a tag by hand.
+      version: process.env.APP_VERSION ?? '0.0.0-dev',
+      revision: process.env.APP_VCS_REF ?? 'unknown',
       uptimeSeconds: Math.round(process.uptime()),
     },
     { headers: { 'cache-control': 'no-store' } },

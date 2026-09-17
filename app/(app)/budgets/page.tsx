@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
-import { abs, divide, subtract, toDecimal } from '@/lib/money';
+import { abs, add, divide, subtract, toDecimal } from '@/lib/money';
+import { now, toApiDate } from '@/lib/date';
 
 export const metadata: Metadata = { title: 'Budgets' };
 
@@ -35,15 +36,41 @@ export default async function BudgetsPage({
     getBudgetLimits(range.start, range.end),
   ]);
 
-  const budgets = [...budgetsResult.data].sort((a, b) =>
-    a.attributes.name.localeCompare(b.attributes.name),
-  );
   const limitsByBudget = new Map<string, (typeof limitsResult.data)[number]>();
   for (const limit of limitsResult.data) {
     // Multiple limits can exist per budget across periods; keep the widest
     // overlap with the selected range as "the" limit for this list.
     limitsByBudget.set(limit.attributes.budget_id, limit);
   }
+
+  // Ranked by how much of the limit is gone, so anything over or close to its
+  // limit is the first thing on screen. Budgets with no limit sort last: there
+  // is nothing to be over.
+  const usageOf = (budget: (typeof budgetsResult.data)[number]) => {
+    const limit = limitsByBudget.get(budget.id)?.attributes.amount;
+    if (!limit || toDecimal(limit).isZero()) return -1;
+    return divide(abs(budget.attributes.spent?.[0]?.sum ?? 0), limit).toNumber();
+  };
+
+  const budgets = [...budgetsResult.data].sort((a, b) => {
+    const diff = usageOf(b) - usageOf(a);
+    return diff !== 0 ? diff : a.attributes.name.localeCompare(b.attributes.name);
+  });
+
+  // Totals cover the connection's currency only; adding two currencies would
+  // invent a number, as everywhere else in this codebase.
+  const currency = connection.primaryCurrency;
+  let totalLimit = toDecimal(0);
+  let totalSpent = toDecimal(0);
+  for (const budget of budgets) {
+    const limit = limitsByBudget.get(budget.id)?.attributes;
+    const spentEntry = budget.attributes.spent?.find((entry) => entry.currency_code === currency);
+    if (limit && (limit.currency_code ?? currency) === currency) {
+      totalLimit = add(totalLimit, limit.amount);
+    }
+    if (spentEntry) totalSpent = add(totalSpent, abs(spentEntry.sum));
+  }
+  const totalRemaining = subtract(totalLimit, totalSpent);
 
   await syncBudgetNotifications(session.user.id, budgetsResult.data, limitsByBudget);
 
@@ -53,7 +80,8 @@ export default async function BudgetsPage({
     (Date.parse(`${range.end}T00:00:00Z`) - Date.parse(`${range.start}T00:00:00Z`)) / 86_400_000 +
       1,
   );
-  const today = new Date().toISOString().slice(0, 10);
+  // The user's today, not the server's: a budget's pacing is about their days.
+  const today = toApiDate(now(session.user.timezone), session.user.timezone);
   const elapsedDays = Math.min(
     totalDays,
     Math.max(
@@ -84,6 +112,25 @@ export default async function BudgetsPage({
         </div>
       </header>
 
+      {budgets.length > 0 && !totalLimit.isZero() ? (
+        <section className="grid min-w-0 gap-4 sm:grid-cols-3">
+          <SummaryTile label="Budgeted" value={totalLimit.toString()} currency={currency} />
+          <SummaryTile
+            label="Spent"
+            value={totalSpent.toString()}
+            currency={currency}
+            tone="expense"
+            note={`${pacingPercent}% of the period elapsed`}
+          />
+          <SummaryTile
+            label={totalRemaining.isNegative() ? 'Over budget' : 'Left to spend'}
+            value={totalRemaining.abs().toString()}
+            currency={currency}
+            tone={totalRemaining.isNegative() ? 'expense' : 'income'}
+          />
+        </section>
+      ) : null}
+
       {budgets.length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center">
@@ -112,7 +159,7 @@ export default async function BudgetsPage({
             const limit = limitsByBudget.get(budget.id);
             const limitAmount = limit?.attributes.amount ?? null;
             const spentAmount = spentEntry ? abs(spentEntry.sum) : abs(0);
-            const currency =
+            const rowCurrency =
               spentEntry?.currency_code ??
               limit?.attributes.currency_code ??
               connection.primaryCurrency;
@@ -137,12 +184,12 @@ export default async function BudgetsPage({
                           <span className="truncate font-medium">{b.name}</span>
                           {!b.active ? <Badge variant="secondary">Inactive</Badge> : null}
                           {overBudget ? <Badge variant="expense">Over budget</Badge> : null}
-                          {behindPace ? <Badge variant="warning">Ahead of pace</Badge> : null}
+                          {behindPace ? <Badge variant="warning">Spending fast</Badge> : null}
                         </div>
                         <div className="text-right text-sm">
                           <Amount
                             value={spentAmount}
-                            currency={currency}
+                            currency={rowCurrency}
                             tone="expense"
                             showSign={false}
                           />
@@ -152,7 +199,7 @@ export default async function BudgetsPage({
                               /{' '}
                               <Amount
                                 value={limitAmount}
-                                currency={currency}
+                                currency={rowCurrency}
                                 tone="neutral"
                                 showSign={false}
                                 size="sm"
@@ -177,10 +224,30 @@ export default async function BudgetsPage({
                               style={{ width: `${percentUsed ?? 0}%` }}
                             />
                           </div>
-                          <p className="text-muted-foreground text-xs">
-                            {remaining && !toDecimal(remaining).isNegative()
-                              ? `${remaining} ${currency} remaining`
-                              : `Over by ${remaining ? abs(remaining) : '0'} ${currency}`}
+                          <p className="text-muted-foreground flex items-center gap-1 text-xs">
+                            {remaining && !toDecimal(remaining).isNegative() ? (
+                              <>
+                                <Amount
+                                  value={remaining.toString()}
+                                  currency={rowCurrency}
+                                  size="sm"
+                                  showSign={false}
+                                  tone="neutral"
+                                />
+                                remaining
+                              </>
+                            ) : (
+                              <>
+                                Over by
+                                <Amount
+                                  value={abs(remaining ?? 0).toString()}
+                                  currency={rowCurrency}
+                                  size="sm"
+                                  showSign={false}
+                                  tone="expense"
+                                />
+                              </>
+                            )}
                           </p>
                         </>
                       ) : (
@@ -197,6 +264,39 @@ export default async function BudgetsPage({
         </ul>
       )}
     </div>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  currency,
+  tone = 'neutral',
+  note,
+}: {
+  label: string;
+  value: string;
+  currency: string;
+  tone?: 'neutral' | 'income' | 'expense';
+  note?: string;
+}) {
+  return (
+    <Card className="min-w-0 overflow-hidden">
+      <CardContent className="min-w-0 p-4">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</p>
+        <div className="mt-1.5 min-w-0">
+          <Amount
+            value={value}
+            currency={currency}
+            size="xl"
+            compact
+            showSign={false}
+            tone={tone}
+          />
+        </div>
+        {note ? <p className="text-muted-foreground mt-1 text-xs">{note}</p> : null}
+      </CardContent>
+    </Card>
   );
 }
 

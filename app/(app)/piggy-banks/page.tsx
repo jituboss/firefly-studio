@@ -7,6 +7,7 @@ import { getActiveConnection } from '@/server/firefly/api';
 import { getPiggyBanks } from '@/server/firefly/queries';
 import type { PiggyBank } from '@/server/firefly/types';
 import { parseFireflyDate, now, differenceInCalendarDays } from '@/lib/date';
+import { add, subtract, toDecimal } from '@/lib/money';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,9 +47,31 @@ export default async function PiggyBanksPage() {
   if (!connection) redirect('/onboarding');
 
   const result = await getPiggyBanks();
-  const piggies = [...result.data].sort((a, b) =>
-    a.attributes.name.localeCompare(b.attributes.name),
-  );
+
+  // Anything behind schedule first, then by how far along it is. Alphabetical
+  // put the goal you are failing at wherever its name happened to fall.
+  const URGENCY = { Behind: 0, 'Slightly behind': 1, 'On track': 2, 'Target reached': 3 };
+  const piggies = [...result.data].sort((a, b) => {
+    const left = piggyStatus(a.attributes, session.user.timezone)?.label;
+    const right = piggyStatus(b.attributes, session.user.timezone)?.label;
+    const rank = (label?: string) => (label ? (URGENCY[label as keyof typeof URGENCY] ?? 4) : 4);
+    return (
+      rank(left) - rank(right) ||
+      (b.attributes.percentage ?? 0) - (a.attributes.percentage ?? 0) ||
+      a.attributes.name.localeCompare(b.attributes.name)
+    );
+  });
+
+  // Totals in the connection's currency only, as everywhere else.
+  const currency = connection.primaryCurrency;
+  let totalSaved = toDecimal(0);
+  let totalTarget = toDecimal(0);
+  for (const piggy of piggies) {
+    if ((piggy.attributes.currency_code ?? currency) !== currency) continue;
+    totalSaved = add(totalSaved, piggy.attributes.current_amount);
+    totalTarget = add(totalTarget, piggy.attributes.target_amount ?? 0);
+  }
+  const stillToSave = subtract(totalTarget, totalSaved);
 
   return (
     <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
@@ -57,6 +80,9 @@ export default async function PiggyBanksPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Piggy banks</h1>
           <p className="text-muted-foreground text-sm">
             {piggies.length} goal{piggies.length === 1 ? '' : 's'}
+            {piggies.length > 0
+              ? ` · ${piggies.filter((piggy) => (piggy.attributes.percentage ?? 0) >= 100).length} reached`
+              : ''}
           </p>
         </div>
         <Button asChild size="sm">
@@ -66,6 +92,19 @@ export default async function PiggyBanksPage() {
           </Link>
         </Button>
       </header>
+
+      {piggies.length > 0 && !totalTarget.isZero() ? (
+        <section className="grid min-w-0 gap-4 sm:grid-cols-3">
+          <GoalTile label="Saved" value={totalSaved.toString()} currency={currency} tone="income" />
+          <GoalTile label="Target" value={totalTarget.toString()} currency={currency} />
+          <GoalTile
+            label={stillToSave.isNegative() ? 'Past target by' : 'Still to save'}
+            value={stillToSave.abs().toString()}
+            currency={currency}
+            tone={stillToSave.isNegative() ? 'income' : 'neutral'}
+          />
+        </section>
+      ) : null}
 
       {piggies.length === 0 ? (
         <Card>
@@ -80,7 +119,7 @@ export default async function PiggyBanksPage() {
         <ul className="grid gap-4 sm:grid-cols-2">
           {piggies.map((piggy) => {
             const p = piggy.attributes;
-            const currency = p.currency_code ?? connection.primaryCurrency;
+            const rowCurrency = p.currency_code ?? connection.primaryCurrency;
             const percent = Math.min(100, Math.max(0, p.percentage ?? 0));
             const status = piggyStatus(p, session.user.timezone);
 
@@ -114,7 +153,7 @@ export default async function PiggyBanksPage() {
                       <div className="flex items-center justify-between text-sm">
                         <Amount
                           value={p.current_amount}
-                          currency={currency}
+                          currency={rowCurrency}
                           showSign={false}
                           tone="neutral"
                         />
@@ -122,7 +161,7 @@ export default async function PiggyBanksPage() {
                           of{' '}
                           <Amount
                             value={p.target_amount}
-                            currency={currency}
+                            currency={rowCurrency}
                             showSign={false}
                             tone="neutral"
                             size="sm"
@@ -130,8 +169,16 @@ export default async function PiggyBanksPage() {
                         </span>
                       </div>
                       {p.save_per_month && !p.save_per_month.startsWith('-') ? (
-                        <p className="text-muted-foreground text-xs">
-                          Save {p.save_per_month} {currency}/month to reach your target
+                        <p className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
+                          Save
+                          <Amount
+                            value={p.save_per_month}
+                            currency={rowCurrency}
+                            size="sm"
+                            showSign={false}
+                            tone="neutral"
+                          />
+                          a month to reach your target
                         </p>
                       ) : null}
                       {status?.label === 'Behind' || status?.label === 'Slightly behind' ? (
@@ -154,5 +201,35 @@ export default async function PiggyBanksPage() {
         </ul>
       )}
     </div>
+  );
+}
+
+function GoalTile({
+  label,
+  value,
+  currency,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: string;
+  currency: string;
+  tone?: 'neutral' | 'income';
+}) {
+  return (
+    <Card className="min-w-0 overflow-hidden">
+      <CardContent className="min-w-0 p-4">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</p>
+        <div className="mt-1.5 min-w-0">
+          <Amount
+            value={value}
+            currency={currency}
+            size="xl"
+            compact
+            showSign={false}
+            tone={tone}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,0 +1,147 @@
+name: Release
+
+# Cut a release by pushing an annotated tag: `v0.1.0-alpha.1`, `v1.2.3`.
+# `pnpm release <version>` creates the tag; pushing it is what publishes.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the GitHub Release
+
+env:
+  IMAGE: jituboss/firefly-studio
+  NEXT_TELEMETRY_DISABLED: '1'
+  # Deterministic throwaway values so build and tests can boot. Never real keys.
+  APP_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  AUTH_SECRET: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
+  DATABASE_URL: postgresql://firefly_studio:firefly_studio@localhost:5432/firefly_studio
+
+jobs:
+  # The same gate as CI. A tag can be pushed from any machine, so the release
+  # verifies rather than trusting whoever cut it.
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: firefly_studio
+          POSTGRES_PASSWORD: firefly_studio
+          POSTGRES_DB: firefly_studio
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U firefly_studio"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm db:migrate
+      - run: pnpm build
+
+  publish:
+    name: Publish image and GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # release notes need the previous tag
+
+      - name: Read the version from the tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Anything with a hyphen is a prerelease under semver: 0.1.0-alpha.1.
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "channel=${VERSION#*-}" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Refuse a tag that disagrees with package.json
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$PKG" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json ($PKG)."
+            exit 1
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # `latest` must never point at a prerelease: someone running
+      # `docker pull jituboss/firefly-studio` expects the stable line. An alpha
+      # gets its exact version plus a moving channel tag (`alpha`) instead.
+      - name: Compute tags
+        uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.version.outputs.prerelease == 'false' }}
+            type=semver,pattern={{major}},enable=${{ steps.version.outputs.prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ steps.version.outputs.prerelease == 'false' }}
+            type=raw,value=${{ steps.version.outputs.channel }},enable=${{ steps.version.outputs.prerelease == 'true' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract this version's changelog section
+        id: notes
+        run: |
+          node scripts/changelog-section.mjs "${{ steps.version.outputs.version }}" > RELEASE_NOTES.md
+          {
+            echo ""
+            echo "## Container image"
+            echo ""
+            echo '```'
+            echo "docker pull ${{ env.IMAGE }}:${{ steps.version.outputs.version }}"
+            echo '```'
+          } >> RELEASE_NOTES.md
+
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          generate_release_notes: true

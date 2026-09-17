@@ -26,15 +26,11 @@ export function AreaTrend({
   series,
   currency,
   height = 260,
-  positiveLabel,
-  negativeLabel,
 }: {
   data: TrendPoint[];
   series: string[];
   currency: string;
   height?: number;
-  positiveLabel?: string;
-  negativeLabel?: string;
 }) {
   // Axis gutters are sized for the viewport: a 64px Y gutter eats a fifth of a
   // 360px screen.
@@ -106,15 +102,13 @@ export function AreaTrend({
               fontSize: 12,
               color: 'var(--popover-foreground)',
             }}
-            formatter={(value, name) => {
-              const amount = toDecimal(value as number);
-              const label = amount.greaterThan(0)
-                ? (positiveLabel ?? String(name))
-                : amount.lessThan(0)
-                  ? (negativeLabel ?? String(name))
-                  : String(name);
-              return [formatMoney(amount.toNumber(), { currency }), label];
-            }}
+            // The series name is the label. An earlier version swapped in
+            // "Earned"/"Spent" based on the sign, which mislabelled balance
+            // series: a credit card sitting at -3M is a balance, not spending.
+            formatter={(value, name) => [
+              formatMoney(toDecimal(value as number).toNumber(), { currency }),
+              String(name),
+            ]}
           />
           {series.map((name) => {
             const color = seriesColor(name);

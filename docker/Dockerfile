@@ -30,7 +30,22 @@ RUN pnpm build && pnpm build:migrator
 # --- runtime ---------------------------------------------------------------
 FROM base AS runner
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+
+# Stamped by the release workflow so a running container can say what it is.
+ARG APP_VERSION=0.0.0-dev
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \
+    APP_VERSION=${APP_VERSION} APP_VCS_REF=${VCS_REF}
+
+LABEL org.opencontainers.image.title="Firefly Studio" \
+      org.opencontainers.image.description="A modern front-end client for Firefly III" \
+      org.opencontainers.image.source="https://github.com/jituboss/firefly-studio" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.licenses="MIT"
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser  --system --uid 1001 nextjs

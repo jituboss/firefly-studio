@@ -1,23 +1,31 @@
+import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
-import { getAccount, getAccountTransactions } from '@/server/firefly/queries';
-import { fireflyGetSafe } from '@/server/firefly/api';
+import {
+  getAccount,
+  getAccountBalanceChart,
+  getAccountExpenseInsight,
+  getAccountIncomeInsight,
+  getAccountTransactions,
+} from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { formatDate } from '@/lib/date';
 import { toDecimal } from '@/lib/money';
+import { buildBalanceTrend } from '@/lib/balance-trend';
+import { accountBucket, roleLabel } from '@/lib/account-summary';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
-import { AreaTrend, type TrendPoint } from '@/components/charts/area-trend';
+import { HideBalancesToggle } from '@/components/hide-balances';
+import { BalanceTrend } from '@/components/charts/balance-trend';
 import { AccountForm } from '../account-form';
 import { DeleteAccountButton } from './delete-button';
-import type { ChartEntry } from '@/server/firefly/types';
 
 export const metadata: Metadata = { title: 'Account' };
 
@@ -45,30 +53,27 @@ export default async function AccountDetailPage({
     notFound();
   }
 
-  const [transactions, chart] = await Promise.all([
-    getAccountTransactions(id, { start: range.start, end: range.end, limit: 25 }),
-    fireflyGetSafe<ChartEntry[]>(
-      `/v1/chart/account/overview?start=${range.start}&end=${range.end}&accounts[]=${id}`,
-      [],
-    ),
-  ]);
-
   const a = account.attributes;
   const currency = a.currency_code ?? connection.primaryCurrency;
+  const decimals = a.currency_decimal_places ?? 2;
+  const bucket = accountBucket(a.type);
+  // The insight endpoints only answer for asset and liability accounts; asking
+  // for a merchant's "money in" would return an empty array and render a pair
+  // of confident zeroes.
+  const hasCashflow = bucket === 'money';
 
-  const points: TrendPoint[] = [];
-  const series: string[] = [];
-  if (chart.length > 0) {
-    for (const entry of chart) series.push(entry.label);
-    const dates = new Set<string>();
-    for (const entry of chart) for (const date of Object.keys(entry.entries)) dates.add(date);
-    for (const date of [...dates].sort()) {
-      const point: TrendPoint = { date: date.slice(0, 10) };
-      for (const entry of chart)
-        point[entry.label] = toDecimal(entry.entries[date] ?? 0).toNumber();
-      points.push(point);
-    }
-  }
+  const [transactions, chart, expense, income] = await Promise.all([
+    getAccountTransactions(id, { start: range.start, end: range.end, limit: 25 }),
+    getAccountBalanceChart(id, range.start, range.end),
+    hasCashflow ? getAccountExpenseInsight(id, range.start, range.end) : Promise.resolve([]),
+    hasCashflow ? getAccountIncomeInsight(id, range.start, range.end) : Promise.resolve([]),
+  ]);
+
+  const trend = buildBalanceTrend(chart, currency);
+  const moneyOut = expense[0];
+  const moneyIn = income[0];
+
+  const tabHref = (next: string) => `/accounts/${id}?tab=${next}&range=${range.preset}`;
 
   return (
     <div className="mx-auto w-full max-w-5xl min-w-0 space-y-6">
@@ -81,82 +86,129 @@ export default async function AccountDetailPage({
       </Link>
 
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{a.name}</h1>
-            {!a.active ? <Badge variant="secondary">Archived</Badge> : null}
+            <Badge variant="secondary">{roleLabel(account)}</Badge>
+            {!a.active ? <Badge variant="outline">Archived</Badge> : null}
           </div>
-          <p className="text-muted-foreground text-sm capitalize">
-            {a.type}
-            {a.account_role ? ` · ${a.account_role.replace(/Asset$/, '')}` : ''}
-            {a.iban ? ` · ${a.iban}` : ''}
-          </p>
-        </div>
-        <DateRangePicker label={range.label} />
-      </header>
-
-      <div className="grid min-w-0 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Current balance
-            </p>
-            <div className="mt-1.5">
-              <Amount
-                value={a.current_balance}
-                currency={currency}
-                decimalPlaces={a.currency_decimal_places ?? 2}
-                size="xl"
-                showSign={false}
-                tone={toDecimal(a.current_balance).isNegative() ? 'expense' : 'neutral'}
-              />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Opening balance
-            </p>
-            <div className="mt-1.5">
-              <Amount
-                value={a.opening_balance}
-                currency={currency}
-                size="lg"
-                showSign={false}
-                tone="neutral"
-              />
-            </div>
-            <p className="text-muted-foreground mt-1 text-xs">
-              {a.opening_balance_date
-                ? formatDate(a.opening_balance_date.slice(0, 10), {
-                    timezone: session.user.timezone,
-                  })
-                : '—'}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Last activity
-            </p>
-            <p className="mt-1.5 text-lg font-semibold">
-              {a.last_activity
-                ? formatDate(a.last_activity.slice(0, 10), {
+          <p className="text-muted-foreground truncate text-sm">
+            {[
+              currency,
+              a.iban ?? a.account_number,
+              a.last_activity
+                ? `Last activity ${formatDate(a.last_activity.slice(0, 10), {
                     timezone: session.user.timezone,
                     style: 'relative',
-                  })
-                : '—'}
-            </p>
-          </CardContent>
-        </Card>
+                  }).toLowerCase()}`
+                : 'No activity yet',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <HideBalancesToggle />
+          <DateRangePicker label={range.label} />
+        </div>
+      </header>
+
+      <div
+        className={`grid min-w-0 gap-4 sm:grid-cols-2 ${hasCashflow ? 'lg:grid-cols-4' : 'lg:grid-cols-2'}`}
+      >
+        <StatTile label="Current balance" note="Today">
+          <Amount
+            value={a.current_balance}
+            currency={currency}
+            decimalPlaces={decimals}
+            size="xl"
+            showSign={false}
+            tone={toDecimal(a.current_balance).isNegative() ? 'expense' : 'neutral'}
+          />
+        </StatTile>
+
+        <StatTile
+          label="Change"
+          note={
+            trend.points.length > 0
+              ? range.label
+              : `${range.label} · no balance data for this period`
+          }
+        >
+          <span className="flex flex-wrap items-baseline gap-1.5">
+            <Amount value={trend.change} currency={currency} size="xl" compact tone="auto" />
+            {trend.changePercent === null ? null : (
+              <span className={`text-xs ${trend.change >= 0 ? 'text-income' : 'text-expense'}`}>
+                {trend.changePercent >= 0 ? '+' : ''}
+                {trend.changePercent.toFixed(1)}%
+              </span>
+            )}
+          </span>
+        </StatTile>
+
+        {hasCashflow ? (
+          <>
+            <StatTile label="Money in" note={range.label}>
+              <Amount
+                value={moneyIn ? moneyIn.difference : '0'}
+                currency={moneyIn?.currency_code ?? currency}
+                size="xl"
+                showSign={false}
+                tone="income"
+              />
+            </StatTile>
+            <StatTile label="Money out" note={range.label}>
+              <Amount
+                value={moneyOut ? toDecimal(moneyOut.difference).abs().toString() : '0'}
+                currency={moneyOut?.currency_code ?? currency}
+                size="xl"
+                showSign={false}
+                tone="expense"
+              />
+            </StatTile>
+          </>
+        ) : null}
       </div>
 
       <Card className="min-w-0 overflow-hidden">
-        <CardContent className="min-w-0 p-4 sm:p-5">
-          <h2 className="mb-4 text-sm font-medium">Balance over time</h2>
-          <AreaTrend data={points} series={series} currency={currency} height={220} />
+        <CardContent className="min-w-0 space-y-4 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium">Balance over time</h2>
+              <p className="text-muted-foreground text-xs">
+                {range.label}
+                {a.opening_balance_date
+                  ? ` · opened ${formatDate(a.opening_balance_date.slice(0, 10), {
+                      timezone: session.user.timezone,
+                    })}`
+                  : ''}
+              </p>
+            </div>
+            {trend.points.length > 0 ? (
+              <div className="min-w-0 text-right">
+                <Amount
+                  value={trend.closing}
+                  currency={trend.currency}
+                  size="lg"
+                  showSign={false}
+                  tone="neutral"
+                  compact
+                />
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  closing balance on {formatDate(range.end, { timezone: session.user.timezone })}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <BalanceTrend
+            data={trend}
+            variant="single"
+            seriesLabel="Balance"
+            height={240}
+            timezone={session.user.timezone}
+            locale={session.user.locale}
+          />
         </CardContent>
       </Card>
 
@@ -167,7 +219,8 @@ export default async function AccountDetailPage({
         ].map((entry) => (
           <Link
             key={entry.id}
-            href={`/accounts/${id}?tab=${entry.id}&range=${range.preset}`}
+            href={tabHref(entry.id)}
+            aria-current={tab === entry.id ? 'page' : undefined}
             className={`border-b-2 px-3 py-2 text-sm transition-colors ${
               tab === entry.id
                 ? 'border-primary text-foreground font-medium'
@@ -180,17 +233,23 @@ export default async function AccountDetailPage({
       </nav>
 
       {tab === 'transactions' ? (
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardContent className="p-0">
             {transactions.data.length === 0 ? (
-              <p className="text-muted-foreground p-10 text-center text-sm">
-                No transactions in this period.
-              </p>
+              <div className="space-y-2 p-10 text-center">
+                <p className="text-sm font-medium">
+                  No transactions in {range.label.toLowerCase()}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Try a wider date range, or add one from the transactions page.
+                </p>
+              </div>
             ) : (
               <ul className="divide-border divide-y">
                 {transactions.data.map((group) => {
                   const split = group.attributes.transactions[0];
                   if (!split) return null;
+                  const splits = group.attributes.transactions.length;
                   return (
                     <li key={group.id}>
                       <Link
@@ -200,10 +259,20 @@ export default async function AccountDetailPage({
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{split.description}</p>
                           <p className="text-muted-foreground truncate text-xs">
-                            {formatDate(split.date.slice(0, 10), {
-                              timezone: session.user.timezone,
-                            })}
-                            {split.category_name ? ` · ${split.category_name}` : ''}
+                            {[
+                              formatDate(split.date.slice(0, 10), {
+                                timezone: session.user.timezone,
+                              }),
+                              // Whose money moved, not just when — the single
+                              // most useful thing a ledger row can say.
+                              split.type === 'withdrawal'
+                                ? split.destination_name
+                                : split.source_name,
+                              split.category_name,
+                              splits > 1 ? `${splits} splits` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </p>
                         </div>
                         <Amount
@@ -237,13 +306,35 @@ export default async function AccountDetailPage({
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/transactions?account=${id}&range=${range.preset}`}>
-            All transactions for this account
-          </Link>
-        </Button>
-      </div>
+      {tab === 'transactions' && transactions.data.length > 0 ? (
+        <div className="flex justify-end">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/transactions?account=${id}&range=${range.preset}`}>
+              All transactions for this account
+            </Link>
+          </Button>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function StatTile({
+  label,
+  note,
+  children,
+}: {
+  label: string;
+  note?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Card className="min-w-0 overflow-hidden">
+      <CardContent className="min-w-0 p-4">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</p>
+        <div className="mt-1.5 min-w-0">{children}</div>
+        {note ? <p className="text-muted-foreground mt-1 text-xs">{note}</p> : null}
+      </CardContent>
+    </Card>
   );
 }

@@ -67,6 +67,54 @@ export const getAccountsSafe = (params: { type?: string; limit?: number } = {}) 
 
 export const getAccount = (id: string) => fireflyGet<{ data: Account }>(`/v1/accounts/${id}`);
 
+/**
+ * One account's running balance across the range.
+ *
+ * `period` is not optional in practice: without it Firefly buckets the range
+ * monthly, so "This month" came back as a single point on the 1st and the
+ * chart drew nothing. Verified against a live instance — 1 entry without it,
+ * 30 with `period=1D`.
+ */
+export const getAccountBalanceChart = (id: string, start: string, end: string) =>
+  fireflyGetSafe<ChartEntry[]>(
+    `/v1/chart/account/overview${qs({
+      start,
+      end,
+      period: chartPeriod(start, end),
+      'accounts[]': id,
+    })}`,
+    [],
+  );
+
+/** Money that left this account in the range. Empty for non-asset accounts. */
+export const getAccountExpenseInsight = (id: string, start: string, end: string) =>
+  fireflyGetSafe<InsightEntry[]>(
+    `/v1/insight/expense/asset${qs({ start, end, 'accounts[]': id })}`,
+    [],
+  );
+
+/** Money that arrived in this account in the range. Empty for non-asset accounts. */
+export const getAccountIncomeInsight = (id: string, start: string, end: string) =>
+  fireflyGetSafe<InsightEntry[]>(
+    `/v1/insight/income/asset${qs({ start, end, 'accounts[]': id })}`,
+    [],
+  );
+
+/**
+ * Asset + liability accounts, which is exactly the set the balance chart's
+ * `preselected=all` covers. Used to find the accounts the user has flagged
+ * `include_net_worth: false`, because the chart endpoint reports their balances
+ * but Firefly's own net-worth figure ignores them — without this the dashboard
+ * shows two different "total" numbers that cannot be reconciled.
+ */
+export const getNetWorthAccounts = async (): Promise<Account[]> => {
+  const [assets, liabilities] = await Promise.all([
+    getAccountsSafe({ type: 'asset', limit: 300 }),
+    getAccountsSafe({ type: 'liabilities', limit: 300 }),
+  ]);
+  return [...assets.data, ...liabilities.data];
+};
+
 export const getAccountTransactions = (
   id: string,
   params: { start?: string; end?: string; page?: number; limit?: number } = {},

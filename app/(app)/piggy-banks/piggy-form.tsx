@@ -27,9 +27,12 @@ function Submit({ label }: { label: string }) {
 export function PiggyForm({
   piggy,
   defaultCurrency = 'EUR',
+  today,
 }: {
   piggy?: PiggyBank;
   defaultCurrency?: string;
+  /** Today in the user's timezone, resolved on the server. */
+  today?: string;
 }) {
   const editing = Boolean(piggy);
   const [state, action] = useActionState<PiggyFormState, FormData>(
@@ -90,12 +93,15 @@ export function PiggyForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="start_date">Start date</Label>
+              {/* Firefly rejects a piggy bank with no start date. */}
               <Input
                 id="start_date"
                 name="start_date"
                 type="date"
-                defaultValue={a?.start_date?.slice(0, 10) ?? ''}
+                required
+                defaultValue={a?.start_date?.slice(0, 10) ?? today ?? ''}
               />
+              <p className="text-muted-foreground text-xs">When you started saving.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="target_date">Target date</Label>
@@ -105,6 +111,7 @@ export function PiggyForm({
                 type="date"
                 defaultValue={a?.target_date?.slice(0, 10) ?? ''}
               />
+              <p className="text-muted-foreground text-xs">Optional deadline.</p>
             </div>
           </div>
 

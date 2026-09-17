@@ -23,12 +23,38 @@ export class FireflyRequestError extends Error {
       | 'not_firefly'
       | 'not_found'
       | 'server_error'
+      | 'validation'
       | 'too_large',
     readonly status?: number,
     readonly traceId?: string,
   ) {
     super(message);
     this.name = 'FireflyRequestError';
+  }
+}
+
+/**
+ * Turn `{ message, errors: { field: [msg] } }` into one readable sentence.
+ * Field messages are preferred over `message`, which degrades to
+ * "The given data was invalid. (and 3 more errors)".
+ */
+async function readValidationMessage(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as {
+      message?: string;
+      errors?: Record<string, string[]>;
+    };
+    const fieldMessages = Object.values(body.errors ?? {})
+      .flat()
+      .filter((line): line is string => typeof line === 'string' && line.trim() !== '');
+
+    if (fieldMessages.length > 0) {
+      // Duplicates are common — Firefly repeats "set either x or y" per field.
+      return [...new Set(fieldMessages)].slice(0, 3).join(' ');
+    }
+    return typeof body.message === 'string' && body.message.trim() !== '' ? body.message : null;
+  } catch {
+    return null;
   }
 }
 
@@ -121,9 +147,13 @@ export async function callFirefly<T>(options: FireflyCallOptions): Promise<T> {
   }
 
   if (!response.ok) {
+    // A 422 carries Laravel's validation payload. Throwing it away left the
+    // user staring at "Firefly III returned 422." with no clue which field was
+    // wrong — the message is right there in the body, so use it.
+    const detail = response.status === 422 ? await readValidationMessage(response) : null;
     throw new FireflyRequestError(
-      `Firefly III returned ${response.status}.`,
-      'server_error',
+      detail ?? `Firefly III returned ${response.status}.`,
+      response.status === 422 ? 'validation' : 'server_error',
       response.status,
       upstreamTrace,
     );

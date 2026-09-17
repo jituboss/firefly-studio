@@ -7,12 +7,15 @@
  * amount can widen its track and push the whole page sideways — and it is
  * invisible until someone opens the app on a phone.
  *
- * Needs the app running on :3000 and a valid session cookie:
+ * Needs the app running and a valid session cookie:
  *   FS_SESSION=<cookie> pnpm check:responsive
+ *   FS_SESSION=<cookie> PORT=3001 pnpm check:responsive   # against a branch build
  */
 import { chromium } from 'playwright';
 
 const COOKIE = process.env.FS_SESSION ?? '';
+const PORT = process.env.PORT ?? '3000';
+const BASE = `http://127.0.0.1:${PORT}`;
 const PAGES = [
   '/dashboard',
   '/accounts',
@@ -69,7 +72,7 @@ for (const width of WIDTHS) {
   await page.setViewportSize({ width, height: 800 });
 
   for (const path of PAGES) {
-    await page.goto(`http://127.0.0.1:3000${path}`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' });
     const r = await measure(page);
     const status = r.scrolls ? 'OVERFLOW' : 'ok';
     if (r.scrolls) failures++;
@@ -83,7 +86,7 @@ for (const width of WIDTHS) {
 
   // The reported bug: content clipped once the mobile drawer opens.
   if (width < 1024) {
-    await page.goto('http://127.0.0.1:3000/dashboard', { waitUntil: 'networkidle' });
+    await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' });
     await page.getByLabel('Open navigation').click();
     await page.waitForTimeout(250);
     const r = await measure(page);

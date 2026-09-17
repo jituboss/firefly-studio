@@ -154,4 +154,23 @@ export function formatDate(value: string | Date | TZDate, options: FormatDateOpt
   return new Intl.DateTimeFormat(locale, { dateStyle, timeZone: timezone }).format(date);
 }
 
+/**
+ * Compact label for a chart axis — "3 Aug" rather than a full date, because an
+ * axis has room for a few dozen pixels per tick. Lives here, like every other
+ * date formatter, so the timezone is never resolved from the browser's locale
+ * by accident.
+ */
+export function formatAxisDate(
+  value: string,
+  timezone: string = DEFAULT_TIMEZONE,
+  locale = 'en-US',
+): string {
+  const date = parseFireflyDate(value, timezone);
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    timeZone: timezone,
+  }).format(date);
+}
+
 export { addDays, addMonths, endOfMonth, startOfMonth, TZDate, differenceInCalendarDays };

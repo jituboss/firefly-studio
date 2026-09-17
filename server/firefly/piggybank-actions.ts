@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { fireflyWrite, FireflyRequestError, fireflyGet } from './api';
 import { add, subtract } from '@/lib/money';
+import { now, toApiDate } from '@/lib/date';
 import type { PiggyBank } from './types';
 
 /** E9-02 / E9-03 — piggy bank writes. */
@@ -51,7 +52,10 @@ export async function createPiggyBankAction(
   const payload = compact({
     name: input.name,
     target_amount: input.target_amount,
-    start_date: input.start_date,
+    // Firefly requires `start_date` on creation and answers a bare 422 without
+    // it — the single reason piggy-bank creation was failing. The form asks for
+    // it; this is the backstop.
+    start_date: input.start_date ?? toApiDate(now()),
     target_date: input.target_date,
     notes: input.notes,
     active: input.active,
@@ -86,7 +90,10 @@ export async function updatePiggyBankAction(
   const payload = compact({
     name: input.name,
     target_amount: input.target_amount,
-    start_date: input.start_date,
+    // Firefly requires `start_date` on creation and answers a bare 422 without
+    // it — the single reason piggy-bank creation was failing. The form asks for
+    // it; this is the backstop.
+    start_date: input.start_date ?? toApiDate(now()),
     target_date: input.target_date,
     notes: input.notes,
     active: input.active,

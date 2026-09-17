@@ -7,7 +7,8 @@ import { getActiveConnection } from '@/server/firefly/api';
 import { getBills } from '@/server/firefly/queries';
 import { createNotification } from '@/server/notifications';
 import { resolveRangeFromParams } from '@/lib/date-range';
-import { formatDate } from '@/lib/date';
+import { formatDate, now, toApiDate } from '@/lib/date';
+import { DateRangePicker } from '@/components/date-range-picker';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ export default async function BillsPage({
 
   const result = await getBills(range.start, range.end);
   const bills = [...result.data].sort((a, b) => a.attributes.name.localeCompare(b.attributes.name));
-  await syncBillNotifications(session.user.id, bills);
+  await syncBillNotifications(session.user.id, bills, session.user.timezone);
   const active = bills.filter((b) => b.attributes.active);
   const inactive = bills.filter((b) => !b.attributes.active);
 
@@ -61,25 +62,54 @@ export default async function BillsPage({
     return aa.comparedTo(bb);
   });
   const topExpensive = rankedActive.slice(0, 5);
-  const totalAnnualised = [...annualisedByBill.values()].reduce(
-    (sum, { annualised }) => sum.plus(toDecimal(annualised)),
-    toDecimal(0),
-  );
+  // Annualised cost is totalled in the connection's currency only. The earlier
+  // version summed every currency's numbers together and labelled the result a
+  // "naive cross-currency sum" in the caption — a wrong number with a footnote
+  // is still a wrong number.
+  const totalAnnualised = [...annualisedByBill.values()]
+    .filter(({ currency }) => currency === connection.primaryCurrency)
+    .reduce((sum, { annualised }) => sum.plus(toDecimal(annualised)), toDecimal(0));
+  const otherCurrencies = [
+    ...new Set(
+      [...annualisedByBill.values()]
+        .map(({ currency }) => currency)
+        .filter((code) => code !== connection.primaryCurrency),
+    ),
+  ].sort();
 
-  // Cross-currency totals are naive: we sum the numeric values without FX
-  // conversion. A single-currency ledger is accurate; multi-currency ledgers
-  // should revisit this when M5 reporting adds currency handling.
+  const today = toApiDate(now(session.user.timezone), session.user.timezone);
+
+  /** Unpaid and already due — the one state worth interrupting the list for. */
+  const isOverdue = (bill: (typeof bills)[number]) => {
+    const b = bill.attributes;
+    if (!b.active || !b.next_expected_match) return false;
+    if ((b.paid_dates?.length ?? 0) > 0) return false;
+    return b.next_expected_match.slice(0, 10) < today;
+  };
+
+  // Active bills read best by what is due next; an alphabetical list buries
+  // whatever needs paying this week between things due in November.
+  const activeByDueDate = [...active].sort((a, b) => {
+    const left = a.attributes.next_expected_match?.slice(0, 10) ?? '9999-12-31';
+    const right = b.attributes.next_expected_match?.slice(0, 10) ?? '9999-12-31';
+    return left === right
+      ? a.attributes.name.localeCompare(b.attributes.name)
+      : left < right
+        ? -1
+        : 1;
+  });
 
   return (
     <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Subscriptions</h1>
-          <p className="text-muted-foreground text-sm">
-            {bills.length} bill{bills.length === 1 ? '' : 's'}
+          <p className="text-muted-foreground truncate text-sm">
+            {active.length} active of {bills.length} · {range.label}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <DateRangePicker label={range.label} />
           <Button asChild size="sm" variant="outline">
             <Link href="/bills/calendar">Calendar</Link>
           </Button>
@@ -120,8 +150,10 @@ export default async function BillsPage({
                     />
                   </div>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    Across {active.length} active subscription{active.length === 1 ? '' : 's'} ·
-                    naive cross-currency sum
+                    Across {active.length} active subscription{active.length === 1 ? '' : 's'}
+                    {otherCurrencies.length > 0
+                      ? ` · excludes ${otherCurrencies.join(', ')} — no conversion rate`
+                      : ''}
                   </p>
                 </CardContent>
               </Card>
@@ -158,7 +190,7 @@ export default async function BillsPage({
           ) : null}
 
           {[
-            { label: 'Active', items: active },
+            { label: 'Active', items: activeByDueDate },
             { label: 'Inactive', items: inactive },
           ]
             .filter((group) => group.items.length > 0)
@@ -171,6 +203,12 @@ export default async function BillsPage({
                       {group.items.map((bill) => {
                         const b = bill.attributes;
                         const paid = (b.paid_dates?.length ?? 0) > 0;
+                        const overdue = isOverdue(bill);
+                        const billCurrency = b.currency_code ?? connection.primaryCurrency;
+                        // An amount range is a range. The old code branched on
+                        // min === max and then rendered amount_max either way,
+                        // so "€10–€40" showed as "€40".
+                        const ranged = toDecimal(b.amount_min).comparedTo(b.amount_max) !== 0;
                         return (
                           <li key={bill.id}>
                             <Link
@@ -187,11 +225,26 @@ export default async function BillsPage({
                                 </p>
                               </div>
                               {paid ? <Badge variant="income">Paid</Badge> : null}
-                              <Amount
-                                value={b.amount_min === b.amount_max ? b.amount_max : b.amount_max}
-                                currency={b.currency_code ?? connection.primaryCurrency}
-                                showSign={false}
-                              />
+                              {overdue ? <Badge variant="expense">Overdue</Badge> : null}
+                              <span className="flex shrink-0 items-baseline gap-1">
+                                <Amount
+                                  value={ranged ? b.amount_min : b.amount_max}
+                                  currency={billCurrency}
+                                  showSign={false}
+                                  size="sm"
+                                />
+                                {ranged ? (
+                                  <>
+                                    <span className="text-muted-foreground text-xs">–</span>
+                                    <Amount
+                                      value={b.amount_max}
+                                      currency={billCurrency}
+                                      showSign={false}
+                                      size="sm"
+                                    />
+                                  </>
+                                ) : null}
+                              </span>
                             </Link>
                           </li>
                         );
@@ -212,8 +265,9 @@ export default async function BillsPage({
 async function syncBillNotifications(
   userId: string,
   bills: Awaited<ReturnType<typeof getBills>>['data'],
+  timezone: string,
 ) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toApiDate(now(timezone), timezone);
   for (const bill of bills) {
     const b = bill.attributes;
     if (!b.active || !b.next_expected_match) continue;

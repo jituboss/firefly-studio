@@ -31,7 +31,9 @@
     "db:reset": "docker compose down -v postgres && docker compose up -d postgres && sleep 3 && pnpm db:migrate && pnpm db:seed",
     "user:verify": "tsx scripts/verify-user.ts",
     "firefly:seed": "tsx scripts/seed-firefly.ts",
-    "check:responsive": "node scripts/check-responsive.mjs"
+    "check:responsive": "node scripts/check-responsive.mjs",
+    "release": "node scripts/release.mjs",
+    "docker:build": "docker build -f docker/Dockerfile -t firefly-studio:dev ."
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
