@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
+import { SettingsTabs } from './settings/tabs';
 import { getSession } from '@/server/auth/session';
 import { listConnections } from '@/server/connections';
 import { listUnreadNotifications } from '@/server/notifications';
@@ -37,6 +38,13 @@ export default async function SettingsLayout({ children }: { children: React.Rea
       }))}
       notifications={notifications}
     >
+      {/* The tab bar belongs to the whole section, so it lives here rather than
+          being repeated on each page. Its container matches the `max-w-3xl`
+          every settings page uses, so the tabs line up with the content under
+          them. */}
+      <div className="mx-auto w-full max-w-3xl">
+        <SettingsTabs />
+      </div>
       {children}
     </AppShell>
   );

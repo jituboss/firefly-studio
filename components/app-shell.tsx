@@ -8,7 +8,6 @@ import {
   Banknote,
   ChartPie,
   Coins,
-  AlertTriangle,
   Flame,
   LayoutDashboard,
   LogOut,
@@ -18,7 +17,6 @@ import {
   Receipt,
   Repeat,
   Settings,
-  ShieldCheck,
   Shapes,
   Tags,
   Wallet,
@@ -80,15 +78,6 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
       { href: '/rules', label: 'Rules', icon: Workflow },
       { href: '/tags', label: 'Tags', icon: Tags },
       { href: '/currencies', label: 'Currencies', icon: Coins },
-    ],
-  },
-  {
-    heading: 'Manage',
-    items: [
-      { href: '/settings/connections', label: 'Connections', icon: Settings },
-      { href: '/settings/firefly', label: 'Firefly instance', icon: Flame },
-      { href: '/settings/security', label: 'Security', icon: ShieldCheck },
-      { href: '/settings/danger', label: 'Danger zone', icon: AlertTriangle },
     ],
   },
 ];
@@ -156,6 +145,8 @@ export function AppShell({
 }): React.JSX.Element {
   const active = connections.find((entry) => entry.isDefault) ?? connections[0] ?? null;
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const pathname = usePathname();
+  const settingsActive = pathname.startsWith('/settings');
 
   // Without this the page behind the drawer keeps scrolling — including
   // sideways, which is what clipped the content off the left edge.
@@ -247,6 +238,21 @@ export function AppShell({
           ) : null}
 
           <NotificationInbox notifications={notifications ?? []} />
+
+          {/* Settings lives here rather than in the sidebar: it is a place you
+              visit occasionally and leave, not one of the ledger views you move
+              between. /settings redirects to the connections page. */}
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            aria-label="Settings"
+            className={cn(settingsActive && 'bg-accent text-accent-foreground')}
+          >
+            <Link href="/settings">
+              <Settings className="size-4" />
+            </Link>
+          </Button>
 
           <ThemeToggle />
 
