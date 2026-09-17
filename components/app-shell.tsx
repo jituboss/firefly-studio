@@ -8,6 +8,7 @@ import {
   Banknote,
   ChartPie,
   Coins,
+  AlertTriangle,
   Flame,
   LayoutDashboard,
   LogOut,
@@ -87,6 +88,7 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
       { href: '/settings/connections', label: 'Connections', icon: Settings },
       { href: '/settings/firefly', label: 'Firefly instance', icon: Flame },
       { href: '/settings/security', label: 'Security', icon: ShieldCheck },
+      { href: '/settings/danger', label: 'Danger zone', icon: AlertTriangle },
     ],
   },
 ];

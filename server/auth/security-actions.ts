@@ -5,13 +5,19 @@ import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { db } from '@/server/db';
 import { users } from '@/server/db/schema';
-import { requireSession, destroyCurrentSession, revokeAllSessions } from '@/server/auth/session';
+import {
+  requireSession,
+  destroyCurrentSession,
+  elevateSession,
+  revokeAllSessions,
+} from '@/server/auth/session';
 import { verifyPassword } from '@/server/auth/password';
 import { revokeOtherSessions, revokeSession } from '@/server/auth/security';
 import { listConnections } from '@/server/connections';
 import { purgeConnectionNamespace } from '@/server/firefly/cache';
 import { recordAudit } from '@/server/audit';
 import { requestMeta } from '@/server/auth/request-meta';
+import { consumeRateLimit } from '@/server/auth/rate-limit';
 
 export interface SecurityState {
   error?: string;
@@ -140,4 +146,52 @@ export async function deleteAccountAction(
   await destroyCurrentSession();
 
   redirect('/sign-in?deleted=1');
+}
+
+export interface ElevateState {
+  error?: string;
+  ok?: boolean;
+}
+
+/**
+ * E23-04 — step-up re-authentication.
+ *
+ * The elevation window is what the proxy's guarded-path gate and the danger
+ * zone both check. Both of those shipped before anything could grant it, so
+ * every guarded operation was refused unconditionally — the check was sound and
+ * simply unreachable. This is the other half.
+ */
+export async function elevateSessionAction(
+  _prev: ElevateState,
+  formData: FormData,
+): Promise<ElevateState> {
+  const session = await requireSession();
+  const password = String(formData.get('password') ?? '');
+  if (!password) return { error: 'Enter your password.' };
+
+  const limit = await consumeRateLimit(`elevate:${session.user.id}`, 5, 15 * 60_000);
+  if (!limit.allowed) {
+    return { error: 'Too many attempts. Wait a few minutes and try again.' };
+  }
+
+  const digest = session.user.passwordHash;
+  if (!digest || !(await verifyPassword(digest, password))) {
+    return { error: 'That password is not correct.' };
+  }
+
+  await elevateSession(session.sessionId);
+
+  const meta = await requestMeta();
+  await recordAudit({
+    userId: session.user.id,
+    action: 'auth.session.elevated',
+    entity: 'session',
+    entityId: session.sessionId,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+  });
+
+  revalidatePath('/settings/danger');
+  revalidatePath('/settings/security');
+  return { ok: true };
 }
