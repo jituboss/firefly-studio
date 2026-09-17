@@ -54,12 +54,13 @@ export default async function AccountsPage({
   const sort = typeof params.sort === 'string' ? params.sort : 'name';
 
   const today = new Date().toISOString().slice(0, 10);
-  const [response, summary] = await Promise.all([
-    getAccountsSafe({ type: typeFilter === 'all' ? undefined : typeFilter }),
+  const [allTypeResponses, summary] = await Promise.all([
+    fetchAccountsByType(typeFilter),
     getBasicSummary(today, today),
   ]);
 
-  const accounts = response.data
+  const accounts = allTypeResponses
+    .flatMap((response) => response.data)
     .filter((account) => (showInactive ? true : account.attributes.active))
     .sort((a, b) => {
       if (sort === 'balance') {
@@ -106,9 +107,14 @@ export default async function AccountsPage({
 
       {!isFiltered && (
         <section className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryTile label="Net worth" summary={summary} prefix="net-worth-in-" />
-          <SummaryTile label="Total assets" summary={summary} prefix="asset-balance-in-" />
-          <SummaryTile label="Total liabilities" summary={summary} prefix="liability-balance-in-" />
+          <ComputedTile
+            label="Net worth"
+            accounts={accounts}
+            types={['asset', 'cash']}
+            minusTypes={['liabilities']}
+          />
+          <ComputedTile label="Total assets" accounts={accounts} types={['asset', 'cash']} />
+          <ComputedTile label="Total liabilities" accounts={accounts} types={['liabilities']} />
           <SummaryTile label="Balance" summary={summary} prefix="balance-in-" />
         </section>
       )}
@@ -134,6 +140,87 @@ export default async function AccountsPage({
         ))
       )}
     </div>
+  );
+}
+
+function fetchAccountsByType(typeFilter: string) {
+  if (typeFilter !== 'all') {
+    return Promise.all([getAccountsSafe({ type: typeFilter })]);
+  }
+  // Firefly's unfiltered /v1/accounts endpoint can default to a subset of
+  // types in some configurations, so explicitly request every type we care
+  // about and merge the results. This guarantees Assets appear first on the
+  // landing page regardless of API defaults.
+  return Promise.all(TYPE_ORDER.map((type) => getAccountsSafe({ type })));
+}
+
+function ComputedTile({
+  label,
+  accounts,
+  types,
+  minusTypes = [],
+}: {
+  label: string;
+  accounts: Account[];
+  types: AccountType[];
+  minusTypes?: AccountType[];
+}) {
+  const included = accounts.filter((a) => types.includes(a.attributes.type));
+  const subtracted = accounts.filter((a) => minusTypes.includes(a.attributes.type));
+  const values = new Map<string, Decimal>();
+
+  for (const account of included) {
+    const code = account.attributes.currency_code ?? 'EUR';
+    values.set(
+      code,
+      (values.get(code) ?? toDecimal(0)).plus(toDecimal(account.attributes.current_balance)),
+    );
+  }
+  for (const account of subtracted) {
+    const code = account.attributes.currency_code ?? 'EUR';
+    values.set(
+      code,
+      (values.get(code) ?? toDecimal(0)).minus(toDecimal(account.attributes.current_balance)),
+    );
+  }
+
+  const perCurrency = [...values.entries()]
+    .map(([code, value]) => ({ code, value: value.toString() }))
+    .filter(({ value }) => !toDecimal(value).isZero())
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  if (perCurrency.length === 0) {
+    return (
+      <Card className="min-w-0 overflow-hidden">
+        <CardContent className="min-w-0 p-4">
+          <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            {label}
+          </p>
+          <p className="text-muted-foreground mt-1.5 text-sm">No data</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="min-w-0 overflow-hidden">
+      <CardContent className="min-w-0 p-4">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</p>
+        <div className="mt-1.5 min-w-0 space-y-0.5">
+          {perCurrency.map(({ code, value }) => (
+            <Amount
+              key={code}
+              value={value}
+              currency={code}
+              size="xl"
+              compact
+              className="block truncate"
+              showSign={false}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
