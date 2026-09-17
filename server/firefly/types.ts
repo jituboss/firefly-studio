@@ -387,7 +387,13 @@ export type Preference = Resource<PreferenceAttributes>;
  */
 export interface ConfigurationEntry {
   title: string;
-  value: string | number | boolean | null;
+  /**
+   * Genuinely `unknown`: alongside strings, numbers and booleans this carries
+   * objects and arrays (`firefly.languages`, `firefly.rule-actions`, …). Typing
+   * it as a scalar compiled fine and then rendered "[object Object]" on a real
+   * instance.
+   */
+  value: unknown;
   editable: boolean;
 }
 

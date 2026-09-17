@@ -78,13 +78,14 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
       { href: '/recurring', label: 'Recurring', icon: Repeat },
       { href: '/rules', label: 'Rules', icon: Workflow },
       { href: '/tags', label: 'Tags', icon: Tags },
-      { href: '/currencies', label: 'Currencies', icon: Coins, milestone: 'M6' },
+      { href: '/currencies', label: 'Currencies', icon: Coins },
     ],
   },
   {
     heading: 'Manage',
     items: [
       { href: '/settings/connections', label: 'Connections', icon: Settings },
+      { href: '/settings/firefly', label: 'Firefly instance', icon: Flame },
       { href: '/settings/security', label: 'Security', icon: ShieldCheck },
     ],
   },
