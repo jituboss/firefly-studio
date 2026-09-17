@@ -3,7 +3,8 @@ node_modules
 .git
 .github
 coverage
-drizzle/meta
+# NOTE: drizzle/meta must NOT be excluded — the migrator reads
+# drizzle/meta/_journal.json at runtime to decide which migrations to apply.
 *.log
 .env
 .env.*

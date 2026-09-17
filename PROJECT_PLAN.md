@@ -355,13 +355,13 @@ Estimates are ideal engineering days.
 
 **What M0 delivered**
 
-| Exit criterion                            | Evidence                                                                                |
-| ----------------------------------------- | --------------------------------------------------------------------------------------- |
-| `docker compose up` serves a themed shell | `docker compose --profile app up`; Postgres healthy, 16 tables, app on :3000            |
-| Migrations run                            | `pnpm db:migrate` under a Postgres advisory lock; `citext` + `pgcrypto` enabled         |
-| CI green                                  | format, lint, typecheck, 34 unit tests, migrate-on-clean-db, build, image, spec-drift   |
-| Generated API surface                     | 164 paths / 230 operations / 28 tags from Firefly III v6.5.5, 8 operations auto-guarded |
-| Bundle baseline                           | 103 kB shared first-load JS                                                             |
+| Exit criterion                            | Evidence                                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `docker compose up` serves a themed shell | Verified end to end: app + postgres + redis all healthy, migrations applied on boot, non-root uid 1001, `/dashboard` returns 200 |
+| Migrations run                            | Applied on container boot under a Postgres advisory lock; 16 tables; `citext` + `pgcrypto` enabled                               |
+| CI green                                  | format, lint, typecheck, 43 unit tests (78.6% coverage on `lib/`), migrate-on-clean-db, build, image, spec-drift                 |
+| Generated API surface                     | 164 paths / 230 operations / 28 tags from Firefly III v6.5.5, 8 operations auto-guarded                                          |
+| Bundle baseline                           | 103 kB shared first-load JS; 340 MB production image                                                                             |
 
 ### E2 · Authentication & onboarding — M1
 
