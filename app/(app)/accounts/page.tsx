@@ -293,23 +293,26 @@ function AccountGroup({
     .map(([code, value]) => ({ code, value: value.toString() }))
     .sort((a, b) => a.code.localeCompare(b.code));
 
+  const hiddenCount = filtered ? 0 : Math.max(0, accounts.length - 15);
+
   return (
-    <section className="space-y-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
+    <section className="space-y-3">
+      <div className="from-primary/10 via-primary/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-gradient-to-r to-transparent px-4 py-3 shadow-sm">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">{label}</h2>
           <p className="text-muted-foreground text-xs">
             {accounts.length} account{accounts.length === 1 ? '' : 's'}
+            {hiddenCount > 0 ? ` · ${hiddenCount} hidden` : null}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
           {perCurrency.map(({ code, value }) => (
             <Amount key={code} value={value} currency={code} size="sm" showSign={false} compact />
           ))}
           {!filtered && (
             <Link
               href={`/accounts?type=${type}`}
-              className="text-muted-foreground hover:text-foreground text-xs"
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
             >
               View all {accounts.length}
             </Link>
