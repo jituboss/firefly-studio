@@ -28,3 +28,11 @@ playwright-report/
 *.log
 tmp/
 dist/
+
+# Filled-in deployment files. These carry real generated secrets — encryption
+# keys, database passwords, the Firefly admin password — so they stay on the
+# machine that deploys them and never in the history. `deploy/*/README.md` is
+# kept so the shape of a deployment can still be documented.
+deploy/**
+!deploy/*/
+!deploy/*/README.md
