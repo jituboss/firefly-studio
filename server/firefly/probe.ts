@@ -45,6 +45,13 @@ export async function probeReachable(baseUrl: string): Promise<void> {
     if (error instanceof FireflyRequestError && error.code === 'unauthorised') {
       return;
     }
+    if (error instanceof FireflyRequestError && error.code === 'not_found') {
+      throw new FireflyRequestError(
+        'No Firefly III API found at that address.',
+        'not_firefly',
+        404,
+      );
+    }
     throw error;
   }
 }

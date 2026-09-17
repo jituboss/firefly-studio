@@ -9,6 +9,9 @@ import { TransactionFilters } from './filters';
 import { TransactionTable } from './table';
 import { Pagination } from './pagination';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import type { Paged, Transaction } from '@/server/firefly/types';
 
 export const metadata: Metadata = { title: 'Transactions' };
@@ -65,6 +68,12 @@ export default async function TransactionsPage({
         <div className="flex items-center gap-2">
           <HideBalancesToggle />
           <DateRangePicker label={range.label} />
+          <Button asChild size="sm">
+            <Link href="/transactions/new">
+              <Plus className="size-4" aria-hidden="true" />
+              New
+            </Link>
+          </Button>
         </div>
       </header>
 

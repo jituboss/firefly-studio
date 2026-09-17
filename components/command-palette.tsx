@@ -4,7 +4,16 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { useTheme } from 'next-themes';
-import { ArrowLeftRight, LayoutDashboard, Moon, Search, Settings, Sun, Wallet } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  LayoutDashboard,
+  Moon,
+  Plus,
+  Search,
+  Settings,
+  Sun,
+  Wallet,
+} from 'lucide-react';
 
 interface SearchHit {
   id: string;
@@ -35,10 +44,14 @@ export function CommandPalette() {
         event.preventDefault();
         setOpen(true);
       }
+      if ((event.key === 'n' || event.key === 'N') && !typing && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        router.push('/transactions/new');
+      }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  }, [router]);
 
   React.useEffect(() => {
     if (query.trim().length < 2) {
@@ -150,6 +163,7 @@ export function CommandPalette() {
               { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
               { label: 'Accounts', href: '/accounts', icon: Wallet },
               { label: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
+              { label: 'New transaction', href: '/transactions/new', icon: Plus },
               { label: 'Connections', href: '/settings/connections', icon: Settings },
             ].map((item) => (
               <Command.Item

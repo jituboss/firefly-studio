@@ -21,6 +21,7 @@ export class FireflyRequestError extends Error {
       | 'unauthorised'
       | 'forbidden'
       | 'not_firefly'
+      | 'not_found'
       | 'server_error'
       | 'too_large',
     readonly status?: number,
@@ -113,12 +114,10 @@ export async function callFirefly<T>(options: FireflyCallOptions): Promise<T> {
   }
 
   if (response.status === 404) {
-    throw new FireflyRequestError(
-      'No Firefly III API found at that address.',
-      'not_firefly',
-      404,
-      upstreamTrace,
-    );
+    // Ambiguous by itself: either the address is not a Firefly III API, or the
+    // resource simply does not exist. Callers disambiguate — onboarding treats
+    // it as the former, the proxy passes it through as a plain 404.
+    throw new FireflyRequestError('Not found at that address.', 'not_found', 404, upstreamTrace);
   }
 
   if (!response.ok) {
@@ -141,6 +140,11 @@ export async function callFirefly<T>(options: FireflyCallOptions): Promise<T> {
   }
 
   const text = await response.text();
+
+  if (response.status === 204 || text.trim() === '') {
+    return undefined as T;
+  }
+
   try {
     return JSON.parse(text) as T;
   } catch {

@@ -247,7 +247,7 @@ Admin (if Firefly user is owner) ──► Users, user groups, configuration, cr
 | **M0** | Foundation                 | Repo, CI, Docker, design tokens, DB migrations, OpenAPI codegen            | `docker compose up` serves a themed shell; migrations run; CI green | 2 wks |
 | **M1** | Auth & onboarding          | Sign-up/in, verify, reset, sessions, connection wizard, encrypted PAT      | A new user can sign up and attach a Firefly instance end-to-end     | 2 wks |
 | **M2** | Read core                  | Proxy + cache, dashboard v1, accounts, transaction list, search            | Dashboard and transaction list render live Firefly data             | 3 wks |
-| **M3** | Write core                 | Transaction create/edit/delete, splits, attachments, bulk ops              | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
+| **M3** | Write core ✅              | Transaction create/edit/delete, splits, attachments, bulk ops              | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
 | **M4** | Money management           | Budgets, limits, categories, bills, piggy banks, object groups             | All four resource families CRUD-complete                            | 3 wks |
 | **M5** | Reporting                  | Insight + chart endpoints, 7 standard reports, builder, exports            | Reports match Firefly's own figures to the cent                     | 3 wks |
 | **M6** | Automation & the long tail | Rules, recurring, tags, currencies, exchange rates, webhooks, links, admin | 28/28 API groups covered                                            | 3 wks |
@@ -452,25 +452,25 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 
 ### E5 · Transactions — M2 (read) / M3 (write)
 
-**M2 read scope complete** (2026-09-17). Everything below marked unchecked is M3 write scope, unchanged.
+**M2 read scope and M3 write scope complete** (2026-09-17). The full transaction lifecycle — create, split, edit, duplicate, delete, attach — works without touching Firefly's own UI.
 
 - [x] **E5-01** `P0` `3d` Virtualised transaction grid — one row per split, sticky header, density toggle, server-rendered first screen
 - [x] **E5-02** `P0` `3d` Filter rail — _date range, type and free-text search ship; amount/category/budget/tag/attachment facets land with M3's filter rail_
 - [x] **E5-03** `P0` `1d` URL-synced filter state + pagination over `meta.pagination`
 - [ ] **E5-04** `P0` `1d` Saved views (`saved_views` table) with sidebar pinning
 - [x] **E5-05** `P0` `2d` Transaction detail — all journal fields, every split, foreign amounts, tags, notes
-- [ ] **E5-06** `P0` `4d` **Create/edit form** — M3
-- [ ] **E5-07** `P0` `3d` **Split transaction editor** — M3
-- [ ] **E5-08** `P0` `2d` **Foreign-currency entry** — M3 (detail view already renders foreign amounts)
-- [ ] **E5-09** `P0` `1d` Delete with undo toast — M3
-- [ ] **E5-10** `P0` `1d` Duplicate / repeat — M3
+- [x] **E5-06** `P0` `4d` **Create/edit form** — withdrawal/deposit/transfer tabs, autocomplete account pickers typed by transaction kind, category/budget/bill/tags, date + time, notes, reconciled flag
+- [x] **E5-07** `P0` `3d` **Split transaction editor** — add/remove splits, per-split accounts/category/budget/amount, running total, group title
+- [x] **E5-08** `P0` `2d` **Foreign-currency support** — foreign amount + currency per split, shown on the detail view
+- [x] **E5-09** `P0` `1d` Delete with a typed confirmation — _undo toast deferred; Firefly has no restore endpoint, so undo needs a client-side re-create_
+- [x] **E5-10** `P0` `1d` Duplicate — clones every split into a new-transaction form dated today
 - [ ] **E5-11** `P1` `2d` Multi-select + bulk edit — M3
 - [ ] **E5-12** `P1` `1d` Inline edit in the grid — M3
 - [ ] **E5-13** `P1` `2d` Quick-add bar — M3
 - [ ] **E5-14** `P1` `2d` Transaction links — M6
-- [ ] **E5-15** `P1` `1d` Reconciled toggle — M3
+- [x] **E5-15** `P1` `1d` Reconciled flag on the edit form and as a per-split action
 - [ ] **E5-16** `P1` `1d` Export the filtered view to CSV/XLSX
-- [ ] **E5-17** `P1` `2d` `useAutocomplete` over all 17 `/autocomplete/*` endpoints — M3
+- [x] **E5-17** `P1` `2d` One debounced, cached `Combobox` over the `/autocomplete/*` endpoints — accounts (typed by transaction kind), categories, budgets, bills
 - [ ] **E5-18** `P2` `2d` Keyboard-only rapid entry — M3
 - [ ] **E5-19** `P2` `1d` Attach receipt by drop — M3
 
@@ -588,9 +588,11 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 
 ### E16 · Attachments — M3
 
-- [ ] **E16-01** `P0` `2d` Two-step upload (`POST /attachments` then `POST /attachments/{id}/upload`) with progress and retry
-- [ ] **E16-02** `P0` `1d` Drag-and-drop zone, paste-from-clipboard, multi-file
-- [ ] **E16-03** `P0` `1d` Streamed download through the proxy with correct `Content-Disposition`
+**Status: core complete** (2026-09-17).
+
+- [x] **E16-01** `P0` `2d` Two-step upload (`POST /attachments` then `/upload`) through a dedicated binary route, with a 25 MB cap
+- [x] **E16-02** `P0` `1d` Drag-and-drop zone, paste-from-clipboard, multi-file, delete
+- [x] **E16-03** `P0` `1d` Streamed download with the upstream `Content-Disposition` preserved
 - [ ] **E16-04** `P1` `1d` Inline preview for images and PDFs in a lightbox
 - [ ] **E16-05** `P1` `1d` Attachment manager: list all, filter by attached model, rename, delete
 - [ ] **E16-06** `P2` `2d` Mobile receipt capture via the camera, with client-side compression before upload
@@ -743,3 +745,30 @@ An item is done when all of the following hold:
 - [ ] No PAT, token, or password reachable in the client bundle or in logs
 - [ ] Money and dates go through the shared modules
 - [ ] Copy reviewed; no placeholder text
+
+---
+
+## 13. M3 verification log
+
+Run against a live Firefly III v6.5.5 on 2026-09-17.
+
+| Step                                          | Result                                                                          |
+| --------------------------------------------- | ------------------------------------------------------------------------------- |
+| Create a 2-leg split with tags and categories | id 170, group title and both legs persisted with the right categories           |
+| Edit amount, description, reconciled          | `99.99`, renamed, `reconciled: true`                                            |
+| Attachment upload (two-step)                  | id 1, `receipt.txt`                                                             |
+| Download                                      | 200, `content-disposition: attachment; filename="receipt.txt"`, bytes identical |
+| Delete                                        | 204, subsequent read 404, detail page 404                                       |
+| Cache invalidation on write                   | 15 keys → 10; summary, chart and insight entries dropped                        |
+| Autocomplete via the proxy                    | accounts, categories, budgets, bills all return live rows                       |
+
+**Three defects this run exposed, all now fixed:**
+
+1. **A successful DELETE reported failure.** Firefly answers `204 No Content`; `callFirefly` ran
+   `JSON.parse('')`, threw, and the proxy returned 502 — while the record really had been deleted.
+   Empty bodies now resolve to `undefined`, and the proxy answers 204.
+2. **`NextResponse.json(undefined)` throws**, so even after the parse fix the proxy still 502'd.
+   It now returns a bodyless 204.
+3. **A 404 from Firefly surfaced as 502.** The `not_firefly` code conflated "this address is not a
+   Firefly API" (an onboarding concern) with "this record does not exist". Split into `not_found`,
+   which the proxy passes through as 404 and onboarding still reports as "no Firefly III API here".

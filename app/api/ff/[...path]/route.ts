@@ -84,6 +84,13 @@ async function handle(request: NextRequest, method: 'GET' | 'POST' | 'PUT' | 'DE
       await invalidateTags(connection.id, tags);
     }
 
+    // Firefly answers DELETE with 204 and an empty body, which callFirefly
+    // surfaces as undefined. NextResponse.json(undefined) throws, so return a
+    // real no-content response instead.
+    if (result === undefined) {
+      return new NextResponse(null, { status: 204, headers: { 'cache-control': 'no-store' } });
+    }
+
     return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     if (error instanceof FireflyRequestError) {

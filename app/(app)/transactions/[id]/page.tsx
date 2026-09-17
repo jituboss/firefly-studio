@@ -8,6 +8,9 @@ import { formatDate } from '@/lib/date';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { TransactionDetailActions } from '@/components/transactions/detail-actions';
+import { Attachments, type AttachmentRow } from '@/components/transactions/attachments';
+import { fireflyGetSafe } from '@/server/firefly/api';
 import type { TransactionSplit } from '@/server/firefly/types';
 
 export const metadata: Metadata = { title: 'Transaction' };
@@ -33,6 +36,23 @@ export default async function TransactionDetailPage({
   const splits = group.attributes.transactions;
   const first = splits[0];
   if (!first) notFound();
+
+  const attachments = await fireflyGetSafe<{
+    data: Array<{
+      id: string;
+      attributes: { filename: string; size: number; mime: string; attachable_id: string };
+    }>;
+  }>(`/v1/transactions/${id}/attachments`, { data: [] });
+
+  const attachmentsFor = (journalId: string): AttachmentRow[] =>
+    attachments.data
+      .filter((row) => String(row.attributes.attachable_id) === String(journalId))
+      .map((row) => ({
+        id: row.id,
+        filename: row.attributes.filename,
+        size: row.attributes.size,
+        mime: row.attributes.mime,
+      }));
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -67,6 +87,8 @@ export default async function TransactionDetailPage({
         </p>
       </header>
 
+      <TransactionDetailActions id={id} description={first.description} />
+
       {splits.map((split, index) => (
         <SplitCard
           key={split.transaction_journal_id}
@@ -74,6 +96,7 @@ export default async function TransactionDetailPage({
           index={index}
           showIndex={splits.length > 1}
           timezone={session.user.timezone}
+          attachments={attachmentsFor(split.transaction_journal_id)}
         />
       ))}
     </div>
@@ -85,11 +108,13 @@ function SplitCard({
   index,
   showIndex,
   timezone,
+  attachments,
 }: {
   split: TransactionSplit;
   index: number;
   showIndex: boolean;
   timezone: string;
+  attachments: AttachmentRow[];
 }) {
   const outgoing = split.type === 'withdrawal';
 
@@ -170,12 +195,13 @@ function SplitCard({
           </p>
         ) : null}
 
-        {split.has_attachments ? (
-          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+        <div className="space-y-2 border-t pt-4">
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
             <Paperclip className="size-3.5" aria-hidden="true" />
-            Has attachments — viewing arrives in M3
+            Attachments
           </p>
-        ) : null}
+          <Attachments journalId={split.transaction_journal_id} initial={attachments} />
+        </div>
       </CardContent>
     </Card>
   );
