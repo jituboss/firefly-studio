@@ -644,3 +644,217 @@ export function buildMonthlyGrid(
 
   return { months, rows, totals, grandTotal: grandTotal.toString() };
 }
+
+// --- accounts ----------------------------------------------------------------
+
+export interface AccountReportRow {
+  id?: string;
+  name: string;
+  income: string;
+  expense: string;
+  /** Signed: positive means the account received more than it sent. */
+  transfers: string;
+  /** income − expense, before transfers. */
+  net: string;
+}
+
+export interface AccountReport {
+  currency: string;
+  rows: AccountReportRow[];
+  totalIncome: string;
+  totalExpense: string;
+  otherCurrencies: string[];
+}
+
+/**
+ * E14-08 — per-asset-account movement from the three `insight/<flow>/asset`
+ * endpoints.
+ *
+ * Transfers keep their sign, unlike everywhere else in this module: for a
+ * single account "money moved in" and "money moved out" are different facts,
+ * and collapsing them to a magnitude would report a savings account and the
+ * current account that funded it as though both gained.
+ */
+export function buildAccountReport(
+  income: InsightLike[],
+  expense: InsightLike[],
+  transfers: InsightLike[],
+  preferredCurrency: string,
+): AccountReport {
+  const currency = chooseReportCurrency([...income, ...expense], preferredCurrency);
+  const otherCurrencies = new Set<string>();
+
+  const rows = new Map<string, AccountReportRow & { sortKey: ReturnType<typeof toDecimal> }>();
+
+  const upsert = (entry: InsightLike, field: 'income' | 'expense' | 'transfers') => {
+    const code = (entry.currency_code ?? '').toUpperCase();
+    if (code && code !== currency) {
+      otherCurrencies.add(code);
+      return;
+    }
+    const name = entry.name?.trim() || 'Unnamed';
+    const key = entry.id ?? name;
+    let row = rows.get(key);
+    if (!row) {
+      row = {
+        id: entry.id,
+        name,
+        income: '0',
+        expense: '0',
+        transfers: '0',
+        net: '0',
+        sortKey: toDecimal(0),
+      };
+      rows.set(key, row);
+    }
+    // Transfers keep Firefly's sign; the other two are magnitudes.
+    const value = field === 'transfers' ? toDecimal(entry.difference) : abs(entry.difference);
+    row[field] = add(row[field], value).toString();
+  };
+
+  for (const entry of income) upsert(entry, 'income');
+  for (const entry of expense) upsert(entry, 'expense');
+  for (const entry of transfers) upsert(entry, 'transfers');
+
+  let totalIncome = toDecimal(0);
+  let totalExpense = toDecimal(0);
+
+  for (const row of rows.values()) {
+    row.net = subtract(row.income, row.expense).toString();
+    row.sortKey = add(row.income, row.expense);
+    totalIncome = add(totalIncome, row.income);
+    totalExpense = add(totalExpense, row.expense);
+  }
+
+  const ordered = [...rows.values()]
+    .sort((a, b) => b.sortKey.comparedTo(a.sortKey))
+    .map(({ sortKey: _sortKey, ...row }) => row);
+
+  return {
+    currency,
+    rows: ordered,
+    totalIncome: totalIncome.toString(),
+    totalExpense: totalExpense.toString(),
+    otherCurrencies: [...otherCurrencies].sort(),
+  };
+}
+
+// --- bills / subscriptions ---------------------------------------------------
+
+/** How many times a repeat frequency fires in a year. */
+const OCCURRENCES_PER_YEAR: Record<string, number> = {
+  weekly: 52,
+  monthly: 12,
+  quarterly: 4,
+  'half-year': 2,
+  yearly: 1,
+  daily: 365,
+};
+
+export interface BillReportRow {
+  id: string;
+  name: string;
+  /** Midpoint of Firefly's min/max range — a bill is a band, not a figure. */
+  expected: string;
+  repeatFreq: string;
+  /** Expected annual cost, or '0' for an unrecognised frequency. */
+  annualised: string;
+  active: boolean;
+  /** What was actually paid against this bill in the period, from insight. */
+  actual: string;
+  nextExpected: string | null;
+}
+
+export interface BillReport {
+  currency: string;
+  rows: BillReportRow[];
+  totalAnnualised: string;
+  totalActual: string;
+  activeCount: number;
+  inactiveCount: number;
+}
+
+export interface BillLike {
+  id: string;
+  attributes: {
+    name: string;
+    amount_min: string;
+    amount_max: string;
+    repeat_freq: string;
+    skip?: number;
+    active: boolean;
+    currency_code?: string | null;
+    next_expected_match?: string | null;
+  };
+}
+
+/**
+ * E14-09 — the subscription roster with its annualised cost.
+ *
+ * Firefly stores a bill as a min/max band, not a single amount, because the
+ * charge varies. The midpoint is the honest single figure to annualise from,
+ * and `skip` (pay every Nth period) divides the frequency — a bill that skips
+ * one costs half what its `monthly` label suggests.
+ */
+export function buildBillReport(
+  bills: BillLike[],
+  actuals: InsightLike[],
+  preferredCurrency: string,
+): BillReport {
+  const currency = preferredCurrency.toUpperCase();
+
+  const actualById = new Map<string, ReturnType<typeof toDecimal>>();
+  for (const entry of actuals) {
+    if ((entry.currency_code ?? '').toUpperCase() !== currency) continue;
+    if (!entry.id) continue;
+    actualById.set(entry.id, add(actualById.get(entry.id) ?? 0, abs(entry.difference)));
+  }
+
+  let totalAnnualised = toDecimal(0);
+  let totalActual = toDecimal(0);
+  let activeCount = 0;
+  let inactiveCount = 0;
+
+  const rows: BillReportRow[] = bills
+    .filter((bill) => {
+      const code = (bill.attributes.currency_code ?? '').toUpperCase();
+      return !code || code === currency;
+    })
+    .map((bill) => {
+      const expected = divide(add(bill.attributes.amount_min, bill.attributes.amount_max), 2);
+      const perYear = OCCURRENCES_PER_YEAR[bill.attributes.repeat_freq] ?? 0;
+      // `skip: 1` means "every other period", so the divisor is skip + 1.
+      const divisor = (bill.attributes.skip ?? 0) + 1;
+      const annualised = perYear === 0 ? toDecimal(0) : divide(expected.times(perYear), divisor);
+      const actual = actualById.get(bill.id) ?? toDecimal(0);
+
+      if (bill.attributes.active) {
+        activeCount += 1;
+        totalAnnualised = add(totalAnnualised, annualised);
+      } else {
+        inactiveCount += 1;
+      }
+      totalActual = add(totalActual, actual);
+
+      return {
+        id: bill.id,
+        name: bill.attributes.name,
+        expected: expected.toString(),
+        repeatFreq: bill.attributes.repeat_freq,
+        annualised: annualised.toString(),
+        active: bill.attributes.active,
+        actual: actual.toString(),
+        nextExpected: bill.attributes.next_expected_match ?? null,
+      };
+    })
+    .sort((a, b) => toDecimal(b.annualised).comparedTo(toDecimal(a.annualised)));
+
+  return {
+    currency,
+    rows,
+    totalAnnualised: totalAnnualised.toString(),
+    totalActual: totalActual.toString(),
+    activeCount,
+    inactiveCount,
+  };
+}
