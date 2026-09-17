@@ -13,6 +13,18 @@ import type {
   Paged,
   PiggyBank,
   Transaction,
+  Tag,
+  Rule,
+  RuleGroup,
+  Recurrence,
+  Currency,
+  ExchangeRate,
+  LinkType,
+  TransactionLink,
+  Preference,
+  ConfigurationEntry,
+  FireflyUser,
+  UserGroup,
 } from './types';
 
 /** Read helpers used by the M2 server components. */
@@ -318,3 +330,115 @@ export const getAttachments = (params: { page?: number; limit?: number } = {}) =
     `/v1/attachments${qs({ ...params, limit: params.limit ?? 100 })}`,
     { data: [], meta: {} },
   );
+
+// --- M6: tags ---------------------------------------------------------------
+
+export const getTags = (params: { page?: number; limit?: number } = {}) =>
+  fireflyGetSafe<Paged<Tag>>(`/v1/tags${qs({ ...params, limit: params.limit ?? 200 })}`, {
+    data: [],
+    meta: {},
+  });
+
+export const getTag = (tag: string) =>
+  fireflyGet<{ data: Tag }>(`/v1/tags/${encodeURIComponent(tag)}`);
+
+export const getTagTransactions = (
+  tag: string,
+  params: { page?: number; limit?: number; start?: string; end?: string } = {},
+) =>
+  fireflyGetSafe<Paged<Transaction>>(
+    `/v1/tags/${encodeURIComponent(tag)}/transactions${qs({ ...params, limit: params.limit ?? 50 })}`,
+    { data: [], meta: {} },
+  );
+
+// --- M6: rules --------------------------------------------------------------
+
+export const getRuleGroups = () =>
+  fireflyGetSafe<Paged<RuleGroup>>('/v1/rule-groups?limit=200', { data: [], meta: {} });
+
+export const getRuleGroup = (id: string) =>
+  fireflyGet<{ data: RuleGroup }>(`/v1/rule-groups/${id}`);
+
+export const getRulesInGroup = (id: string) =>
+  fireflyGetSafe<Paged<Rule>>(`/v1/rule-groups/${id}/rules?limit=200`, { data: [], meta: {} });
+
+export const getRules = () =>
+  fireflyGetSafe<Paged<Rule>>('/v1/rules?limit=200', { data: [], meta: {} });
+
+export const getRule = (id: string) => fireflyGet<{ data: Rule }>(`/v1/rules/${id}`);
+
+/**
+ * E11-04 dry-run. Always uncached: the whole point is to show what matches the
+ * ledger as it is right now, and a cached answer would quietly lie after an edit.
+ */
+export const testRule = (id: string, params: { start?: string; end?: string } = {}) =>
+  fireflyGetSafe<Paged<Transaction>>(`/v1/rules/${id}/test${qs(params)}`, { data: [], meta: {} });
+
+export const testRuleGroup = (id: string, params: { start?: string; end?: string } = {}) =>
+  fireflyGetSafe<Paged<Transaction>>(`/v1/rule-groups/${id}/test${qs(params)}`, {
+    data: [],
+    meta: {},
+  });
+
+// --- M6: recurring ----------------------------------------------------------
+
+export const getRecurrences = () =>
+  fireflyGetSafe<Paged<Recurrence>>('/v1/recurrences?limit=200', { data: [], meta: {} });
+
+export const getRecurrence = (id: string) =>
+  fireflyGet<{ data: Recurrence }>(`/v1/recurrences/${id}`);
+
+export const getRecurrenceTransactions = (id: string, params: { page?: number } = {}) =>
+  fireflyGetSafe<Paged<Transaction>>(
+    `/v1/recurrences/${id}/transactions${qs({ ...params, limit: 50 })}`,
+    { data: [], meta: {} },
+  );
+
+// --- M6: currencies and exchange rates --------------------------------------
+
+export const getCurrencies = () =>
+  fireflyGetSafe<Paged<Currency>>('/v1/currencies?limit=200', { data: [], meta: {} });
+
+export const getCurrency = (code: string) =>
+  fireflyGet<{ data: Currency }>(`/v1/currencies/${encodeURIComponent(code)}`);
+
+export const getExchangeRates = () =>
+  fireflyGetSafe<Paged<ExchangeRate>>('/v1/exchange-rates?limit=200', { data: [], meta: {} });
+
+// --- M6: transaction links --------------------------------------------------
+
+export const getLinkTypes = () =>
+  fireflyGetSafe<Paged<LinkType>>('/v1/link-types?limit=100', { data: [], meta: {} });
+
+export const getTransactionLinks = () =>
+  fireflyGetSafe<Paged<TransactionLink>>('/v1/transaction-links?limit=200', {
+    data: [],
+    meta: {},
+  });
+
+/** Links hang off the journal (split) id, not the transaction group id. */
+export const getJournalLinks = (journalId: string) =>
+  fireflyGetSafe<Paged<TransactionLink>>(`/v1/transaction-journals/${journalId}/links`, {
+    data: [],
+    meta: {},
+  });
+
+// --- M6: preferences, about, admin ------------------------------------------
+
+export const getPreferences = () =>
+  fireflyGetSafe<Paged<Preference>>('/v1/preferences', { data: [], meta: {} });
+
+/**
+ * The one endpoint that answers with a bare array instead of `{ data: … }`,
+ * so it is typed as the array directly rather than unwrapped.
+ */
+export const getConfiguration = () => fireflyGetSafe<ConfigurationEntry[]>('/v1/configuration', []);
+
+export const getFireflyUsers = () =>
+  fireflyGetSafe<Paged<FireflyUser>>('/v1/users?limit=100', { data: [], meta: {} });
+
+export const getUserGroups = () =>
+  fireflyGetSafe<Paged<UserGroup>>('/v1/user-groups?limit=100', { data: [], meta: {} });
+
+export const getAboutUser = () =>
+  fireflyGetSafe<{ data: FireflyUser } | null>('/v1/about/user', null);

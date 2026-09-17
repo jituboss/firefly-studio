@@ -102,7 +102,13 @@ let cached: ServerEnv | undefined;
 export function getEnv(): ServerEnv {
   if (cached) return cached;
 
-  const parsed = serverSchema.safeParse(process.env);
+  // Docker Compose cannot express "leave this unset": `FOO: ${FOO:-}` with no
+  // FOO in the environment arrives as an empty string, which then fails
+  // `.optional()` fields that coerce — SMTP_PORT as a number, CRON_SECRET as a
+  // min-length string. That made the documented `--profile app` boot path fail
+  // for anyone without mail configured. An empty value means absent.
+  const raw = Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== ''));
+  const parsed = serverSchema.safeParse(raw);
 
   if (!parsed.success) {
     const message =

@@ -77,7 +77,7 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
     items: [
       { href: '/recurring', label: 'Recurring', icon: Repeat, milestone: 'M6' },
       { href: '/rules', label: 'Rules', icon: Workflow, milestone: 'M6' },
-      { href: '/tags', label: 'Tags', icon: Tags, milestone: 'M6' },
+      { href: '/tags', label: 'Tags', icon: Tags },
       { href: '/currencies', label: 'Currencies', icon: Coins, milestone: 'M6' },
     ],
   },

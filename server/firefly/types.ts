@@ -196,3 +196,215 @@ export interface CategoryAttributes {
 }
 
 export type Category = Resource<CategoryAttributes>;
+
+// ---------------------------------------------------------------------------
+// M6 — automation and the long tail.
+// Every shape below was read off a live Firefly III 6.5.5 instance, not the
+// OpenAPI spec; §7 of LEARNING.md explains why that distinction has teeth.
+// ---------------------------------------------------------------------------
+
+/** A tag's name lives in `tag`, not `name` — unlike every other resource. */
+export interface TagAttributes {
+  tag: string;
+  date: string | null;
+  description: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  zoom_level: number | null;
+}
+
+export type Tag = Resource<TagAttributes>;
+
+/**
+ * `prohibited` is the NOT modifier and exists on triggers only — an action has
+ * no such field. Firefly returns it even when the request omits it.
+ */
+export interface RuleTrigger {
+  id?: string;
+  type: string;
+  value: string;
+  prohibited?: boolean;
+  order?: number;
+  active: boolean;
+  stop_processing: boolean;
+}
+
+export interface RuleAction {
+  id?: string;
+  type: string;
+  value: string | null;
+  order?: number;
+  active: boolean;
+  stop_processing: boolean;
+}
+
+/**
+ * `trigger` (singular) is the firing mode — when the rule runs — and is a
+ * different thing entirely from `triggers` (the conditions it matches on).
+ * The two names are one letter apart and mean unrelated things.
+ */
+export interface RuleAttributes {
+  title: string;
+  description: string | null;
+  rule_group_id: string;
+  rule_group_title: string | null;
+  order: number;
+  trigger: 'store-journal' | 'update-journal' | 'manual';
+  active: boolean;
+  strict: boolean;
+  stop_processing: boolean;
+  triggers: RuleTrigger[];
+  actions: RuleAction[];
+}
+
+export type Rule = Resource<RuleAttributes>;
+
+export interface RuleGroupAttributes {
+  title: string;
+  description: string | null;
+  order: number;
+  active: boolean;
+}
+
+export type RuleGroup = Resource<RuleGroupAttributes>;
+
+/**
+ * Firefly computes `description` (human-readable, e.g. "Every month on the
+ * 1(st/nd/rd/th) day") and `occurrences` (the next few firing dates) server
+ * side. Both are read-only and worth rendering rather than re-deriving.
+ */
+export interface RecurrenceRepetition {
+  id?: string;
+  type: 'daily' | 'weekly' | 'ndom' | 'monthly' | 'yearly';
+  moment: string;
+  skip: number;
+  weekend: number;
+  description?: string;
+  occurrences?: string[];
+}
+
+export interface RecurrenceTransaction {
+  id?: string;
+  description: string;
+  amount: string;
+  foreign_amount?: string | null;
+  currency_id?: string | null;
+  currency_code?: string | null;
+  foreign_currency_code?: string | null;
+  source_id: string | null;
+  source_name?: string | null;
+  destination_id: string | null;
+  destination_name?: string | null;
+  category_id?: string | null;
+  category_name?: string | null;
+  budget_id?: string | null;
+  budget_name?: string | null;
+  piggy_bank_id?: string | null;
+  tags?: string[] | null;
+}
+
+/**
+ * Firefly requires exactly one of `nr_of_repetitions` or `repeat_until`:
+ * sending neither is a 422, and so is sending both.
+ */
+export interface RecurrenceAttributes {
+  type: 'withdrawal' | 'deposit' | 'transfer';
+  title: string;
+  description: string | null;
+  first_date: string;
+  latest_date: string | null;
+  repeat_until: string | null;
+  nr_of_repetitions: number | null;
+  apply_rules: boolean;
+  active: boolean;
+  notes: string | null;
+  repetitions: RecurrenceRepetition[];
+  transactions: RecurrenceTransaction[];
+}
+
+export type Recurrence = Resource<RecurrenceAttributes>;
+
+/**
+ * Three booleans that all sound like "the main one". `primary` is the current
+ * concept in 6.5.5; `default` and `native` are retained for older instances.
+ */
+export interface CurrencyAttributes {
+  name: string;
+  code: string;
+  symbol: string;
+  decimal_places: number;
+  enabled: boolean;
+  primary?: boolean;
+  default?: boolean;
+  native?: boolean;
+}
+
+export type Currency = Resource<CurrencyAttributes>;
+
+/** `rate` is a string, like every other number Firefly returns. */
+export interface ExchangeRateAttributes {
+  from_currency_code: string;
+  from_currency_name: string;
+  to_currency_code: string;
+  to_currency_name: string;
+  rate: string;
+  date: string;
+}
+
+export type ExchangeRate = Resource<ExchangeRateAttributes>;
+
+/** The four stock link types report `editable: false` and cannot be changed. */
+export interface LinkTypeAttributes {
+  name: string;
+  inward: string;
+  outward: string;
+  editable: boolean;
+}
+
+export type LinkType = Resource<LinkTypeAttributes>;
+
+export interface TransactionLinkAttributes {
+  inward_id: string;
+  outward_id: string;
+  link_type_id: string;
+  link_type_name: string;
+  notes: string | null;
+}
+
+export type TransactionLink = Resource<TransactionLinkAttributes>;
+
+/** `data` is whatever the preference holds — string, number, bool or object. */
+export interface PreferenceAttributes {
+  name: string;
+  data: unknown;
+}
+
+export type Preference = Resource<PreferenceAttributes>;
+
+/**
+ * `/configuration` is the one endpoint that returns a BARE ARRAY with no
+ * `data` envelope, so it cannot go through the usual `{ data: T }` unwrap.
+ */
+export interface ConfigurationEntry {
+  title: string;
+  value: string | number | boolean | null;
+  editable: boolean;
+}
+
+export interface FireflyUserAttributes {
+  email: string;
+  blocked: boolean;
+  blocked_code: string | null;
+  role: string | null;
+}
+
+export type FireflyUser = Resource<FireflyUserAttributes>;
+
+export interface UserGroupAttributes {
+  title: string;
+  in_use: boolean;
+  can_see_members: boolean;
+  primary_currency_code: string | null;
+}
+
+export type UserGroup = Resource<UserGroupAttributes>;

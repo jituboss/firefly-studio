@@ -50,7 +50,11 @@ export type CacheTag =
   | 'charts'
   | 'currencies'
   | 'tags'
-  | 'attachments';
+  | 'attachments'
+  | 'rules'
+  | 'recurrences'
+  | 'links'
+  | 'admin';
 
 /** Which tags a given API path belongs to. */
 export function tagsForPath(path: string): CacheTag[] {
@@ -70,6 +74,16 @@ export function tagsForPath(path: string): CacheTag[] {
   // manager kept rendering the old title for a full TTL after a rename.
   // Transactions come along because a split carries `has_attachments`.
   if (path.includes('/attachments')) tags.push('attachments', 'transactions');
+  // M6. `/rule-groups` and `/rules` share a tag because a group write reorders
+  // and re-parents the rules inside it, so caching them apart goes stale.
+  if (path.includes('/rule')) tags.push('rules');
+  // A recurrence write can mint real transactions (POST /trigger), so the
+  // transaction lists have to drop too or the new rows stay invisible.
+  if (path.includes('/recurrences')) tags.push('recurrences', 'transactions');
+  if (path.includes('/link-types') || path.includes('/transaction-links'))
+    tags.push('links', 'transactions');
+  if (path.includes('/users') || path.includes('/user-groups') || path.includes('/configuration'))
+    tags.push('admin');
   return tags;
 }
 
