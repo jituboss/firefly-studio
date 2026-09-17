@@ -10,6 +10,22 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-18
+
+### Fixed
+
+- **Confirming your email address no longer shows an error.** The link worked —
+  the address really was confirmed — but the page it landed on reported
+  something had gone wrong, because signing you in at that moment is not
+  something the page was allowed to do. Confirmation now happens on its own
+  route, signs you in properly, and takes you straight to setting up your
+  Firefly III connection. Links already in your inbox still work.
+
+### Added
+
+- **The version you are running is shown** at the bottom of the navigation, so
+  "which build is this" has an answer without opening a terminal.
+
 ## [0.4.1] - 2026-09-18
 
 Three fixes, no new features.
@@ -313,7 +329,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.4.1...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.2
 [0.4.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.1
 [0.4.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.3.0
