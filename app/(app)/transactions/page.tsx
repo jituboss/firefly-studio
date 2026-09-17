@@ -8,6 +8,8 @@ import { HideBalancesToggle } from '@/components/hide-balances';
 import { TransactionFilters } from './filters';
 import { TransactionTable } from './table';
 import { Pagination } from './pagination';
+import { SavedViews } from './saved-views';
+import { listSavedViews } from '@/server/saved-views';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -52,6 +54,7 @@ export default async function TransactionsPage({
 
   const result = await fireflyGetSafe<Paged<Transaction>>(basePath, { data: [], meta: {} });
   const pagination = result.meta.pagination;
+  const savedViewsList = await listSavedViews(session.user.id, 'transactions');
 
   return (
     <div className="mx-auto w-full max-w-7xl min-w-0 space-y-5">
@@ -77,7 +80,17 @@ export default async function TransactionsPage({
         </div>
       </header>
 
-      <TransactionFilters type={type} search={search} accountId={accountId} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <TransactionFilters type={type} search={search} accountId={accountId} />
+        <SavedViews
+          views={savedViewsList}
+          currentQuery={{
+            q: search || undefined,
+            type: type === 'all' ? undefined : type,
+            account: accountId,
+          }}
+        />
+      </div>
 
       {result.data.length === 0 ? (
         <Card>

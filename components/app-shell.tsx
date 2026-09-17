@@ -10,6 +10,7 @@ import {
   ChartPie,
   Coins,
   Flame,
+  Folder,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -27,7 +28,11 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CommandPalette } from '@/components/command-palette';
+import { NotificationInbox } from '@/components/notifications/inbox';
 import { signOutAction } from '@/server/auth/actions';
+import type { notifications as notificationsSchema } from '@/server/db/schema';
+
+type NotificationRow = typeof notificationsSchema.$inferSelect;
 
 /**
  * M0 application shell. The information architecture is PROJECT_PLAN.md §5.3;
@@ -56,9 +61,11 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
     heading: 'Plan',
     items: [
       { href: '/budgets', label: 'Budgets', icon: Banknote },
+      { href: '/available-budgets', label: 'Available budgets', icon: Wallet },
       { href: '/categories', label: 'Categories', icon: Shapes },
       { href: '/bills', label: 'Subscriptions', icon: Receipt },
       { href: '/piggy-banks', label: 'Piggy banks', icon: PiggyBank },
+      { href: '/object-groups', label: 'Object groups', icon: Folder },
     ],
   },
   {
@@ -138,12 +145,14 @@ export function AppShell({
   userName,
   connectionLabel,
   connectionStatus,
+  notifications,
 }: {
   children: React.ReactNode;
   userName?: string;
   connectionLabel?: string | null;
   connectionStatus?: string | null;
-}) {
+  notifications?: NotificationRow[];
+}): React.JSX.Element {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   // Without this the page behind the drawer keeps scrolling — including
@@ -234,6 +243,8 @@ export function AppShell({
               {userName}
             </span>
           ) : null}
+
+          <NotificationInbox notifications={notifications ?? []} />
 
           <ThemeToggle />
 

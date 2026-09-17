@@ -7,10 +7,13 @@ import {
   getBalanceChart,
   getBasicSummary,
   getBills,
+  getBudgetLimits,
+  getBudgets,
   getExpenseByCategory,
   getPiggyBanks,
   getTransactions,
 } from '@/server/firefly/queries';
+import type { Budget, BudgetLimit } from '@/server/firefly/types';
 import { previousPeriod, resolveRangeFromParams } from '@/lib/date-range';
 import { toDecimal } from '@/lib/money';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +29,7 @@ import {
   WidgetCard,
 } from '@/components/dashboard/widgets';
 import { HideBalancesToggle } from '@/components/hide-balances';
+import { Amount } from '@/components/ui/amount';
 import type { BasicSummary, ChartEntry } from '@/server/firefly/types';
 
 export const metadata: Metadata = { title: 'Dashboard' };
@@ -95,20 +99,32 @@ export default async function DashboardPage({
 
   // Fetched in parallel; every call is failure-tolerant so one bad endpoint
   // degrades a single widget rather than the page (E3-13).
-  const [summary, previousSummary, balanceChart, accounts, recent, categorySpend, bills, piggies] =
-    await Promise.all([
-      getBasicSummary(range.start, range.end),
-      getBasicSummary(previous.start, previous.end),
-      getBalanceChart(range.start, range.end),
-      getAccountsSafe({ type: 'asset' }),
-      getTransactions({ start: range.start, end: range.end, limit: 6 }).catch(() => ({
-        data: [],
-        meta: {},
-      })),
-      getExpenseByCategory(range.start, range.end),
-      getBills(range.start, range.end),
-      getPiggyBanks(),
-    ]);
+  const [
+    summary,
+    previousSummary,
+    balanceChart,
+    accounts,
+    recent,
+    categorySpend,
+    bills,
+    piggies,
+    budgetsResult,
+    limitsResult,
+  ] = await Promise.all([
+    getBasicSummary(range.start, range.end),
+    getBasicSummary(previous.start, previous.end),
+    getBalanceChart(range.start, range.end),
+    getAccountsSafe({ type: 'asset' }),
+    getTransactions({ start: range.start, end: range.end, limit: 6 }).catch(() => ({
+      data: [],
+      meta: {},
+    })),
+    getExpenseByCategory(range.start, range.end),
+    getBills(range.start, range.end),
+    getPiggyBanks(),
+    getBudgets(range.start, range.end),
+    getBudgetLimits(range.start, range.end),
+  ]);
 
   const currency = connection.primaryCurrency;
 
@@ -203,7 +219,98 @@ export default async function DashboardPage({
         <WidgetCard title="Savings goals">
           <PiggyProgress piggies={piggies.data} defaultCurrency={currency} />
         </WidgetCard>
+
+        <WidgetCard title="Budget progress" href="/budgets">
+          <BudgetProgressWidget
+            budgets={budgetsResult.data}
+            limits={limitsResult.data}
+            defaultCurrency={currency}
+          />
+        </WidgetCard>
       </div>
     </div>
+  );
+}
+
+/** E3-08 — burn-down pacing for budgets with a limit this period. */
+function BudgetProgressWidget({
+  budgets,
+  limits,
+  defaultCurrency,
+}: {
+  budgets: Budget[];
+  limits: BudgetLimit[];
+  defaultCurrency: string;
+}) {
+  const limitsByBudget = new Map<string, BudgetLimit>();
+  for (const limit of limits) {
+    limitsByBudget.set(limit.attributes.budget_id, limit);
+  }
+
+  const withProgress = budgets
+    .map((budget) => {
+      const limit = limitsByBudget.get(budget.id);
+      if (!limit) return null;
+      const spent = budget.attributes.spent?.[0];
+      const amount = toDecimal(limit.attributes.amount);
+      const spentSum = spent ? toDecimal(spent.sum).abs() : toDecimal(0);
+      const pct = amount.greaterThan(0)
+        ? Math.min(100, spentSum.dividedBy(amount).times(100).toNumber())
+        : 0;
+      const currency = spent?.currency_code ?? limit.attributes.currency_code ?? defaultCurrency;
+      return {
+        id: budget.id,
+        name: budget.attributes.name,
+        percent: pct,
+        amount: limit.attributes.amount,
+        spent: spentSum.toString(),
+        currency,
+        over: spentSum.greaterThan(amount),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b!.percent - a!.percent)
+    .slice(0, 5);
+
+  if (withProgress.length === 0) {
+    return (
+      <p className="text-muted-foreground py-6 text-center text-sm">
+        No budgets have limits set for this period.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="space-y-3">
+      {withProgress.map((item) => (
+        <li key={item!.id}>
+          <a href={`/budgets/${item!.id}`} className="block">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate font-medium">{item!.name}</span>
+              <span className="text-muted-foreground tabular text-xs">
+                {item!.percent.toFixed(0)}%
+              </span>
+            </div>
+            <div
+              className="bg-muted h-1.5 overflow-hidden rounded-full"
+              role="progressbar"
+              aria-valuenow={item!.percent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${item!.name} budget usage`}
+            >
+              <div
+                className={item!.over ? 'bg-expense h-full' : 'bg-primary h-full'}
+                style={{ width: `${item!.percent}%` }}
+              />
+            </div>
+            <div className="text-muted-foreground mt-1 flex justify-between text-xs">
+              <Amount value={item!.spent} currency={item!.currency} showSign={false} size="sm" />
+              <Amount value={item!.amount} currency={item!.currency} showSign={false} size="sm" />
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }

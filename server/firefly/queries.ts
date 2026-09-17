@@ -140,7 +140,19 @@ export const getTransactionsWithoutBudget = (params: {
     `/v1/budgets/transactions-without-budget${qs({ ...params, limit: params.limit ?? 25 })}`,
     { data: [], meta: {} },
   );
+/** E6-06 — envelope totals per period. */
+export const getAvailableBudgets = (start?: string, end?: string) =>
+  fireflyGetSafe<Paged<AvailableBudget>>(`/v1/available-budgets${qs({ start, end, limit: 50 })}`, {
+    data: [],
+    meta: {},
+  });
 
+/** E9-05 — object groups used to cluster bills and piggy banks. */
+export const getObjectGroups = () =>
+  fireflyGetSafe<Paged<ObjectGroup>>(`/v1/object-groups${qs({ limit: 200 })}`, {
+    data: [],
+    meta: {},
+  });
 export const getCategories = (start?: string, end?: string) =>
   fireflyGetSafe<Paged<Category>>(`/v1/categories${qs({ start, end, limit: 200 })}`, {
     data: [],
@@ -178,3 +190,38 @@ export interface PiggyEvent {
 
 export const getPiggyEvents = (id: string) =>
   fireflyGetSafe<{ data: PiggyEvent[] }>(`/v1/piggy-banks/${id}/events`, { data: [] });
+
+// --- types mirrored from vendored spec --------------------------------------
+
+export interface AvailableBudget {
+  id: string;
+  type: string;
+  attributes: {
+    amount?: string;
+    currency_code?: string;
+    currency_decimal_places?: number;
+    currency_name?: string;
+    currency_symbol?: string;
+    start?: string;
+    end?: string;
+    primary_currency_code?: string;
+    primary_currency_symbol?: string;
+    primary_currency_decimal_places?: number;
+    pc_amount?: string;
+    spent_in_budgets?: Array<{ sum: string; currency_code: string }>;
+    spent_outside_budgets?: Array<{ sum: string; currency_code: string }>;
+    pc_spent_in_budgets?: Array<{ sum: string; currency_code: string }>;
+    pc_spent_outside_budgets?: Array<{ sum: string; currency_code: string }>;
+  };
+}
+
+export interface ObjectGroup {
+  id: string;
+  type: string;
+  attributes: {
+    title: string;
+    order: number;
+    created_at?: string;
+    updated_at?: string;
+  };
+}

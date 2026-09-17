@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { getSession } from '@/server/auth/session';
 import { getDefaultConnection } from '@/server/connections';
+import { listUnreadNotifications } from '@/server/notifications';
 
 /**
  * E2-13 — the authoritative guard. Middleware only checks that a cookie exists;
@@ -14,13 +15,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!session.user.onboardingCompletedAt) redirect('/onboarding');
 
-  const connection = await getDefaultConnection(session.user.id);
+  const [connection, notifications] = await Promise.all([
+    getDefaultConnection(session.user.id),
+    listUnreadNotifications(session.user.id),
+  ]);
 
   return (
     <AppShell
       userName={session.user.displayName ?? session.user.email}
       connectionLabel={connection?.label ?? null}
       connectionStatus={connection?.status ?? null}
+      notifications={notifications}
     >
       {children}
     </AppShell>

@@ -44,6 +44,9 @@ export default async function CategoriesPage({
         </div>
         <div className="flex items-center gap-2">
           <DateRangePicker label={range.label} />
+          <Button asChild size="sm" variant="outline">
+            <Link href="/categories/uncategorised">Uncategorised</Link>
+          </Button>
           <Button asChild size="sm">
             <Link href="/categories/new">
               <Plus className="size-4" aria-hidden="true" />

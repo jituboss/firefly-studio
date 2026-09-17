@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getBills } from '@/server/firefly/queries';
+import { createNotification } from '@/server/notifications';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { formatDate } from '@/lib/date';
 import { Amount } from '@/components/ui/amount';
@@ -31,6 +32,7 @@ export default async function BillsPage({
 
   const result = await getBills(range.start, range.end);
   const bills = [...result.data].sort((a, b) => a.attributes.name.localeCompare(b.attributes.name));
+  await syncBillNotifications(session.user.id, bills);
   const active = bills.filter((b) => b.attributes.active);
   const inactive = bills.filter((b) => !b.attributes.active);
 
@@ -77,12 +79,17 @@ export default async function BillsPage({
             {bills.length} bill{bills.length === 1 ? '' : 's'}
           </p>
         </div>
-        <Button asChild size="sm">
-          <Link href="/bills/new">
-            <Plus className="size-4" aria-hidden="true" />
-            New
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href="/bills/calendar">Calendar</Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/bills/new">
+              <Plus className="size-4" aria-hidden="true" />
+              New
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {bills.length === 0 ? (
@@ -198,4 +205,26 @@ export default async function BillsPage({
       )}
     </div>
   );
+}
+
+/** E8-06 — emit notifications for active bills whose next expected match is in
+ *  the past and which have no paid_dates in the current range. */
+async function syncBillNotifications(
+  userId: string,
+  bills: Awaited<ReturnType<typeof getBills>>['data'],
+) {
+  const today = new Date().toISOString().slice(0, 10);
+  for (const bill of bills) {
+    const b = bill.attributes;
+    if (!b.active || !b.next_expected_match) continue;
+    const next = b.next_expected_match.slice(0, 10);
+    if (next > today) continue;
+    if ((b.paid_dates?.length ?? 0) > 0) continue;
+    await createNotification(userId, 'unpaid_bill', {
+      billId: bill.id,
+      name: b.name,
+      nextExpected: next,
+      currency: b.currency_code,
+    });
+  }
 }

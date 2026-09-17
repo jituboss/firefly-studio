@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getBudgetLimits, getBudgets } from '@/server/firefly/queries';
+import { createNotification } from '@/server/notifications';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,8 @@ export default async function BudgetsPage({
     // overlap with the selected range as "the" limit for this list.
     limitsByBudget.set(limit.attributes.budget_id, limit);
   }
+
+  await syncBudgetNotifications(session.user.id, budgetsResult.data, limitsByBudget);
 
   // Pacing: what fraction of the selected period has elapsed.
   const totalDays = Math.max(
@@ -91,14 +94,14 @@ export default async function BudgetsPage({
           </CardContent>
         </Card>
       ) : (
-        <p className="text-muted-foreground text-sm">
-          <Link
-            href="/budgets/transactions-without-budget"
-            className="text-foreground hover:underline"
-          >
-            View transactions without a budget
-          </Link>
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href="/available-budgets">Available budgets</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/budgets/transactions-without-budget">Without budget</Link>
+          </Button>
+        </div>
       )}
 
       {budgets.length === 0 ? null : (
@@ -195,4 +198,28 @@ export default async function BudgetsPage({
       )}
     </div>
   );
+}
+
+/** E6-08 — emit a notification for every budget that is over its limit. */
+async function syncBudgetNotifications(
+  userId: string,
+  budgets: Awaited<ReturnType<typeof getBudgets>>['data'],
+  limitsByBudget: Map<string, Awaited<ReturnType<typeof getBudgetLimits>>['data'][number]>,
+) {
+  for (const budget of budgets) {
+    const limit = limitsByBudget.get(budget.id);
+    const spentEntry = budget.attributes.spent?.[0];
+    if (!limit || !spentEntry) continue;
+    const spent = toDecimal(spentEntry.sum).abs();
+    const amount = toDecimal(limit.attributes.amount);
+    if (spent.greaterThan(amount)) {
+      await createNotification(userId, 'over_budget', {
+        budgetId: budget.id,
+        name: budget.attributes.name,
+        spent: spent.toString(),
+        limit: amount.toString(),
+        currency: spentEntry.currency_code ?? limit.attributes.currency_code,
+      });
+    }
+  }
 }
