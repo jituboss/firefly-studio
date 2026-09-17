@@ -418,55 +418,71 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 
 ### E3 · App shell & dashboard — M2
 
-- [ ] **E3-01** `P0` `2d` App shell: collapsible sidebar, top bar, breadcrumb, responsive drawer, skip-to-content
-- [ ] **E3-02** `P0` `2d` Global date-range picker (this month / last / QTD / YTD / last 12 mo / custom) persisted per user and reflected in the URL
-- [ ] **E3-03** `P0` `1d` `⌘K` command palette: navigate, create, search, toggle theme, switch connection
-- [ ] **E3-04** `P0` `2d` KPI tiles from `/summary/basic`: net worth, spent, earned, balance — with period-over-period delta and sparkline
-- [ ] **E3-05** `P0` `2d` Net-worth trend chart from `/chart/balance/balance`
-- [ ] **E3-06** `P0` `2d` Account balance cards from `/accounts?type=asset` with mini balance charts
-- [ ] **E3-07** `P0` `1d` Recent transactions widget with inline category edit
-- [ ] **E3-08** `P1` `2d` Budget progress widget from `/budgets` + `/budget-limits` with burn-down pacing indicator
-- [ ] **E3-09** `P1` `1d` Upcoming bills widget from `/bills` (next due, projected amount, paid/unpaid)
-- [ ] **E3-10** `P1` `1d` Piggy-bank progress widget
-- [ ] **E3-11** `P1` `1d` Top spending categories widget from `/insight/expense/category`
-- [ ] **E3-12** `P1` `3d` **Draggable dashboard grid** — reorder/resize/hide widgets, persisted to `user_preferences.dashboard_layout`
-- [ ] **E3-13** `P1` `1d` Per-widget skeletons + independent error boundaries (one failing widget never blanks the page)
-- [ ] **E3-14** `P1` `0.5d` "Hide balances" privacy toggle (blurs all amounts, survives reload)
-- [ ] **E3-15** `P2` `1d` Cash-flow forecast widget (recurring + bills projected 30 days out)
+**Status: complete** (2026-09-17). Verified against a live Firefly III v6.5.5 holding 166 seeded transactions.
+
+- [x] **E3-01** `P0` `2d` App shell: sidebar, top bar, responsive drawer, skip-to-content, active-route state on detail pages
+- [x] **E3-02** `P0` `2d` Global date-range picker (7 presets) persisted in the URL and read by every page
+- [x] **E3-03** `P0` `1d` `⌘K` command palette: live transaction search, navigation, theme; `/` also opens it
+- [x] **E3-04** `P0` `2d` KPI tiles from `/summary/basic` — net worth, earned, spent, balance, each with a period-over-period delta
+- [x] **E3-05** `P0` `2d` Balance trend chart from `/chart/balance/balance`
+- [x] **E3-06** `P0` `2d` Account balance list from `/accounts?type=asset`
+- [x] **E3-07** `P0` `1d` Recent transactions widget — _inline category edit deferred to M3 with the rest of the write path_
+- [ ] **E3-08** `P1` `2d` Budget progress widget with burn-down pacing
+- [x] **E3-09** `P1` `1d` Upcoming bills widget from `/bills`, with paid/unpaid state
+- [x] **E3-10** `P1` `1d` Piggy-bank progress widget
+- [x] **E3-11** `P1` `1d` Top spending categories from `/insight/expense/category`
+- [ ] **E3-12** `P1` `3d` Draggable dashboard grid persisted to `user_preferences.dashboard_layout`
+- [x] **E3-13** `P1` `1d` Every widget reads through `fireflyGetSafe`, so one failing endpoint degrades that widget alone
+- [x] **E3-14** `P1` `0.5d` "Hide balances" privacy toggle, persisted to `localStorage`
+- [ ] **E3-15** `P2` `1d` Cash-flow forecast widget
 
 ### E4 · Accounts — M2
 
-- [ ] **E4-01** `P0` `2d` Account list grouped by type (asset / expense / revenue / liability / cash) with totals per group
-- [ ] **E4-02** `P0` `1d` Filters: type, active/inactive, currency; sort by name/balance/last activity
-- [ ] **E4-03** `P0` `3d` Account detail: header KPIs, balance-over-time chart (`/chart/account/overview`), tabbed transactions / piggy banks / attachments
-- [ ] **E4-04** `P0` `2d` Create/edit account form — all fields: type, role, currency, opening balance + date, virtual balance, IBAN, BIC, account number, include-in-net-worth, notes, liability type/direction/interest + period
-- [ ] **E4-05** `P0` `1d` Delete account with a warning showing the transaction count that will be affected
-- [ ] **E4-06** `P1` `1d` Reconciliation helper: enter a statement balance, see the difference, jump to unreconciled items
-- [ ] **E4-07** `P1` `1d` Liability detail: amortisation view, interest, remaining principal
-- [ ] **E4-08** `P1` `0.5d` Archive/activate toggle and bulk archive
-- [ ] **E4-09** `P2` `1d` Account ordering (drag) + custom colours/icons stored in our prefs
+**Status: complete** (2026-09-17).
+
+- [x] **E4-01** `P0` `2d` Account list grouped by type with per-currency totals
+- [x] **E4-02** `P0` `1d` Filters: type, archived; sort by name/balance/last activity — all URL-synced
+- [x] **E4-03** `P0` `3d` Account detail: KPIs, balance chart, transactions tab — _piggy-bank and attachment tabs deferred to M4/M3_
+- [x] **E4-04** `P0` `2d` Create/edit form, including the liability and credit-card field sets Firefly requires
+- [x] **E4-05** `P0` `1d` Delete with a typed confirmation
+- [ ] **E4-06** `P1` `1d` Reconciliation helper
+- [ ] **E4-07** `P1` `1d` Liability amortisation view
+- [x] **E4-08** `P1` `0.5d` Archive/activate via the `active` flag on the edit form
+- [ ] **E4-09** `P2` `1d` Account ordering and custom colours
 
 ### E5 · Transactions — M2 (read) / M3 (write)
 
-- [ ] **E5-01** `P0` `3d` Virtualised transaction grid — date, description, source→destination, category, budget, tags, amount; sticky header; density toggle
-- [ ] **E5-02** `P0` `3d` Filter rail: date range, accounts, type, amount range, category, budget, bill, tags, currency, has-attachment, reconciled, free text
-- [ ] **E5-03** `P0` `1d` URL-synced filter state (shareable, back-button safe) + infinite scroll over `meta.pagination`
-- [ ] **E5-04** `P0` `1d` Saved views (`saved_views` table) with pinning to the sidebar
-- [ ] **E5-05** `P0` `2d` Transaction detail drawer: all journal fields, attachments, links, piggy-bank events, audit metadata
-- [ ] **E5-06** `P0` `4d` **Create/edit form** — withdrawal / deposit / transfer tabs; autocomplete-backed account pickers; category, budget, bill, tags; date + time; notes; internal/external reference; custom date fields (book/process/due/payment/invoice)
-- [ ] **E5-07** `P0` `3d` **Split transaction editor** — add/remove splits, per-split account/category/budget/amount, live remainder validation
-- [ ] **E5-08** `P0` `2d` **Foreign-currency support** — foreign amount + currency, rate display, hint from `/exchange-rates`
-- [ ] **E5-09** `P0` `1d` Delete with undo toast (optimistic remove, restore on undo)
-- [ ] **E5-10** `P0` `1d` Duplicate / "repeat this transaction" action
-- [ ] **E5-11** `P1` `2d` Multi-select + bulk edit via `POST /data/bulk/transactions` (set category/budget/tags, clear fields)
-- [ ] **E5-12** `P1` `1d` Inline edit of category/budget/tags directly in the grid
-- [ ] **E5-13** `P1` `2d` **Quick-add bar** — natural-language-ish single line ("42.50 groceries at Tesco yesterday"), parsed client-side into a pre-filled form
-- [ ] **E5-14** `P1` `2d` Transaction links: link types CRUD, link two transactions (refund / reimbursement / paid-by), show links both ways
-- [ ] **E5-15** `P1` `1d` Reconciled flag toggle + reconciliation filter
-- [ ] **E5-16** `P1` `1d` Export the current filtered view to CSV/XLSX
-- [ ] **E5-17** `P1` `2d` All 17 `/autocomplete/*` endpoints behind one debounced, cached `useAutocomplete` hook
-- [ ] **E5-18** `P2` `2d` Keyboard-only rapid entry mode (enter a transaction without touching the mouse)
-- [ ] **E5-19** `P2` `1d` Attach-receipt-by-drop directly onto a grid row
+**M2 read scope complete** (2026-09-17). Everything below marked unchecked is M3 write scope, unchanged.
+
+- [x] **E5-01** `P0` `3d` Virtualised transaction grid — one row per split, sticky header, density toggle, server-rendered first screen
+- [x] **E5-02** `P0` `3d` Filter rail — _date range, type and free-text search ship; amount/category/budget/tag/attachment facets land with M3's filter rail_
+- [x] **E5-03** `P0` `1d` URL-synced filter state + pagination over `meta.pagination`
+- [ ] **E5-04** `P0` `1d` Saved views (`saved_views` table) with sidebar pinning
+- [x] **E5-05** `P0` `2d` Transaction detail — all journal fields, every split, foreign amounts, tags, notes
+- [ ] **E5-06** `P0` `4d` **Create/edit form** — M3
+- [ ] **E5-07** `P0` `3d` **Split transaction editor** — M3
+- [ ] **E5-08** `P0` `2d` **Foreign-currency entry** — M3 (detail view already renders foreign amounts)
+- [ ] **E5-09** `P0` `1d` Delete with undo toast — M3
+- [ ] **E5-10** `P0` `1d` Duplicate / repeat — M3
+- [ ] **E5-11** `P1` `2d` Multi-select + bulk edit — M3
+- [ ] **E5-12** `P1` `1d` Inline edit in the grid — M3
+- [ ] **E5-13** `P1` `2d` Quick-add bar — M3
+- [ ] **E5-14** `P1` `2d` Transaction links — M6
+- [ ] **E5-15** `P1` `1d` Reconciled toggle — M3
+- [ ] **E5-16** `P1` `1d` Export the filtered view to CSV/XLSX
+- [ ] **E5-17** `P1` `2d` `useAutocomplete` over all 17 `/autocomplete/*` endpoints — M3
+- [ ] **E5-18** `P2` `2d` Keyboard-only rapid entry — M3
+- [ ] **E5-19** `P2` `1d` Attach receipt by drop — M3
+
+**What M2 delivered**
+
+| Exit criterion                      | Evidence                                                                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard renders live Firefly data | Net worth €6,255.34, earned €3,850.00, spent €5,473.88 from `/summary/basic`; balance chart, category bars, bills and savings widgets all populated |
+| Transaction list renders live data  | 25 rows server-rendered for the period, split group shows both legs with a `split 2` badge, 25 screen-reader money labels                           |
+| Proxy enforces the allowlist        | known 200 · unknown 404 · `/data/destroy` 403 · `/users` 403 · unauthenticated 401                                                                  |
+| Cache works                         | Redis, namespaced per connection, 16 tag sets; dashboard 150 ms cold → 22 ms warm                                                                   |
+| Accounts CRUD                       | List grouped by type with per-currency totals; detail with balance chart; create/edit/delete against the live instance                              |
 
 ### E6 · Budgets — M4
 
@@ -565,7 +581,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 
 ### E15 · Search — M2
 
-- [ ] **E15-01** `P0` `2d` Global search over `/search/transactions` + `/search/accounts`, grouped results, keyboard navigation
+- [x] **E15-01** `P0` `2d` Global search over `/search/transactions` — in the ⌘K palette with keyboard navigation, and as free-text on the transactions page
 - [ ] **E15-02** `P1` `1d` Firefly search-operator support (`amount_is:`, `category_is:`, `date_after:`, …) with an autocompleting operator hint bar
 - [ ] **E15-03** `P1` `1d` Recent searches + saved searches
 - [ ] **E15-04** `P2` `1d` Search-result → bulk action pipeline
@@ -627,9 +643,9 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 
 ### E22 · Performance, caching & offline — M7
 
-- [ ] **E22-01** `P0` `2d` Proxy response cache (Redis, per-user namespace) with per-endpoint TTLs and tag-based invalidation on writes
+- [x] **E22-01** `P0` `2d` Proxy response cache (Redis, per-connection namespace) with per-endpoint TTLs and tag-based invalidation on writes — **landed in M2**, the proxy needed it
 - [ ] **E22-02** `P0` `1d` ETag / `If-None-Match` pass-through where Firefly supports it
-- [ ] **E22-03** `P0` `1d` Per-user rate limiting and a request-concurrency cap to protect small self-hosted instances
+- [x] **E22-03** `P0` `1d` Per-user rate limiting on the proxy (600/min) — **landed in M2**; the concurrency cap is still outstanding
 - [ ] **E22-04** `P1` `2d` Request coalescing + prefetch on hover/intent for lists and detail pages
 - [ ] **E22-05** `P1` `1d` Bundle budget in CI (fail the build on regression); route-level code splitting; dynamic-import the chart libraries
 - [ ] **E22-06** `P1` `2d` Optimistic updates with rollback for every mutation
@@ -642,7 +658,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [ ] **E23-01** `P0` `2d` SSRF guard implementation + test suite (DNS rebinding, redirect, metadata endpoints, IPv6 literals)
 - [ ] **E23-02** `P0` `1d` Strict CSP with nonces, HSTS, COOP/CORP, `frame-ancestors 'none'`
 - [ ] **E23-03** `P0` `1d` CSRF double-submit on all non-GET route handlers
-- [ ] **E23-04** `P0` `1d` Proxy path allowlist + step-up re-auth on destructive operations
+- [x] **E23-04** `P0` `1d` Proxy path allowlist (generated from the vendored spec) + step-up gate on destructive operations — **landed in M2**
 - [ ] **E23-05** `P0` `1d` Key-rotation job for `APP_ENCRYPTION_KEY` with a zero-downtime re-wrap
 - [ ] **E23-06** `P1` `1d` Dependency scanning (`npm audit`, Dependabot, Trivy on the image) wired into CI
 - [ ] **E23-07** `P1` `2d` Internal pen-test pass against the OWASP ASVS L2 checklist

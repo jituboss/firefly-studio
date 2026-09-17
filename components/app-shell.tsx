@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { CommandPalette } from '@/components/command-palette';
 import { signOutAction } from '@/server/auth/actions';
 
 /**
@@ -47,8 +48,8 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
     heading: 'Overview',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/accounts', label: 'Accounts', icon: Wallet, milestone: 'M2' },
-      { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight, milestone: 'M2' },
+      { href: '/accounts', label: 'Accounts', icon: Wallet },
+      { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
     ],
   },
   {
@@ -95,7 +96,9 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           </p>
           <ul className="space-y-0.5">
             {section.items.map((item) => {
-              const active = pathname === item.href;
+              const active =
+                pathname === item.href ||
+                (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
               const pending = Boolean(item.milestone);
               return (
                 <li key={item.href}>
@@ -221,6 +224,8 @@ export function AppShell({
           {children}
         </main>
       </div>
+
+      <CommandPalette />
     </div>
   );
 }
