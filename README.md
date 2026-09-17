@@ -28,7 +28,7 @@ sign in here and attach your own Firefly instance.
 | **Operations** — multi-stage non-root image, migrations on boot, health/readiness endpoints, Redis-backed caching, connection health checks                                                | ✅  |
 | **Automation** — rules, recurring transactions, tags, currencies, admin                                                                                                                    | M6  |
 
-117 of 229 backlog items are complete. The plan and the full backlog are in
+117 of 224 backlog items are complete. The plan and the full backlog are in
 [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
 
 ## Quick start

@@ -695,7 +695,7 @@ working, because Firefly fires them, not us.
 - [ ] **E24-04** `P1` `2d` Contract test that replays the vendored spec against a real Firefly container in CI
 - [ ] **E24-05** `P1` `1d` Visual regression on the design system (Playwright snapshots)
 - [ ] **E24-06** `P1` `1d` Seed script that provisions a Firefly container with a realistic multi-year dataset
-- [ ] **E24-07** `P1` `1d` Coverage gate at 80 % for `lib/` and `server/`
+- [ ] **E24-07** `P1` `1d` Coverage gate at 80 % for `lib/` and `server/` — _partially done: the gate exists in `vitest.config.mts` and runs in `ci.yml`, but it is set to **70 %** and `include` covers **`lib/` only**. `lib/` currently sits at ~95 % statements / ~85 % branches, so raising the threshold to 80 % is free today. The real remaining work is bringing `server/` in — the proxy allowlist, the cache tag logic and the split-form parser are the pure parts worth covering first (see LEARNING.md §8)._
 
 ### E25 · DevOps, docs & release — M8
 
@@ -932,15 +932,17 @@ now checked with the file that proves each, so nobody rebuilds them.
 
 ### Shipped in this pass
 
-| Items                  | What landed                                                  |
-| ---------------------- | ------------------------------------------------------------ |
-| E2-28, E2-27           | SMTP + Resend transports; HIBP breach check                  |
-| E2-08, E2-09, E2-10    | Settings → Security: sessions, audit trail, account deletion |
-| E2-06                  | TOTP two-factor with recovery codes                          |
-| E2-23, E2-24, E2-25    | Instance switcher, health checks, broken-connection banner   |
-| E5-11, E5-13, E5-16    | Bulk edit, quick add, CSV export                             |
-| E15-02, E15-03, E15-04 | Search operators, typo warning, recent searches              |
-| E16-04, E16-05, E16-06 | Attachment lightbox, manager, camera capture                 |
+| Items                  | What landed                                                   |
+| ---------------------- | ------------------------------------------------------------- |
+| E2-28, E2-27           | SMTP + Resend transports; HIBP breach check                   |
+| E2-08, E2-09, E2-10    | Settings → Security: sessions, audit trail, account deletion  |
+| E2-06                  | TOTP two-factor with recovery codes                           |
+| E2-23, E2-24, E2-25    | Instance switcher, health checks, broken-connection banner    |
+| E5-11, E5-13, E5-16    | Bulk edit, quick add, CSV export                              |
+| E15-02, E15-03, E15-04 | Search operators, typo warning, recent searches               |
+| E16-04, E16-05, E16-06 | Attachment lightbox, manager, camera capture                  |
+| —                      | Navigation progress bar; transactions list rebuild; docs move |
+| E17                    | **Dropped from scope** — see the epic for why                 |
 
 ### What the live instance taught us this time
 
@@ -990,5 +992,33 @@ attachment rename/delete), and the result was confirmed in Firefly's own API or
 in Postgres afterwards. Test rows created along the way were deleted.
 
 `pnpm check:responsive` now covers 23 routes; the suite is green at
-360/390/768/1440 px. Unit tests: 110 passing (43 at M5, plus 20 for TOTP against
-the RFC vectors and 10 for search-operator parsing).
+360/390/768/1440 px.
+
+### After the checkpoint
+
+Three more pieces landed before the release:
+
+- **A navigation progress bar.** How to drive it took two wrong attempts, both
+  settled by measurement: `history.pushState` fires _after_ an App Router
+  navigation resolves, so a bar driven by it never appeared for programmatic
+  `router.push` at all. The RSC request — `RSC: 1` without
+  `Next-Router-Prefetch` — is the signal that works.
+- **The transactions list was rebuilt twice**, the second time only after
+  screenshotting it. Every numeric check had passed while day labels sat 24px
+  right of the descriptions they labelled and the mobile bulk bar stacked its
+  Delete button on top of the category picker. Measurement is not inspection.
+- **`position: sticky` had never worked anywhere in the app.**
+  `overflow-x-hidden` on the shell root makes the other axis compute to `auto`,
+  turning it into a scroll container, so every sticky element was measured
+  against a scrollport that never moves. The app header had been declaring
+  `sticky top-0` and scrolling off screen since M0.
+
+### Coverage
+
+The pass shipped seven `lib/` modules with no tests at all, and CI caught it:
+40 % statements against the 70 % gate. 106 tests were added afterwards, taking
+`lib/` to ~95 % statements and ~85 % branches. Unit tests: **216 passing**.
+
+Worth knowing for the next red build: `ci.yml` runs `test:cov` while
+`release.yml` runs plain `pnpm test`, so a coverage regression reddens CI
+without blocking a release.

@@ -16,7 +16,7 @@ It is long, and meant to be navigated rather than read:
 | §1–§5   | Product shape, data model, security model, information architecture                         |
 | §6      | Milestones M0–M8 and the effort reconciliation                                              |
 | §7      | Firefly III API coverage inventory — every path, which epic owns it                         |
-| §8      | The backlog: 229 items across 25 epics, each checked off with what shipped and what was cut |
+| §8      | The backlog: 224 items across 25 epics, each checked off with what shipped and what was cut |
 | §9–§12  | Caching, proxy rules, open questions, definition of done                                    |
 | §13–§16 | Verification logs, one per milestone or pass                                                |
 

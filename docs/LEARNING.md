@@ -5,7 +5,7 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-17, mid-way through the M0–M5 backlog pass on branch `feat/m0-m5-backlog`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-18, at the `v0.3.0` release — the M0–M5 backlog pass is merged and shipped. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous handoff note was written:** the M4 branch was merged into `main`, then several follow-up fixes landed against a live Firefly III instance. The current `main` branch has **20+ commits** including:
 
@@ -49,15 +49,14 @@ with a note on what was cut and why; nothing was silently dropped).
 | M7        | Accessibility audit, i18n, PWA, perf budget polish                                                                                             | ❌ not started |
 | M8        | Security hardening pass, load testing, release docs                                                                                            | ❌ not started |
 
-### ⚠️ There is an open branch: `feat/m0-m5-backlog`
+### Released: `v0.3.0`, the first stable version
 
-`main` is tagged `v0.2.0-alpha.1` (M5 complete) and **has not been pushed**. On top of it
-sits an unmerged branch closing the leftover M0–M5 backlog. **Do not start M6 until that
-branch is finished and merged**, or you will be resolving conflicts in the app shell, the
-transactions page and `PROJECT_PLAN.md` for no reason.
+`main` is tagged `v0.3.0` and pushed, and the Docker image publishes `latest` — this is
+the first version where `docker pull jituboss/firefly-studio` with no tag gets a real
+build. The `feat/m0-m5-backlog` branch that closed the leftover M0–M5 work is **merged**
+(squashed) and can be deleted. There is no open branch; start from `main`.
 
-**What that branch has done so far** (8 commits, each deployed and verified against a live
-Firefly instance — see `PROJECT_PLAN.md` §16 for the full log):
+**What that pass shipped** (`PROJECT_PLAN.md` §16 is the full verification log):
 
 | Items        | What landed                                                                 |
 | ------------ | --------------------------------------------------------------------------- |
@@ -69,9 +68,10 @@ Firefly instance — see `PROJECT_PLAN.md` §16 for the full log):
 | E5-11/13/16  | Bulk edit, quick add, CSV export                                            |
 | E15-02/03/04 | Search operators, typo warning, recent searches                             |
 | E16-04/05/06 | Attachment lightbox, manager, camera capture                                |
+| —            | Navigation progress bar; transactions list rebuilt; docs reorganised        |
 
-**What is left on it**, in priority order. `PROJECT_PLAN.md` §8 is authoritative; this is
-the short version:
+**What is still open in M0–M5.** `PROJECT_PLAN.md` §8 is authoritative; this is the short
+version:
 
 - **P1:** E2-19 dashboard preset, E2-20 first-run tour, E3-12 draggable dashboard,
   E4-06 reconciliation helper, E4-07 liability amortisation, E5-12 inline edit,
@@ -80,18 +80,17 @@ the short version:
 - **P2:** E1-12 Storybook, E1-15 OpenTelemetry, E2-07 WebAuthn, E3-15 forecast widget,
   E4-09 account ordering/colours, E5-18 keyboard entry, E6-09 envelope reallocation,
   E7-06 suggested category, E9-06 savings projection, E14-14 year in review.
-- **Blocked, and the plan now says on what:** E2-11 and E2-12 (OAuth credentials),
-  E2-26 (demo instance access), E5-14 and E8-07 (both need M6 resources), E14-13
-  (needs a job runner). Do not "implement" these blind — the plan records what unblocks
-  each.
+- **Blocked, and the plan says on what:** E2-11 and E2-12 (OAuth credentials), E2-26
+  (demo instance access), E5-14 and E8-07 (both need M6 resources), E14-13 (needs a job
+  runner). Do not "implement" these blind — the plan records what unblocks each.
 
-Nothing half-written was left behind; the working tree is clean at every commit.
+**Webhooks were dropped from scope** (E17), not deferred. Firefly III already has a screen
+for them and owns the delivery log and retry state, so a second UI could only be a worse
+copy; the proxy refuses those paths now and the spec-registry test pins that.
 
-**After that branch**, M6 is next — rules, recurring transactions, tags, currencies,
-and admin. **Webhooks were dropped from scope** (E17) — Firefly III already has a screen
-for them and owns the delivery log, so a second UI could only be a worse copy; the proxy
-refuses those paths now. Note the plan's own "recommended solo path" (§6.1) defers M6 wholesale
-in favour of M7 (polish); decide deliberately rather than inheriting the order.
+**M6 is next** — rules, recurring transactions, tags, currencies and admin. Note the plan's
+own "recommended solo path" (§6.1) defers M6 wholesale in favour of M7 (polish); decide
+deliberately rather than inheriting the order.
 
 M5 shipped ten report routes under `/reports`, a shared scope bar, a hand-rolled Sankey,
 a custom report builder backed by `saved_reports`, CSV/print export, and drill-through
@@ -133,7 +132,7 @@ reconciliation proving report totals match Firefly to the cent — is `PROJECT_P
 | Charts          | Recharts                                                                                                                                      | `components/charts/`                                                                                                                                                                                                                                                                                                                                                     |
 | Tables          | TanStack Virtual (only for the transaction grid)                                                                                              | `app/(app)/transactions/table.tsx`                                                                                                                                                                                                                                                                                                                                       |
 | Forms           | Native React Server Actions + `useActionState`, no react-hook-form                                                                            | Every write path follows the same pattern — see §6                                                                                                                                                                                                                                                                                                                       |
-| Testing         | Vitest (43 unit tests, all in `lib/`), Playwright installed but barely used                                                                   | **No tests were written for M2–M4.** See §8, this was a deliberate user instruction, not an oversight                                                                                                                                                                                                                                                                    |
+| Testing         | Vitest (216 unit tests over `lib/`), a 70 % coverage gate in CI, Playwright for the responsive check and for driving Server Actions           | `lib/` is at ~95 % statements. `server/` and the pages are still uncovered — see §8                                                                                                                                                                                                                                                                                      |
 | Package manager | pnpm                                                                                                                                          | `pnpm-workspace.yaml` has a build-approval allowlist because pnpm 9+ blocks postinstall scripts by default                                                                                                                                                                                                                                                               |
 
 ### ⚠️ Two files are named `types.ts` — they are not the same thing, and one is unused
@@ -189,7 +188,15 @@ Read `eslint.config.mjs` if you want the actual rule definitions.
    with no tag, so a rename kept rendering the old title for a full TTL — the page
    revalidated correctly and then re-read stale cache. If you add a resource, add its
    tag, and add any tag it invalidates indirectly.
-7. **The Firefly OpenAPI spec is vendored, not fetched live.** `spec/firefly-iii-v1.yaml`
+7. **Never use `overflow-x-hidden` on a wrapper — use `overflow-x-clip`.** CSS computes a
+   `visible` axis to `auto` when the other axis is not `visible`, so `overflow-x: hidden`
+   turns that element into a scroll container. On the app shell root this silently broke
+   **every `position: sticky` in the app** — the header declared `sticky top-0` and
+   scrolled off screen on every page, measured at top=-900px after a 900px scroll, and
+   nobody noticed for five milestones. `clip` is the one value that clips horizontally
+   without forcing the other axis. The same trap applies to any card wrapping a sticky
+   child.
+8. **The Firefly OpenAPI spec is vendored, not fetched live.** `spec/firefly-iii-v1.yaml`
    is committed. Run `pnpm spec:update` to check for a newer Firefly release (diffs it,
    won't silently overwrite). Run `pnpm spec:codegen` after updating to regenerate
    `spec/generated/operations.ts` (the path/operation registry used by the proxy's
@@ -300,9 +307,20 @@ instance first. See §9 for how to spin one up. Don't trust the OpenAPI spec's f
 
 ## 8. Testing approach — what exists and what deliberately doesn't
 
-- **110 Vitest unit tests**, all over pure `lib/` modules: `money`, `date`, `env`,
-  `logger`, `utils`, plus `totp` (checked against the RFC 6238 published vectors) and
-  `search-operators`. Run `pnpm test`.
+- **216 Vitest unit tests**, all over pure `lib/` modules. Run `pnpm test`, or
+  `pnpm test:cov` for the gate.
+- **`lib/` coverage is a CI gate at 70 %** (`vitest.config.mts`), currently sitting at
+  ~95 % statements / 85 % branches. `ci.yml` runs `test:cov`; `release.yml` runs plain
+  `pnpm test`, so **a coverage regression fails CI but does not block a release** — worth
+  knowing when a release goes green and main is red.
+- Two modules are deliberately under-covered. `image-compress.ts` needs
+  `createImageBitmap` and `OffscreenCanvas`, which Node does not have, so only its guards
+  and its fallback are exercised — the fallback is the part that matters, since a failure
+  there must still upload the original. `env.ts` and `logger.ts` keep process-level gaps.
+- **Tests here pin documented Firefly behaviour, not lines.** Most cases correspond to a
+  comment in the module recording something a live instance did that the spec did not
+  predict. If you change one of those modules and a test fails, re-read the comment before
+  changing the test.
 - **Server Actions cannot be curled.** They post over the RSC protocol, so anything
   behind one — sign-up, MFA, deletion, bulk edit, quick add — has to be driven with
   Playwright against the running container. That is how everything in the backlog pass
@@ -310,6 +328,16 @@ instance first. See §9 for how to spin one up. Don't trust the OpenAPI spec's f
 - **The rate limiter is Postgres-backed** (`rate_limits` table), not Redis. Repeated
   sign-in attempts while testing will lock you out and the symptom is "Too many sign-in
   attempts", not a bug in whatever you just wrote. `delete from rate_limits` to clear.
+- **Screenshot the page; do not only measure it.** The transactions list passed every
+  numeric check — no overflow, checkboxes aligned to the pixel — while day labels sat 24px
+  right of the descriptions they labelled and the mobile bulk bar stacked its Delete
+  button on top of the category picker. One screenshot showed all of it. Playwright's
+  `page.screenshot()` into the scratchpad, then actually look at the image.
+- **The App Router gives you no navigation events.** `router.events` is gone, and
+  `history.pushState` is NOT a usable substitute: it fires AFTER the navigation resolves
+  (measured at 132ms after the click on a fast route, and not at all until completion on a
+  slow one). The signal that works is the RSC request — `RSC: 1` without
+  `Next-Router-Prefetch: 1`. See `components/navigation-progress.tsx`.
 - **No unit/integration tests exist for M2, M3, or M4** — the proxy, the cache, the
   Server Actions, or any page. This was an explicit user instruction ("tests and other
   stuffs can be done later," "focus should be on completing the milestone"), not an
@@ -474,6 +502,9 @@ Use this map before assuming a feature still needs to be built.
 | Reporting arithmetic + scoped queries                | `lib/reports.ts`, `lib/report-scope.ts`, `server/firefly/report-queries.ts`                                                                                                                                        |
 | Report export (CSV, print-to-PDF)                    | `components/reports/report-export.tsx`                                                                                                                                                                             |
 | Settings → connections manager                       | `app/(settings)/settings/connections/page.tsx`, `app/(settings)/settings/connections/connection-card.tsx`                                                                                                          |
+| Navigation progress bar                              | `components/navigation-progress.tsx`                                                                                                                                                                               |
+| Checkbox primitive (indeterminate)                   | `components/ui/checkbox.tsx`                                                                                                                                                                                       |
+| Transactions grid, quick add, search bar             | `app/(app)/transactions/grid.tsx`, `app/(app)/transactions/quick-add.tsx`, `app/(app)/transactions/search-bar.tsx`, `app/(app)/transactions/table.tsx`                                                             |
 | Settings → security (MFA, sessions, audit, deletion) | `app/(settings)/settings/security/`, `server/auth/security.ts`, `server/auth/security-actions.ts`, `server/auth/mfa.ts`, `lib/totp.ts`                                                                             |
 | Mail transports (console / SMTP / Resend)            | `server/mail/index.ts`                                                                                                                                                                                             |
 | Password strength + breach check                     | `lib/password-strength.ts`, `server/auth/breach.ts`, `components/auth/strength-meter.tsx`                                                                                                                          |
