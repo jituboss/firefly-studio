@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, Loader2, Paperclip, Trash2, Upload } from 'lucide-react';
+import { Camera, Download, Eye, Loader2, Paperclip, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { compressImage } from '@/lib/image-compress';
+import { AttachmentPreview, isPreviewable } from './attachment-preview';
 
 export interface AttachmentRow {
   id: string;
@@ -13,7 +15,8 @@ export interface AttachmentRow {
   mime: string;
 }
 
-/** E16-01 / E16-02 / E16-03 — upload, list, download, delete. */
+/** E16-01 … E16-04, E16-06 — upload, list, preview, download, delete, and
+ *  camera capture with client-side compression. */
 export function Attachments({
   journalId,
   initial,
@@ -26,13 +29,23 @@ export function Attachments({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [dragging, setDragging] = React.useState(false);
+  const [preview, setPreview] = React.useState<AttachmentRow | null>(null);
+  const [saved, setSaved] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const cameraRef = React.useRef<HTMLInputElement>(null);
 
   async function upload(files: FileList | File[]) {
     setBusy(true);
     setError(null);
 
-    for (const file of Array.from(files)) {
+    let savedBytes = 0;
+
+    for (const original of Array.from(files)) {
+      // E16-06 — shrink before uploading. A phone photo is 3-8 MB; a legible
+      // receipt is a few hundred KB.
+      const { file, originalBytes, compressed } = await compressImage(original);
+      if (compressed) savedBytes += originalBytes - file.size;
+
       const body = new FormData();
       body.set('file', file);
       body.set('attachable_type', 'TransactionJournal');
@@ -54,6 +67,11 @@ export function Attachments({
       }
     }
 
+    setSaved(
+      savedBytes > 0
+        ? `Compressed before upload, saving ${Math.round(savedBytes / 1024)} KB.`
+        : null,
+    );
     setBusy(false);
     router.refresh();
   }
@@ -134,6 +152,16 @@ export function Attachments({
               <span className="text-muted-foreground text-xs">
                 {row.size > 0 ? `${Math.max(1, Math.round(row.size / 1024))} KB` : ''}
               </span>
+              {isPreviewable(row.mime) ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Preview ${row.filename}`}
+                  onClick={() => setPreview(row)}
+                >
+                  <Eye className="size-4" />
+                </Button>
+              ) : null}
               <Button asChild variant="ghost" size="icon" aria-label={`Download ${row.filename}`}>
                 <a href={`/api/attachments/${row.id}/download`}>
                   <Download className="size-4" />
@@ -153,16 +181,54 @@ export function Attachments({
         </ul>
       ) : null}
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => inputRef.current?.click()}
-        disabled={busy}
-      >
-        <Upload className="size-4" aria-hidden="true" />
-        Add attachment
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+        >
+          <Upload className="size-4" aria-hidden="true" />
+          Add attachment
+        </Button>
+
+        {/* E16-06 — `capture` asks a phone to open the camera directly rather
+            than the file picker. Desktop browsers ignore it and show the
+            picker, so this is safe to render everywhere. */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => cameraRef.current?.click()}
+          disabled={busy}
+          className="sm:hidden"
+        >
+          <Camera className="size-4" aria-hidden="true" />
+          Take a photo
+        </Button>
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={(event) => {
+            if (event.target.files?.length) void upload(event.target.files);
+          }}
+        />
+      </div>
+
+      {saved ? <p className="text-muted-foreground text-xs">{saved}</p> : null}
+
+      {preview ? (
+        <AttachmentPreview
+          id={preview.id}
+          filename={preview.filename}
+          mime={preview.mime}
+          onClose={() => setPreview(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -10,10 +10,10 @@ import {
 /**
  * Guards the generated registry against silent drift. If `pnpm spec:update`
  * pulls a new Firefly release, these numbers change and this test forces a
- * deliberate review of PROJECT_PLAN.md §7 rather than a quiet merge.
+ * deliberate review of docs/PROJECT_PLAN.md §7 rather than a quiet merge.
  */
 describe('vendored Firefly III spec', () => {
-  it('matches the inventory recorded in PROJECT_PLAN.md §7', () => {
+  it('matches the inventory recorded in docs/PROJECT_PLAN.md §7', () => {
     expect(FIREFLY_SPEC_VERSION).toBe('v6.5.5');
     expect(FIREFLY_PATH_COUNT).toBe(164);
     expect(FIREFLY_OPERATION_COUNT).toBe(230);
@@ -38,15 +38,33 @@ describe('vendored Firefly III spec', () => {
     expect(new RegExp(operation!.pattern).test('/v1/accounts/42/attachments')).toBe(false);
   });
 
-  it('guards every destructive and admin-only endpoint', () => {
+  /**
+   * The guard list is pinned exactly, so widening it is a deliberate edit with
+   * a reason rather than a side effect of regenerating the spec. Two kinds of
+   * path are on it: ones that destroy data or reach past the signed-in user,
+   * and ones belonging to a feature this project decided not to build.
+   */
+  it('guards destructive, admin-only and out-of-scope endpoints', () => {
     const guarded = FIREFLY_OPERATIONS.filter((operation) => operation.guarded).map((o) => o.path);
     expect(new Set(guarded)).toEqual(
       new Set([
+        // Destructive or cross-user.
         '/v1/data/destroy',
         '/v1/data/purge',
         '/v1/cron/{cliToken}',
         '/v1/users',
         '/v1/users/{id}',
+        // Webhooks: dropped from scope (E17). Nothing here calls them, and an
+        // endpoint that makes the user's instance POST to an arbitrary URL is
+        // not surface worth leaving open for a feature that does not exist.
+        '/v1/webhooks',
+        '/v1/webhooks/{id}',
+        '/v1/webhooks/{id}/messages',
+        '/v1/webhooks/{id}/messages/{messageId}',
+        '/v1/webhooks/{id}/messages/{messageId}/attempts',
+        '/v1/webhooks/{id}/messages/{messageId}/attempts/{attemptId}',
+        '/v1/webhooks/{id}/submit',
+        '/v1/webhooks/{id}/trigger-transaction/{transactionId}',
       ]),
     );
   });

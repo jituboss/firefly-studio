@@ -9,7 +9,7 @@ It is committed deliberately rather than fetched at build time so that:
 
 1. Builds are reproducible and work offline.
 2. API drift shows up as a reviewable diff in a pull request, not as a runtime
-   failure in production (PROJECT_PLAN.md §9.1, risk register).
+   failure in production (docs/PROJECT_PLAN.md §9.1, risk register).
 
 ## Updating
 

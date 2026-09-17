@@ -10,6 +10,15 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+### Removed
+
+- **Webhooks are no longer planned.** Firefly III already has a screen for them
+  and owns the delivery log, the retry attempts and the failure states, so a
+  second interface over the same data could only be a worse copy of it.
+  Configure webhooks in Firefly III directly — they keep working, because
+  Firefly fires them, not this app. The proxy now refuses those endpoints
+  rather than leaving them open for a feature that does not exist.
+
 ## [0.2.0-alpha.1] - 2026-09-17
 
 Reporting. This is the release that makes Firefly Studio worth opening instead

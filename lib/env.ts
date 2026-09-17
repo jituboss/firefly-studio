@@ -48,6 +48,35 @@ const serverSchema = z.object({
   FIREFLY_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().max(120_000).default(10_000),
   FIREFLY_MAX_RESPONSE_BYTES: z.coerce.number().int().positive().default(26_214_400),
 
+  // E2-28 — mail. `console` keeps the M1 behaviour (links printed to the server
+  // log), which is what makes evaluation and local development work with no
+  // credentials at all. The two real transports are opt-in, and getEnv()
+  // refuses a half-configured one rather than silently falling back to console
+  // and swallowing every verification email in production.
+  MAIL_TRANSPORT: z.enum(['console', 'smtp', 'resend']).default('console'),
+  MAIL_FROM: z.string().default('Firefly Studio <no-reply@localhost>'),
+  MAIL_REPLY_TO: z.string().optional(),
+
+  /** Either a full smtp:// or smtps:// URL, or the discrete fields below. */
+  SMTP_URL: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().max(65_535).optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_SECURE: boolish.optional(),
+
+  RESEND_API_KEY: z.string().optional(),
+
+  // E2-27 — check new passwords against Have I Been Pwned's k-anonymity range
+  // API. Off by default: a self-hosted finance app calling a third party on
+  // sign-up is the operator's decision, not ours. See server/auth/breach.ts.
+  PASSWORD_BREACH_CHECK: boolish.default(false),
+
+  // E2-24 — set to enable /api/cron/health. Left unset the endpoint 404s: an
+  // open endpoint that probes every stored Firefly instance on demand would be
+  // an outbound-request amplifier.
+  CRON_SECRET: z.string().min(16).optional(),
+
   SENTRY_DSN: z.string().optional(),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
   OTEL_SERVICE_NAME: z.string().default('firefly-studio'),
@@ -83,8 +112,26 @@ export function getEnv(): ServerEnv {
     throw new Error(message);
   }
 
+  assertMailConfigured(parsed.data);
+
   cached = parsed.data;
   return cached;
+}
+
+/**
+ * A transport that is selected but not configured is worse than no transport:
+ * every verification and reset email disappears, and the only symptom is users
+ * who cannot sign up. Fail at boot instead.
+ */
+function assertMailConfigured(env: ServerEnv): void {
+  if (env.MAIL_TRANSPORT === 'smtp' && !env.SMTP_URL && !env.SMTP_HOST) {
+    throw new Error(
+      '\nMAIL_TRANSPORT=smtp requires SMTP_URL, or SMTP_HOST (plus SMTP_PORT/USER/PASSWORD).\n',
+    );
+  }
+  if (env.MAIL_TRANSPORT === 'resend' && !env.RESEND_API_KEY) {
+    throw new Error('\nMAIL_TRANSPORT=resend requires RESEND_API_KEY.\n');
+  }
 }
 
 /** Test-only: drop the memoised value so a test can swap process.env. */

@@ -96,7 +96,7 @@ export const getNetWorthChart = (scope: ScopeParams, period: '1D' | '1W' | '1M' 
 
 /**
  * One snapshot bar per budget for the whole range — `budgeted`, `spent`,
- * `left`, `overspent`. NOT a time series, unlike the two above (LEARNING.md §7).
+ * `left`, `overspent`. NOT a time series, unlike the two above (docs/LEARNING.md §7).
  */
 export const getBudgetOverviewChart = (scope: ScopeParams) =>
   fireflyGetSafe<ChartEntry[]>(`/v1/chart/budget/overview${scopedQuery(scope)}`, []);

@@ -199,3 +199,177 @@ export async function splitsToInputs(splits: TransactionSplit[]): Promise<SplitI
     reconciled: split.reconciled,
   }));
 }
+
+// --- E5-11 — bulk operations -------------------------------------------------
+
+export interface BulkTransactionState {
+  error?: string;
+  notice?: string;
+  ok?: boolean;
+}
+
+/**
+ * Apply one field to every selected transaction group.
+ *
+ * Firefly has no batch-update endpoint, so this is N PUTs. They run in
+ * parallel, but `allSettled` rather than `all`: with `all`, one 422 on the
+ * seventh of twenty would reject while the other nineteen still applied, and
+ * the user would be told it failed with no idea what actually changed. This
+ * reports exactly how many succeeded.
+ *
+ * Only ONE field is sent per call, and a Firefly PUT to `transactions` merges
+ * rather than replaces, so setting a category does not clear the budget.
+ */
+export async function bulkUpdateTransactionsAction(
+  _prev: BulkTransactionState,
+  formData: FormData,
+): Promise<BulkTransactionState> {
+  const ids = formData.getAll('ids').map(String).filter(Boolean);
+  if (ids.length === 0) return { error: 'Select at least one transaction.' };
+
+  const field = String(formData.get('field') ?? '');
+  const value = String(formData.get('value') ?? '').trim();
+
+  const payload: Record<string, unknown> = {};
+  switch (field) {
+    case 'category':
+      // An empty value clears the assignment, which is a legitimate bulk edit.
+      payload.category_name = value;
+      break;
+    case 'budget':
+      payload.budget_name = value;
+      break;
+    case 'tags': {
+      const tags = value
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      if (tags.length === 0) return { error: 'Enter at least one tag.' };
+      payload.tags = tags;
+      break;
+    }
+    default:
+      return { error: 'Unknown field.' };
+  }
+
+  const results = await Promise.allSettled(
+    ids.map((id) => fireflyWrite(`/v1/transactions/${id}`, 'PUT', { transactions: [payload] })),
+  );
+
+  const failed = results.filter((result) => result.status === 'rejected');
+
+  revalidatePath('/transactions');
+  revalidatePath('/dashboard');
+  revalidatePath('/reports');
+
+  if (failed.length === results.length) {
+    const first = failed[0];
+    const reason =
+      first && first.status === 'rejected' && first.reason instanceof FireflyRequestError
+        ? first.reason.message
+        : 'Firefly rejected the change.';
+    return { error: reason };
+  }
+
+  if (failed.length > 0) {
+    return {
+      ok: true,
+      notice: `Updated ${results.length - failed.length} of ${results.length}. ${failed.length} failed.`,
+    };
+  }
+
+  return { ok: true, notice: `Updated ${results.length}.` };
+}
+
+/** E5-11 — delete every selected group. Same all-or-partial reporting. */
+export async function bulkDeleteTransactionsAction(
+  _prev: BulkTransactionState,
+  formData: FormData,
+): Promise<BulkTransactionState> {
+  const ids = formData.getAll('ids').map(String).filter(Boolean);
+  if (ids.length === 0) return { error: 'Select at least one transaction.' };
+
+  const results = await Promise.allSettled(
+    ids.map((id) => fireflyWrite(`/v1/transactions/${id}`, 'DELETE')),
+  );
+  const failed = results.filter((result) => result.status === 'rejected').length;
+
+  revalidatePath('/transactions');
+  revalidatePath('/dashboard');
+  revalidatePath('/reports');
+
+  if (failed === results.length) return { error: 'Firefly refused to delete these.' };
+  return {
+    ok: true,
+    notice:
+      failed > 0
+        ? `Deleted ${results.length - failed} of ${results.length}. ${failed} failed.`
+        : `Deleted ${results.length}.`,
+  };
+}
+
+// --- E5-13 — quick add -------------------------------------------------------
+
+export interface QuickAddState {
+  error?: string;
+  notice?: string;
+  ok?: boolean;
+}
+
+/**
+ * Record one simple transaction without leaving the list.
+ *
+ * Deliberately narrow: a description, an amount, two account names and an
+ * optional category. Anything with splits, a foreign amount or attachments
+ * belongs in the full form — a quick-add that grows fields until it is the full
+ * form is just a worse copy of it.
+ *
+ * Stays on the page rather than redirecting to the new transaction, because the
+ * point is entering several in a row.
+ */
+export async function quickAddTransactionAction(
+  _prev: QuickAddState,
+  formData: FormData,
+): Promise<QuickAddState> {
+  const description = String(formData.get('description') ?? '').trim();
+  const amount = String(formData.get('amount') ?? '').trim();
+  const type = String(formData.get('type') ?? 'withdrawal');
+  const source = String(formData.get('source_name') ?? '').trim();
+  const destination = String(formData.get('destination_name') ?? '').trim();
+  const category = String(formData.get('category_name') ?? '').trim();
+  const date = String(formData.get('date') ?? '').trim();
+
+  if (!description) return { error: 'Add a description.' };
+  if (!amount || !/^\d+([.,]\d+)?$/.test(amount)) {
+    return { error: 'Enter an amount, digits only.' };
+  }
+  if (!source || !destination) return { error: 'Name both accounts.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: 'Pick a date.' };
+
+  const split: Record<string, unknown> = {
+    type,
+    date,
+    description,
+    // Firefly wants a dot decimal separator regardless of locale.
+    amount: amount.replace(',', '.'),
+    source_name: source,
+    destination_name: destination,
+  };
+  if (category) split.category_name = category;
+
+  try {
+    await fireflyWrite('/v1/transactions', 'POST', {
+      error_if_duplicate_hash: false,
+      apply_rules: true,
+      transactions: [split],
+    });
+  } catch (error) {
+    if (error instanceof FireflyRequestError) return { error: error.message };
+    throw error;
+  }
+
+  revalidatePath('/transactions');
+  revalidatePath('/dashboard');
+  revalidatePath('/reports');
+  return { ok: true, notice: `Added “${description}”.` };
+}

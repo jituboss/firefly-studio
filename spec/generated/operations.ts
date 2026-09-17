@@ -16,7 +16,7 @@ export interface FireflyOperation {
   readonly summary: string;
   /** Anchored regex matching a concrete request path. */
   readonly pattern: string;
-  /** Denied by the proxy unless explicitly enabled (PROJECT_PLAN.md §4.3). */
+  /** Denied by the proxy unless explicitly enabled (docs/PROJECT_PLAN.md §4.3). */
   readonly guarded: boolean;
 }
 
@@ -2012,7 +2012,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "List all webhooks.",
     "pattern": "^/v1/webhooks$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks",
@@ -2021,7 +2021,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Store a new webhook",
     "pattern": "^/v1/webhooks$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}",
@@ -2030,7 +2030,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Delete a webhook.",
     "pattern": "^/v1/webhooks/[^/]+$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}",
@@ -2039,7 +2039,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Get a single webhook.",
     "pattern": "^/v1/webhooks/[^/]+$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}",
@@ -2048,7 +2048,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Update existing webhook.",
     "pattern": "^/v1/webhooks/[^/]+$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}/messages",
@@ -2057,7 +2057,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Get all the messages of a single webhook.",
     "pattern": "^/v1/webhooks/[^/]+/messages$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}/messages/{messageId}",
@@ -2066,7 +2066,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Delete a webhook message.",
     "pattern": "^/v1/webhooks/[^/]+/messages/[^/]+$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}/messages/{messageId}",
@@ -2075,7 +2075,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Get a single message from a webhook.",
     "pattern": "^/v1/webhooks/[^/]+/messages/[^/]+$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}/messages/{messageId}/attempts",
@@ -2084,7 +2084,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Get all the failed attempts of a single webhook message.",
     "pattern": "^/v1/webhooks/[^/]+/messages/[^/]+/attempts$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}/messages/{messageId}/attempts/{attemptId}",
@@ -2093,7 +2093,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Delete a webhook attempt.",
     "pattern": "^/v1/webhooks/[^/]+/messages/[^/]+/attempts/[^/]+$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}/messages/{messageId}/attempts/{attemptId}",
@@ -2102,7 +2102,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Get a single failed attempt from a single webhook message.",
     "pattern": "^/v1/webhooks/[^/]+/messages/[^/]+/attempts/[^/]+$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}/submit",
@@ -2111,7 +2111,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Submit messages for a webhook.",
     "pattern": "^/v1/webhooks/[^/]+/submit$",
-    "guarded": false
+    "guarded": true
   },
   {
     "path": "/v1/webhooks/{id}/trigger-transaction/{transactionId}",
@@ -2120,7 +2120,7 @@ export const FIREFLY_OPERATIONS: readonly FireflyOperation[] = [
     "tag": "webhooks",
     "summary": "Trigger webhook for a given transaction.",
     "pattern": "^/v1/webhooks/[^/]+/trigger-transaction/[^/]+$",
-    "guarded": false
+    "guarded": true
   }
 ] as const;
 

@@ -6,7 +6,7 @@
 
 - [ ] E??-??
 
-## Definition of done (PROJECT_PLAN.md §12)
+## Definition of done (docs/PROJECT_PLAN.md §12)
 
 - [ ] Works against a real Firefly III instance, not just mocks
 - [ ] Loading, empty, and error states implemented

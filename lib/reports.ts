@@ -5,7 +5,7 @@ import { abs, add, divide, subtract, toDecimal } from '@/lib/money';
  * tested) without a Firefly instance.
  *
  * Two shape facts drive everything here, both verified against a live instance
- * rather than read off the OpenAPI spec (LEARNING.md §7):
+ * rather than read off the OpenAPI spec (docs/LEARNING.md §7):
  *
  *  1. `/insight/*` returns ONE ENTRY PER (resource, currency) pair. A category
  *     with both EUR and USD spending appears twice, with the same `id`. Summing
@@ -484,7 +484,7 @@ export interface BudgetReport {
  *
  * That endpoint returns ONE BAR PER BUDGET for the whole range — not a time
  * series — with `budgeted`, `spent`, `left` and `overspent` in `entries`
- * (LEARNING.md §7: the `/chart/*` endpoints do not share a shape). `spent`
+ * (docs/LEARNING.md §7: the `/chart/*` endpoints do not share a shape). `spent`
  * arrives negative and is normalised to a magnitude here.
  */
 export function buildBudgetReport(

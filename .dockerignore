@@ -9,7 +9,10 @@ coverage
 .env
 .env.*
 !.env.example
+# Documentation never needs to be in the runtime image. `docs/` covers the plan,
+# the handoff notes, the ADRs and the release guide.
 tests/
 docs/
 README.md
-PROJECT_PLAN.md
+CHANGELOG.md
+CONTRIBUTING.md

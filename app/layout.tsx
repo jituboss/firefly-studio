@@ -1,8 +1,10 @@
+import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { NavigationProgress } from '@/components/navigation-progress';
 import './globals.css';
 
 const inter = Inter({
@@ -46,6 +48,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           disableTransitionOnChange
         >
           <QueryProvider>
+            {/* Suspense is required, not stylistic: the bar reads
+                useSearchParams(), which without a boundary would opt every
+                statically rendered page into client rendering. */}
+            <Suspense fallback={null}>
+              <NavigationProgress />
+            </Suspense>
             <a
               href="#main"
               className="bg-primary text-primary-foreground sr-only rounded-md px-4 py-2 focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"

@@ -2,7 +2,7 @@ import { eq, and, desc, isNull } from 'drizzle-orm';
 import { db } from '@/server/db';
 import { notifications } from '@/server/db/schema';
 
-export type NotificationKind = 'over_budget' | 'unpaid_bill';
+export type NotificationKind = 'over_budget' | 'unpaid_bill' | 'connection_failing';
 
 export async function listUnreadNotifications(userId: string) {
   return db

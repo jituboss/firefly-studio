@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import {
   ArrowLeftRight,
   Banknote,
-  CalendarClock,
   ChartPie,
   Coins,
   Flame,
@@ -14,13 +13,14 @@ import {
   LogOut,
   Menu,
   PiggyBank,
+  Paperclip,
   Receipt,
   Repeat,
   Settings,
+  ShieldCheck,
   Shapes,
   Tags,
   Wallet,
-  Webhook,
   Workflow,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,13 +28,15 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CommandPalette } from '@/components/command-palette';
 import { NotificationInbox } from '@/components/notifications/inbox';
+import { ConnectionSwitcher, type SwitchableConnection } from '@/components/connection-switcher';
+import { ConnectionBanner } from '@/components/connection-banner';
 import { signOutAction } from '@/server/auth/actions';
 import type { notifications as notificationsSchema } from '@/server/db/schema';
 
 type NotificationRow = typeof notificationsSchema.$inferSelect;
 
 /**
- * M0 application shell. The information architecture is PROJECT_PLAN.md §5.3;
+ * M0 application shell. The information architecture is docs/PROJECT_PLAN.md §5.3;
  * E3-01 replaces this with the full collapsible sidebar, breadcrumb trail and
  * command palette.
  */
@@ -63,6 +65,7 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
       { href: '/categories', label: 'Categories', icon: Shapes },
       { href: '/bills', label: 'Subscriptions', icon: Receipt },
       { href: '/piggy-banks', label: 'Piggy banks', icon: PiggyBank },
+      { href: '/attachments', label: 'Attachments', icon: Paperclip },
     ],
   },
   {
@@ -76,18 +79,13 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
       { href: '/rules', label: 'Rules', icon: Workflow, milestone: 'M6' },
       { href: '/tags', label: 'Tags', icon: Tags, milestone: 'M6' },
       { href: '/currencies', label: 'Currencies', icon: Coins, milestone: 'M6' },
-      { href: '/webhooks', label: 'Webhooks', icon: Webhook, milestone: 'M6' },
     ],
   },
   {
     heading: 'Manage',
     items: [
       { href: '/settings/connections', label: 'Connections', icon: Settings },
-      // E14-13, scheduled report emails, is P2 and was deliberately left out of
-      // M5 — it needs a job runner and a mail transport, neither of which exists
-      // yet. Tagged 'later' rather than a milestone number so it does not claim
-      // to be part of a milestone that has shipped.
-      { href: '/reports-scheduled', label: 'Scheduled', icon: CalendarClock, milestone: 'later' },
+      { href: '/settings/security', label: 'Security', icon: ShieldCheck },
     ],
   },
 ];
@@ -144,16 +142,16 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 export function AppShell({
   children,
   userName,
-  connectionLabel,
-  connectionStatus,
+  connections = [],
   notifications,
 }: {
   children: React.ReactNode;
   userName?: string;
-  connectionLabel?: string | null;
-  connectionStatus?: string | null;
+  /** E2-23 — every Firefly instance this user has attached. */
+  connections?: SwitchableConnection[];
   notifications?: NotificationRow[];
 }): React.JSX.Element {
+  const active = connections.find((entry) => entry.isDefault) ?? connections[0] ?? null;
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   // Without this the page behind the drawer keeps scrolling — including
@@ -178,7 +176,21 @@ export function AppShell({
   }, [mobileOpen]);
 
   return (
-    <div className="bg-background min-h-svh overflow-x-hidden">
+    /*
+     * `overflow-x-clip`, NOT `overflow-x-hidden`.
+     *
+     * CSS computes a `visible` axis to `auto` when the other axis is `hidden`,
+     * so `overflow-x: hidden` here silently made this element a scroll
+     * container for the whole app — and every `position: sticky` inside it was
+     * measured against a scrollport that never moves. The app header declared
+     * `sticky top-0` and scrolled straight off the screen; measured at
+     * top=-900px after a 900px scroll, on every page.
+     *
+     * `clip` is the exception to that rule: paired with `overflow-y: visible`
+     * the y axis stays visible, so no scroll container is created and sticky
+     * works, while horizontal overflow is clipped exactly as before.
+     */
+    <div className="bg-background min-h-svh overflow-x-clip">
       {/* Desktop sidebar */}
       <aside className="bg-sidebar border-sidebar-border fixed inset-y-0 left-0 z-30 hidden w-60 flex-col overflow-y-auto border-r lg:flex">
         <div className="flex h-14 shrink-0 items-center gap-2 px-5">
@@ -221,22 +233,8 @@ export function AppShell({
           >
             <Menu className="size-4" />
           </Button>
-          <div className="flex-1">
-            {connectionLabel ? (
-              <span className="text-muted-foreground hidden items-center gap-1.5 text-sm sm:inline-flex">
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'size-1.5 rounded-full',
-                    connectionStatus === 'ok' ? 'bg-income' : 'bg-warning',
-                  )}
-                />
-                {connectionLabel}
-                <span className="sr-only">
-                  {connectionStatus === 'ok' ? 'connected' : `status: ${connectionStatus}`}
-                </span>
-              </span>
-            ) : null}
+          <div className="min-w-0 flex-1">
+            <ConnectionSwitcher connections={connections} />
           </div>
 
           {userName ? (
@@ -255,6 +253,13 @@ export function AppShell({
             </Button>
           </form>
         </header>
+
+        {/* E2-25 — a broken connection must announce itself. Without this a
+            revoked token looks exactly like a quiet month: every page renders,
+            every figure is just stale. */}
+        {active && active.status && active.status !== 'ok' ? (
+          <ConnectionBanner label={active.label} status={active.status} connectionId={active.id} />
+        ) : null}
 
         <main id="main" className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
           {children}

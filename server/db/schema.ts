@@ -16,7 +16,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 /**
- * Firefly Studio — application schema (PROJECT_PLAN.md §3).
+ * Firefly Studio — application schema (docs/PROJECT_PLAN.md §3).
  *
  * INVARIANT: this database stores identity, connection credentials, preferences
  * and derived artefacts. It stores NO financial records. Firefly III remains the

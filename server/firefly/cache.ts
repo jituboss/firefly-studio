@@ -49,7 +49,8 @@ export type CacheTag =
   | 'insight'
   | 'charts'
   | 'currencies'
-  | 'tags';
+  | 'tags'
+  | 'attachments';
 
 /** Which tags a given API path belongs to. */
 export function tagsForPath(path: string): CacheTag[] {
@@ -65,6 +66,10 @@ export function tagsForPath(path: string): CacheTag[] {
   if (path.includes('/chart')) tags.push('charts');
   if (path.includes('/currencies') || path.includes('/exchange-rates')) tags.push('currencies');
   if (path.includes('/tags')) tags.push('tags');
+  // E16-05 — without this an attachment write invalidated nothing, so the
+  // manager kept rendering the old title for a full TTL after a rename.
+  // Transactions come along because a split carries `has_attachments`.
+  if (path.includes('/attachments')) tags.push('attachments', 'transactions');
   return tags;
 }
 
@@ -156,4 +161,48 @@ export function ttlForPath(path: string): number {
   if (path.includes('/currencies') || path.includes('/about')) return 900;
   if (path.includes('/transactions')) return 30;
   return 60;
+}
+
+/**
+ * E2-10 — drop every cached entry belonging to a connection.
+ *
+ * Deleting an account removes its connection rows, but the cached Firefly
+ * responses are keyed by connection id and would otherwise sit in Redis until
+ * their TTL expired — someone's financial data outliving the account that
+ * asked us to erase it. Called on account deletion and on connection removal.
+ *
+ * SCAN, not KEYS: KEYS blocks the Redis event loop for the whole keyspace,
+ * which on a shared instance is everyone's outage.
+ */
+export async function purgeConnectionNamespace(connectionId: string): Promise<number> {
+  const client = redis();
+  let removed = 0;
+
+  if (client) {
+    try {
+      for (const pattern of [`ff:${connectionId}:*`, `fftag:${connectionId}:*`]) {
+        let cursor = '0';
+        do {
+          const [next, found] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 200);
+          cursor = next;
+          if (found.length > 0) {
+            await client.del(...found);
+            removed += found.length;
+          }
+        } while (cursor !== '0');
+      }
+      return removed;
+    } catch (error) {
+      logger.warn({ err: error, connectionId }, 'Redis namespace purge failed; clearing memory');
+    }
+  }
+
+  const prefix = `ff:${connectionId}:`;
+  for (const k of memo.keys()) {
+    if (k.startsWith(prefix)) {
+      memo.delete(k);
+      removed += 1;
+    }
+  }
+  return removed;
 }

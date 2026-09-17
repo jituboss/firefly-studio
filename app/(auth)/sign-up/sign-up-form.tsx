@@ -5,49 +5,12 @@ import { useFormStatus } from 'react-dom';
 import { signUpAction, type ActionState } from '@/server/auth/actions';
 import { Input, Label } from '@/components/ui/input';
 import { FieldError, FormMessage, SubmitButton } from '@/components/auth/form-shell';
-
-const MIN_LENGTH = 12;
+import { StrengthMeter } from '@/components/auth/strength-meter';
+import { MIN_PASSWORD_LENGTH } from '@/lib/password-strength';
 
 function Submit() {
   const { pending } = useFormStatus();
   return <SubmitButton pending={pending}>Create account</SubmitButton>;
-}
-
-/** A four-segment meter. Deliberately not zxcvbn — see server/auth/password.ts. */
-function StrengthMeter({ password }: { password: string }) {
-  let score = 0;
-  if (password.length >= MIN_LENGTH) score += 1;
-  if (password.length >= 16) score += 1;
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
-  if (/\d/.test(password) && /[^\w\s]/.test(password)) score += 1;
-
-  const labels = ['Too short', 'Weak', 'Fair', 'Good', 'Strong'];
-
-  return (
-    <div className="space-y-1">
-      <div className="flex gap-1" aria-hidden="true">
-        {[0, 1, 2, 3].map((index) => (
-          <span
-            key={index}
-            className={`h-1 flex-1 rounded-full ${
-              password.length === 0
-                ? 'bg-muted'
-                : index < score
-                  ? score <= 1
-                    ? 'bg-expense'
-                    : score <= 2
-                      ? 'bg-warning'
-                      : 'bg-income'
-                  : 'bg-muted'
-            }`}
-          />
-        ))}
-      </div>
-      <p className="text-muted-foreground text-xs" aria-live="polite">
-        {password.length === 0 ? `At least ${MIN_LENGTH} characters.` : labels[score]}
-      </p>
-    </div>
-  );
 }
 
 export function SignUpForm() {
@@ -87,7 +50,7 @@ export function SignUpForm() {
           name="password"
           type="password"
           required
-          minLength={MIN_LENGTH}
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

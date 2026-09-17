@@ -40,6 +40,8 @@ const PAGES = [
   '/reports/bills',
   '/reports/cash-flow',
   '/reports/custom',
+  '/settings/security',
+  '/attachments',
 ];
 const WIDTHS = [360, 390, 768, 1440];
 

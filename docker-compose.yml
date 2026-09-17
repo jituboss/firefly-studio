@@ -63,6 +63,22 @@ services:
       #   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-ZGV2LW9ubHktZG8tbm90LXVzZS1pbi1wcm9kdWN0aW9uIQ==}
       AUTH_SECRET: ${AUTH_SECRET:-ZGV2LW9ubHktYXV0aC1zZWNyZXQtcmVwbGFjZS1tZS1wbHo=}
+      # E2-28 — mail. Defaults to the console transport so the stack works with
+      # no mail provider; point MAIL_TRANSPORT at the mailpit service below
+      # (--profile mail) to exercise a real SMTP path locally.
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-console}
+      MAIL_FROM: ${MAIL_FROM:-Firefly Studio <no-reply@localhost>}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      # E2-27 — off by default; calling HIBP on sign-up is the operator's call.
+      PASSWORD_BREACH_CHECK: ${PASSWORD_BREACH_CHECK:-false}
+      # E2-24 — set to enable /api/cron/health for a real cron driver. Unset,
+      # the endpoint 404s and the app falls back to opportunistic checks.
+      CRON_SECRET: ${CRON_SECRET:-}
       # Self-hosted Firefly usually lives on a LAN, so this is on for local dev.
       FIREFLY_ALLOW_PRIVATE_NETWORKS: 'true'
       FIREFLY_ALLOW_INSECURE_HTTP: 'true'
@@ -73,6 +89,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # -------------------------------------------------------------------------
+  # A local SMTP sink, so the real mail path (E2-28) can be exercised without
+  # owning a mail provider. Catches everything; nothing leaves the machine.
+  #   docker compose --profile mail up -d mailpit
+  #   MAIL_TRANSPORT=smtp SMTP_HOST=mailpit SMTP_PORT=1025 docker compose --profile app up -d app
+  # Read the caught mail at http://localhost:8025.
+  # -------------------------------------------------------------------------
+  mailpit:
+    profiles: ['mail']
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '8025:8025' # web UI
+      - '1025:1025' # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 'true'
+      MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
 
   # -------------------------------------------------------------------------
   # A real Firefly III instance to develop against (E24-06 seeds it).

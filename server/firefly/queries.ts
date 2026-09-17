@@ -1,6 +1,7 @@
 import 'server-only';
 import { fireflyGet, fireflyGetSafe } from './api';
 import type {
+  Resource,
   Account,
   BasicSummary,
   Bill,
@@ -287,3 +288,33 @@ export interface ObjectGroup {
     updated_at?: string;
   };
 }
+
+// --- E16-05: attachment manager ---------------------------------------------
+
+export interface AttachmentAttributes {
+  attachable_id: string;
+  attachable_type: string;
+  filename: string;
+  title: string | null;
+  notes: string | null;
+  mime: string;
+  size: number;
+  hash: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type Attachment = Resource<AttachmentAttributes>;
+
+/**
+ * Every attachment on the connected ledger.
+ *
+ * Firefly has no filter parameters here — no `attachable_type`, no search — so
+ * the filtering in the manager is done after the fetch. Fine for a personal
+ * ledger; a five-figure attachment count would need paging through instead.
+ */
+export const getAttachments = (params: { page?: number; limit?: number } = {}) =>
+  fireflyGetSafe<Paged<Attachment>>(
+    `/v1/attachments${qs({ ...params, limit: params.limit ?? 100 })}`,
+    { data: [], meta: {} },
+  );

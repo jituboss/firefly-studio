@@ -62,6 +62,8 @@ function Stepper({ current }: { current: number }) {
 }
 
 export function OnboardingWizard(props: {
+  /** E2-23 — true when attaching an extra instance rather than first-run setup. */
+  adding?: boolean;
   initialStep: 1 | 2 | 3;
   initialBaseUrl: string;
   connectionLabel: string | null;
@@ -90,6 +92,13 @@ export function OnboardingWizard(props: {
           <Flame className="text-primary size-5" aria-hidden="true" />
           <span className="font-semibold tracking-tight">Firefly Studio</span>
         </div>
+
+        {props.adding ? (
+          <div className="bg-muted mb-6 rounded-md px-3 py-2 text-sm">
+            Adding another Firefly instance. Your existing connection stays active until you switch
+            to this one.
+          </div>
+        ) : null}
 
         <Stepper current={step} />
 

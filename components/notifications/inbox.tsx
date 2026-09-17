@@ -90,6 +90,18 @@ export function NotificationInbox({ notifications }: { notifications: Notificati
                       >
                         View bill
                       </Button>
+                    ) : n.kind === 'connection_failing' ? (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto px-0 py-0 text-xs"
+                        onClick={() => {
+                          setOpen(false);
+                          router.push('/settings/connections');
+                        }}
+                      >
+                        Fix connection
+                      </Button>
                     ) : null}
                   </div>
                   <form action={markNotificationReadAction}>
@@ -116,6 +128,15 @@ function notificationText(n: Notification): string {
   if (n.kind === 'unpaid_bill') {
     const name = String(n.payload.name ?? 'A subscription');
     return `${name} is due and has not been paid.`;
+  }
+  if (n.kind === 'connection_failing') {
+    const label = String(n.payload.label ?? 'A Firefly connection');
+    // Name the cause: "unauthorised" needs a new token, "unreachable" needs the
+    // server looked at. Telling someone only that it "failed" sends them to the
+    // wrong fix.
+    return n.payload.status === 'unauthorised'
+      ? `${label} rejected its token. Re-authenticate to keep syncing.`
+      : `${label} could not be reached.`;
   }
   return 'New notification.';
 }

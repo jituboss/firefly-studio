@@ -1,6 +1,7 @@
 'use server';
 
-import { headers } from 'next/headers';
+import { requestMeta } from './request-meta';
+import { isMfaRequired, startMfaChallenge } from './mfa';
 import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -8,6 +9,7 @@ import { db } from '@/server/db';
 import { users, userPreferences } from '@/server/db/schema';
 import { getEnv } from '@/lib/env';
 import { hashPassword, scorePassword, verifyPassword } from './password';
+import { breachMessage, checkPasswordBreached } from './breach';
 import { createSession, destroyCurrentSession, revokeAllSessions } from './session';
 import { consumeToken, issueToken } from './tokens';
 import { consumeRateLimit, EMAIL_LIMIT, LOGIN_LIMIT } from './rate-limit';
@@ -25,17 +27,6 @@ export interface ActionState {
   error?: string;
   notice?: string;
   fieldErrors?: Record<string, string>;
-}
-
-async function requestMeta() {
-  const headerList = await headers();
-  return {
-    ip:
-      headerList.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-      headerList.get('x-real-ip') ??
-      null,
-    userAgent: headerList.get('user-agent') ?? null,
-  };
 }
 
 const emailSchema = z.email('Enter a valid email address.').max(254);
@@ -59,6 +50,14 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   const strength = scorePassword(password);
   if (strength.problems.length > 0) {
     return { fieldErrors: { password: strength.problems.join(' ') } };
+  }
+
+  // E2-27 — ordered after the local rules on purpose: a password that fails on
+  // length should never cost an outbound request. No-ops unless
+  // PASSWORD_BREACH_CHECK is on, and fails open if HIBP is unreachable.
+  const breach = await checkPasswordBreached(password);
+  if (breach.breached) {
+    return { fieldErrors: { password: breachMessage(breach.count) } };
   }
 
   const meta = await requestMeta();
@@ -214,6 +213,16 @@ export async function signInAction(_prev: ActionState, formData: FormData): Prom
     };
   }
 
+  // E2-06 — a confirmed second factor means no session yet. The half-
+  // authenticated state lives in a short-lived signed cookie, not a session
+  // row: creating a real session here would leave one open for an
+  // unauthenticated user for as long as they stall on the code screen.
+  if (await isMfaRequired(user.id)) {
+    await startMfaChallenge(user.id);
+    await recordAudit({ userId: user.id, action: 'auth.mfa.challenged', ...meta });
+    redirect('/sign-in/verify');
+  }
+
   await createSession(user.id, {
     ip: meta.ip ?? undefined,
     userAgent: meta.userAgent ?? undefined,
@@ -278,6 +287,11 @@ export async function resetPasswordAction(
   const strength = scorePassword(password);
   if (strength.problems.length > 0) {
     return { fieldErrors: { password: strength.problems.join(' ') } };
+  }
+
+  const breach = await checkPasswordBreached(password);
+  if (breach.breached) {
+    return { fieldErrors: { password: breachMessage(breach.count) } };
   }
 
   const consumed = await consumeToken(token, 'reset_password');

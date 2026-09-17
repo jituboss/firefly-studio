@@ -5,7 +5,7 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-17, at the end of M5 (reporting). Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-17, mid-way through the M0–M5 backlog pass on branch `feat/m0-m5-backlog`. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous handoff note was written:** the M4 branch was merged into `main`, then several follow-up fixes landed against a live Firefly III instance. The current `main` branch has **20+ commits** including:
 
@@ -45,22 +45,58 @@ with a note on what was cut and why; nothing was silently dropped).
 | M3        | Full transaction write lifecycle: create/edit/delete, split editor, attachments (upload/download)                                              | ✅ done        |
 | M4        | Budgets (+ per-period limits), Categories, Bills/subscriptions, Piggy banks — all CRUD, plus Available budgets and Object groups landing pages | ✅ done        |
 | M5        | Reporting: 8 standard reports + a custom builder, CSV/print export, drill-through                                                              | ✅ done        |
-| M6        | Rules, recurring transactions, tags, currencies/exchange rates, webhooks, links, admin                                                         | ❌ not started |
+| M6        | Rules, recurring transactions, tags, currencies/exchange rates, links, admin                                                                   | ❌ not started |
 | M7        | Accessibility audit, i18n, PWA, perf budget polish                                                                                             | ❌ not started |
 | M8        | Security hardening pass, load testing, release docs                                                                                            | ❌ not started |
 
-**Start M6 next** unless told otherwise — rules, recurring transactions, tags, currencies,
-webhooks and admin. Note the plan's own "recommended solo path" (§6.1) defers M6 wholesale
+### ⚠️ There is an open branch: `feat/m0-m5-backlog`
+
+`main` is tagged `v0.2.0-alpha.1` (M5 complete) and **has not been pushed**. On top of it
+sits an unmerged branch closing the leftover M0–M5 backlog. **Do not start M6 until that
+branch is finished and merged**, or you will be resolving conflicts in the app shell, the
+transactions page and `PROJECT_PLAN.md` for no reason.
+
+**What that branch has done so far** (8 commits, each deployed and verified against a live
+Firefly instance — see `PROJECT_PLAN.md` §16 for the full log):
+
+| Items        | What landed                                                                 |
+| ------------ | --------------------------------------------------------------------------- |
+| —            | Reconciled the backlog: **9 items were already built and simply unchecked** |
+| E2-28, E2-27 | SMTP + Resend mail transports; HIBP breach check                            |
+| E2-08/09/10  | Settings → Security: sessions, audit trail, account deletion                |
+| E2-06        | TOTP two-factor with recovery codes                                         |
+| E2-23/24/25  | Instance switcher, health checks, broken-connection banner                  |
+| E5-11/13/16  | Bulk edit, quick add, CSV export                                            |
+| E15-02/03/04 | Search operators, typo warning, recent searches                             |
+| E16-04/05/06 | Attachment lightbox, manager, camera capture                                |
+
+**What is left on it**, in priority order. `PROJECT_PLAN.md` §8 is authoritative; this is
+the short version:
+
+- **P1:** E2-19 dashboard preset, E2-20 first-run tour, E3-12 draggable dashboard,
+  E4-06 reconciliation helper, E4-07 liability amortisation, E5-12 inline edit,
+  E7-05 merge categories, E9-05 object-group assignment, E14-15 reconciliation test,
+  E1-14 Zod schemas at the proxy boundary.
+- **P2:** E1-12 Storybook, E1-15 OpenTelemetry, E2-07 WebAuthn, E3-15 forecast widget,
+  E4-09 account ordering/colours, E5-18 keyboard entry, E6-09 envelope reallocation,
+  E7-06 suggested category, E9-06 savings projection, E14-14 year in review.
+- **Blocked, and the plan now says on what:** E2-11 and E2-12 (OAuth credentials),
+  E2-26 (demo instance access), E5-14 and E8-07 (both need M6 resources), E14-13
+  (needs a job runner). Do not "implement" these blind — the plan records what unblocks
+  each.
+
+Nothing half-written was left behind; the working tree is clean at every commit.
+
+**After that branch**, M6 is next — rules, recurring transactions, tags, currencies,
+and admin. **Webhooks were dropped from scope** (E17) — Firefly III already has a screen
+for them and owns the delivery log, so a second UI could only be a worse copy; the proxy
+refuses those paths now. Note the plan's own "recommended solo path" (§6.1) defers M6 wholesale
 in favour of M7 (polish); decide deliberately rather than inheriting the order.
 
 M5 shipped ten report routes under `/reports`, a shared scope bar, a hand-rolled Sankey,
 a custom report builder backed by `saved_reports`, CSV/print export, and drill-through
 from any breakdown row into the transaction list. Its verification log — including the
 reconciliation proving report totals match Firefly to the cent — is `PROJECT_PLAN.md` §15.
-
-Working tree is clean; run `git log --oneline` to confirm the current state — the
-branch now has **20+ commits beyond the original M0–M4 merge** from the recent polish
-pass.
 
 ## 3. Before you write a single line — read these four files
 
@@ -69,7 +105,7 @@ pass.
    guessed). §8 is the backlog with every item's status. §12 is the definition-of-done
    checklist every item should pass. §13 and §14 are verification logs from M3 and M4 —
    read them, they document real bugs found by testing against a live Firefly instance.
-2. **`docs/adr/`** — four short architecture decision records explaining _why_ things are
+2. **`adr/`** — four short architecture decision records explaining _why_ things are
    built the way they are, especially the two that deviate from what a first plan would
    assume:
    - `0001-two-tier-identity.md` — our own auth is separate from the Firefly connection
@@ -141,7 +177,19 @@ Read `eslint.config.mjs` if you want the actual rule definitions.
    `/api/ff/[...path]` (the proxy route, `app/api/ff/[...path]/route.ts`), which injects
    the decrypted token server-side. Never construct a fetch to the user's Firefly
    `baseUrl` directly from a Client Component.
-4. **The Firefly OpenAPI spec is vendored, not fetched live.** `spec/firefly-iii-v1.yaml`
+4. **Everything exported from a `'use server'` file becomes a public endpoint.** Not a
+   lint rule, but it has the same weight. A helper cannot be exported from an actions
+   file just to share it — that publishes it. `requestMeta` had to be moved to
+   `server/auth/request-meta.ts` for exactly this reason.
+5. **A `server-only` module must never be imported by a Client Component.** It throws at
+   build time. Pure helpers a client needs (labels, formatters, parsers) belong in
+   `lib/`, re-exported from the server module if server callers want one import — see
+   `lib/audit-labels.ts` and `lib/password-strength.ts`.
+6. **A new write path needs a cache tag in `tagsForPath`.** Attachment writes shipped
+   with no tag, so a rename kept rendering the old title for a full TTL — the page
+   revalidated correctly and then re-read stale cache. If you add a resource, add its
+   tag, and add any tag it invalidates indirectly.
+7. **The Firefly OpenAPI spec is vendored, not fetched live.** `spec/firefly-iii-v1.yaml`
    is committed. Run `pnpm spec:update` to check for a newer Firefly release (diffs it,
    won't silently overwrite). Run `pnpm spec:codegen` after updating to regenerate
    `spec/generated/operations.ts` (the path/operation registry used by the proxy's
@@ -179,7 +227,14 @@ Every write action:
 
 Nav links live in `components/app-shell.tsx` — new top-level sections need an entry there,
 with a `milestone: 'M6'` (etc.) tag if not yet built (renders greyed out, links to
-`/dashboard` instead — see the existing M5/M6 entries for the pattern).
+`/dashboard` instead — see the existing M6 entries for the pattern).
+
+**A greyed-out entry is a promise, so only make one you can keep.** It is right for
+something coming in a named milestone; it is wrong for anything blocked on
+infrastructure or credentials, because the tag then names a milestone that can ship
+without it. Two entries have been removed for this reason rather than left to mislead:
+"Webhooks" (dropped from scope entirely, E17) and "Scheduled" (E14-13, still planned but
+blocked on a job runner — re-add it when that lands).
 
 ## 7. The single biggest lesson: verify against a REAL Firefly instance, always
 
@@ -221,17 +276,40 @@ call.** Examples hit so far (full detail in `PROJECT_PLAN.md` §13 and §14):
   means one call per month (see the grids in the category/budget/tag reports).
 - `/chart/account/overview` identifies accounts by **name only, no id**, so the name is
   the only key back to the account's type and its `include_net_worth` flag.
+- **An unrecognised search operator does not error.** `/search/transactions` treats
+  `catagory_is:Food` as literal text, which matches nothing — a typo returns a confident
+  EMPTY result set that looks exactly like "you have no food spending". A nonsense
+  operator and a real one with no matches both return 0, so you cannot tell them apart
+  from the count. Every operator in `lib/search-operators.ts` was verified by finding a
+  query that returns non-zero; anything outside that set is warned about in the UI.
+- **Search values containing a space must be quoted.** `budget_is:Everyday spending`
+  returns 0; `budget_is:"Everyday spending"` returns 68. Unquoted, the space terminates
+  the operator and the rest becomes free text.
+- **Search operators are ANDed**, so injecting your own `date_after:` alongside a user's
+  silently narrows to the later of the two and makes their operator look broken.
+- `/attachments` accepts **no filter parameters at all** — no `attachable_type`, no
+  search. Filter after fetching.
+- An attachment's `attachable_id` is the **journal (split) id**, not the transaction group
+  id, so there is no reliable link from an attachment back to its transaction page.
 
 **Practical instruction for whoever continues this:** before implementing a write action
 or trusting a response shape for a new Firefly resource (rules, recurring transactions,
-tags, currencies, webhooks — all of M6), make a real `curl` call against a running
+tags, currencies — all of M6), make a real `curl` call against a running
 instance first. See §9 for how to spin one up. Don't trust the OpenAPI spec's field
 `required` list alone.
 
 ## 8. Testing approach — what exists and what deliberately doesn't
 
-- **43 Vitest unit tests exist, all for `lib/money.ts`, `lib/date.ts`, `lib/env.ts`,
-  `lib/logger.ts`, `lib/utils.ts`** (the pure, no-side-effect modules). Run `pnpm test`.
+- **110 Vitest unit tests**, all over pure `lib/` modules: `money`, `date`, `env`,
+  `logger`, `utils`, plus `totp` (checked against the RFC 6238 published vectors) and
+  `search-operators`. Run `pnpm test`.
+- **Server Actions cannot be curled.** They post over the RSC protocol, so anything
+  behind one — sign-up, MFA, deletion, bulk edit, quick add — has to be driven with
+  Playwright against the running container. That is how everything in the backlog pass
+  was verified; the throwaway script pattern is in `PROJECT_PLAN.md` §16.
+- **The rate limiter is Postgres-backed** (`rate_limits` table), not Redis. Repeated
+  sign-in attempts while testing will lock you out and the symptom is "Too many sign-in
+  attempts", not a bug in whatever you just wrote. `delete from rate_limits` to clear.
 - **No unit/integration tests exist for M2, M3, or M4** — the proxy, the cache, the
   Server Actions, or any page. This was an explicit user instruction ("tests and other
   stuffs can be done later," "focus should be on completing the milestone"), not an
@@ -280,6 +358,19 @@ was actually verified — do this, don't guess):
 ```bash
 docker compose --profile firefly up -d   # http://localhost:8080
 ```
+
+**To exercise the real mail path** (E2-28) without owning a mail provider, there is a
+local SMTP sink that catches everything and lets nothing leave the machine:
+
+```bash
+docker compose --profile mail up -d mailpit         # UI at http://localhost:8025
+MAIL_TRANSPORT=smtp SMTP_HOST=mailpit SMTP_PORT=1025 \
+  docker compose --profile app up -d --build app
+```
+
+Other opt-in env vars worth knowing: `PASSWORD_BREACH_CHECK=true` turns on the HIBP
+lookup (E2-27), and `CRON_SECRET=<16+ chars>` enables `GET /api/cron/health` (E2-24),
+which 404s without it.
 
 Register a user in Firefly's own UI at `localhost:8080/register`, then create a Personal
 Access Token at **Options → Profile → OAuth → Personal Access Tokens**. Put the URL,
@@ -360,27 +451,34 @@ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 
 Use this map before assuming a feature still needs to be built.
 
-| UI feature                               | Path(s) in this repo                                                                                                                                                                                               |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dashboard KPIs + balance chart           | `app/(app)/dashboard/page.tsx`, `components/charts/area-trend.tsx`, `components/dashboard/widgets.tsx`                                                                                                             |
-| Accounts list + type filters + landing   | `app/(app)/accounts/page.tsx`, `app/(app)/accounts/filters.tsx`                                                                                                                                                    |
-| Account create/edit/detail/delete        | `app/(app)/accounts/account-form.tsx`, `app/(app)/accounts/[id]/page.tsx`, `app/(app)/accounts/new/page.tsx`, `app/(app)/accounts/[id]/delete-button.tsx`                                                          |
-| Transactions list + pagination + search  | `app/(app)/transactions/page.tsx`, `app/(app)/transactions/table.tsx`, `app/(app)/transactions/filters.tsx`, `app/(app)/transactions/pagination.tsx`, `app/(app)/transactions/saved-views.tsx`                     |
-| Transaction create/edit/split/duplicate  | `app/(app)/transactions/transaction-form.tsx`, `app/(app)/transactions/[id]/edit/page.tsx`, `app/(app)/transactions/[id]/page.tsx`, `app/(app)/transactions/new/page.tsx`, `server/firefly/transaction-actions.ts` |
-| Attachments (upload/download/delete)     | `components/transactions/attachments.tsx`, `app/api/attachments/route.ts`                                                                                                                                          |
-| Budgets + limits + without-budget view   | `app/(app)/budgets/page.tsx`, `app/(app)/budgets/budget-form.tsx`, `app/(app)/budgets/[id]/page.tsx`, `app/(app)/budgets/[id]/limit-form.tsx`, `app/(app)/budgets/transactions-without-budget/page.tsx`            |
-| Available budgets landing page           | `app/(app)/available-budgets/page.tsx`                                                                                                                                                                             |
-| Categories + uncategorised inbox         | `app/(app)/categories/page.tsx`, `app/(app)/categories/category-form.tsx`, `app/(app)/categories/uncategorised/page.tsx`                                                                                           |
-| Bills / subscriptions + calendar         | `app/(app)/bills/page.tsx`, `app/(app)/bills/bill-form.tsx`, `app/(app)/bills/calendar/page.tsx`                                                                                                                   |
-| Piggy banks                              | `app/(app)/piggy-banks/page.tsx`, `app/(app)/piggy-banks/piggy-form.tsx`, `app/(app)/piggy-banks/[id]/page.tsx`, `app/(app)/piggy-banks/[id]/adjust-form.tsx`                                                      |
-| Object groups                            | `app/(app)/object-groups/page.tsx`, `app/(app)/object-groups/new/page.tsx`                                                                                                                                         |
-| Reports shell (scope bar, tabs, print)   | `app/(app)/reports/layout.tsx`, `components/reports/report-scope-bar.tsx`, `components/reports/report-tabs.tsx`, the `@media print` block in `app/globals.css`                                                     |
-| Reports: net worth / income vs expense   | `app/(app)/reports/net-worth/page.tsx`, `app/(app)/reports/income-expense/page.tsx`, `components/charts/net-worth-area.tsx`, `components/charts/income-expense-bars.tsx`                                           |
-| Reports: category / budget / tag         | `app/(app)/reports/categories/page.tsx`, `app/(app)/reports/budgets/page.tsx`, `app/(app)/reports/tags/page.tsx`, `components/reports/monthly-grid.tsx`                                                            |
-| Reports: account / subscription          | `app/(app)/reports/accounts/page.tsx`, `app/(app)/reports/bills/page.tsx`                                                                                                                                          |
-| Cash-flow Sankey                         | `app/(app)/reports/cash-flow/page.tsx`, `lib/sankey.ts`, `components/charts/sankey-flow.tsx`                                                                                                                       |
-| Custom report builder + saved reports    | `app/(app)/reports/custom/page.tsx`, `app/(app)/reports/custom/builder-form.tsx`, `lib/custom-report.ts`, `server/reports.ts`, `server/reports-actions.ts`                                                         |
-| Reporting arithmetic + scoped queries    | `lib/reports.ts`, `lib/report-scope.ts`, `server/firefly/report-queries.ts`                                                                                                                                        |
-| Report export (CSV, print-to-PDF)        | `components/reports/report-export.tsx`                                                                                                                                                                             |
-| Settings → connections manager           | `app/(app)/settings/connections/page.tsx`, `app/(app)/settings/connections/connection-card.tsx`                                                                                                                    |
-| App shell / navigation / command palette | `components/app-shell.tsx`, `components/command-palette.tsx`                                                                                                                                                       |
+| UI feature                                           | Path(s) in this repo                                                                                                                                                                                               |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dashboard KPIs + balance chart                       | `app/(app)/dashboard/page.tsx`, `components/charts/area-trend.tsx`, `components/dashboard/widgets.tsx`                                                                                                             |
+| Accounts list + type filters + landing               | `app/(app)/accounts/page.tsx`, `app/(app)/accounts/filters.tsx`                                                                                                                                                    |
+| Account create/edit/detail/delete                    | `app/(app)/accounts/account-form.tsx`, `app/(app)/accounts/[id]/page.tsx`, `app/(app)/accounts/new/page.tsx`, `app/(app)/accounts/[id]/delete-button.tsx`                                                          |
+| Transactions list + pagination + search              | `app/(app)/transactions/page.tsx`, `app/(app)/transactions/table.tsx`, `app/(app)/transactions/filters.tsx`, `app/(app)/transactions/pagination.tsx`, `app/(app)/transactions/saved-views.tsx`                     |
+| Transaction create/edit/split/duplicate              | `app/(app)/transactions/transaction-form.tsx`, `app/(app)/transactions/[id]/edit/page.tsx`, `app/(app)/transactions/[id]/page.tsx`, `app/(app)/transactions/new/page.tsx`, `server/firefly/transaction-actions.ts` |
+| Attachments (upload/download/delete)                 | `components/transactions/attachments.tsx`, `app/api/attachments/route.ts`                                                                                                                                          |
+| Budgets + limits + without-budget view               | `app/(app)/budgets/page.tsx`, `app/(app)/budgets/budget-form.tsx`, `app/(app)/budgets/[id]/page.tsx`, `app/(app)/budgets/[id]/limit-form.tsx`, `app/(app)/budgets/transactions-without-budget/page.tsx`            |
+| Available budgets landing page                       | `app/(app)/available-budgets/page.tsx`                                                                                                                                                                             |
+| Categories + uncategorised inbox                     | `app/(app)/categories/page.tsx`, `app/(app)/categories/category-form.tsx`, `app/(app)/categories/uncategorised/page.tsx`                                                                                           |
+| Bills / subscriptions + calendar                     | `app/(app)/bills/page.tsx`, `app/(app)/bills/bill-form.tsx`, `app/(app)/bills/calendar/page.tsx`                                                                                                                   |
+| Piggy banks                                          | `app/(app)/piggy-banks/page.tsx`, `app/(app)/piggy-banks/piggy-form.tsx`, `app/(app)/piggy-banks/[id]/page.tsx`, `app/(app)/piggy-banks/[id]/adjust-form.tsx`                                                      |
+| Object groups                                        | `app/(app)/object-groups/page.tsx`, `app/(app)/object-groups/new/page.tsx`                                                                                                                                         |
+| Reports shell (scope bar, tabs, print)               | `app/(app)/reports/layout.tsx`, `components/reports/report-scope-bar.tsx`, `components/reports/report-tabs.tsx`, the `@media print` block in `app/globals.css`                                                     |
+| Reports: net worth / income vs expense               | `app/(app)/reports/net-worth/page.tsx`, `app/(app)/reports/income-expense/page.tsx`, `components/charts/net-worth-area.tsx`, `components/charts/income-expense-bars.tsx`                                           |
+| Reports: category / budget / tag                     | `app/(app)/reports/categories/page.tsx`, `app/(app)/reports/budgets/page.tsx`, `app/(app)/reports/tags/page.tsx`, `components/reports/monthly-grid.tsx`                                                            |
+| Reports: account / subscription                      | `app/(app)/reports/accounts/page.tsx`, `app/(app)/reports/bills/page.tsx`                                                                                                                                          |
+| Cash-flow Sankey                                     | `app/(app)/reports/cash-flow/page.tsx`, `lib/sankey.ts`, `components/charts/sankey-flow.tsx`                                                                                                                       |
+| Custom report builder + saved reports                | `app/(app)/reports/custom/page.tsx`, `app/(app)/reports/custom/builder-form.tsx`, `lib/custom-report.ts`, `server/reports.ts`, `server/reports-actions.ts`                                                         |
+| Reporting arithmetic + scoped queries                | `lib/reports.ts`, `lib/report-scope.ts`, `server/firefly/report-queries.ts`                                                                                                                                        |
+| Report export (CSV, print-to-PDF)                    | `components/reports/report-export.tsx`                                                                                                                                                                             |
+| Settings → connections manager                       | `app/(settings)/settings/connections/page.tsx`, `app/(settings)/settings/connections/connection-card.tsx`                                                                                                          |
+| Settings → security (MFA, sessions, audit, deletion) | `app/(settings)/settings/security/`, `server/auth/security.ts`, `server/auth/security-actions.ts`, `server/auth/mfa.ts`, `lib/totp.ts`                                                                             |
+| Mail transports (console / SMTP / Resend)            | `server/mail/index.ts`                                                                                                                                                                                             |
+| Password strength + breach check                     | `lib/password-strength.ts`, `server/auth/breach.ts`, `components/auth/strength-meter.tsx`                                                                                                                          |
+| Connection switcher, health, banner                  | `components/connection-switcher.tsx`, `components/connection-banner.tsx`, `server/connections/health.ts`, `app/api/cron/health/route.ts`                                                                           |
+| Transaction bulk edit / quick add / CSV              | `app/(app)/transactions/grid.tsx`, `app/(app)/transactions/quick-add.tsx`                                                                                                                                          |
+| Search operators + recent searches                   | `lib/search-operators.ts`, `app/(app)/transactions/search-bar.tsx`                                                                                                                                                 |
+| Attachment manager + preview + capture               | `app/(app)/attachments/`, `components/transactions/attachment-preview.tsx`, `lib/image-compress.ts`                                                                                                                |
+| App shell / navigation / command palette             | `components/app-shell.tsx`, `components/command-palette.tsx`                                                                                                                                                       |

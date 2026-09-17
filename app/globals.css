@@ -257,6 +257,33 @@
 }
 
 @layer utilities {
+  /*
+   * E5-11 — the bulk-action bar rising into view.
+   *
+   * Hand-rolled because `tailwindcss-animate` is not a dependency here, so
+   * `animate-in`/`slide-in-from-bottom` compile to nothing. The transform lives
+   * on an inner element, never on the positioned wrapper: Tailwind v4's
+   * translate utilities also write the `translate` property, and animating it
+   * here would fight the `-translate-x-1/2` that centres the bar.
+   *
+   * The reduced-motion block at the end of this file caps animation-duration,
+   * so this becomes an instant appearance for anyone who asks for that.
+   */
+  @keyframes fs-rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .fs-rise {
+    animation: fs-rise 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
   /* E21-06 — visually hidden but available to screen readers. */
   .sr-only {
     position: absolute;

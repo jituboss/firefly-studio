@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { getSession } from '@/server/auth/session';
-import { getDefaultConnection } from '@/server/connections';
+import { listConnections } from '@/server/connections';
+import { refreshStaleConnectionsInBackground } from '@/server/connections/health';
 import { listUnreadNotifications } from '@/server/notifications';
 
 /**
@@ -15,16 +16,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!session.user.onboardingCompletedAt) redirect('/onboarding');
 
-  const [connection, notifications] = await Promise.all([
-    getDefaultConnection(session.user.id),
+  const [connections, notifications] = await Promise.all([
+    listConnections(session.user.id),
     listUnreadNotifications(session.user.id),
   ]);
+
+  // E2-24 — opportunistic health check, deliberately NOT awaited. A hanging
+  // Firefly instance must never add its timeout to this page load; the result
+  // lands in the database and shows on the next render.
+  refreshStaleConnectionsInBackground(session.user.id);
 
   return (
     <AppShell
       userName={session.user.displayName ?? session.user.email}
-      connectionLabel={connection?.label ?? null}
-      connectionStatus={connection?.status ?? null}
+      connections={connections.map((entry) => ({
+        id: entry.id,
+        label: entry.label,
+        status: entry.status,
+        isDefault: entry.isDefault,
+      }))}
       notifications={notifications}
     >
       {children}

@@ -4,11 +4,13 @@ import { getSession } from '@/server/auth/session';
 import { getActiveConnection, fireflyGetSafe } from '@/server/firefly/api';
 import { getAccount, getBudget, getCategory } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
+import { now, toApiDate } from '@/lib/date';
 import { add, toDecimal } from '@/lib/money';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { HideBalancesToggle } from '@/components/hide-balances';
 import { TransactionFilters } from './filters';
-import { TransactionTable } from './table';
+import { TransactionGrid } from './grid';
+import { QuickAdd } from './quick-add';
 import { Pagination } from './pagination';
 import { SavedViews } from './saved-views';
 import { listSavedViews } from '@/server/saved-views';
@@ -72,6 +74,10 @@ export default async function TransactionsPage({
 
   const params = await searchParams;
   const range = resolveRangeFromParams(params, session.user.timezone);
+  // Default the quick-add date to today, unless the selected range ends in the
+  // past — entering a transaction dated outside the view you are looking at
+  // means it vanishes the moment you save it.
+  const today = toApiDate(now(session.user.timezone), session.user.timezone);
 
   const page = Math.max(1, Number.parseInt(String(params.page ?? '1'), 10) || 1);
   const type = typeof params.type === 'string' ? params.type : 'all';
@@ -103,7 +109,17 @@ export default async function TransactionsPage({
   // unfiltered against 3 within the month). `type:` and `account_id:` are NOT
   // supported there — they are accepted and ignored — so those two filters are
   // applied below instead of being quietly dropped.
-  const searchQuery = search ? `${search} date_after:${range.start} date_before:${range.end}` : '';
+  //
+  // E15-02 — the range is only appended when the user has not written their own
+  // date operator. Firefly ANDs every term, so a query of `date_after:2026-01-01`
+  // combined with an injected `date_after:2026-09-01` silently narrows to the
+  // later of the two and the typed operator appears to do nothing.
+  const typedDateOperator = /\b(date_after|date_before|date_is):/.test(search);
+  const searchQuery = search
+    ? typedDateOperator
+      ? search
+      : `${search} date_after:${range.start} date_before:${range.end}`
+    : '';
 
   const basePath = search
     ? `/v1/search/transactions?query=${encodeURIComponent(searchQuery)}&page=${page}&limit=50`
@@ -153,7 +169,7 @@ export default async function TransactionsPage({
   const filtered = Boolean(search) || Boolean(accountId) || Boolean(scopeName) || type !== 'all';
 
   return (
-    <div className="mx-auto w-full max-w-7xl min-w-0 space-y-5">
+    <div className="mx-auto w-full max-w-7xl min-w-0 space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
@@ -171,6 +187,7 @@ export default async function TransactionsPage({
         <div className="flex items-center gap-2">
           <HideBalancesToggle />
           <DateRangePicker label={range.label} />
+          <QuickAdd today={range.end > today ? today : range.end} />
           <Button asChild size="sm">
             <Link href="/transactions/new">
               <Plus className="size-4" aria-hidden="true" />
@@ -180,7 +197,10 @@ export default async function TransactionsPage({
         </div>
       </header>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* One toolbar rather than two stacked bands. On a 390px phone the page
+          previously spent ~800px on chrome before the first transaction; every
+          row removed here is a row of data gained. */}
+      <div className="flex flex-wrap items-center gap-2">
         <TransactionFilters
           type={type}
           search={search}
@@ -220,42 +240,49 @@ export default async function TransactionsPage({
         </Card>
       ) : (
         <>
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
-            <span className="font-medium tracking-wide uppercase">On this page</span>
-            <span className="flex items-center gap-1.5">
-              In
-              <Amount
-                value={totals.inflow}
-                currency={totals.currency}
-                size="sm"
-                showSign={false}
-                tone="income"
-              />
-            </span>
-            <span className="flex items-center gap-1.5">
-              Out
-              <Amount
-                value={totals.outflow}
-                currency={totals.currency}
-                size="sm"
-                showSign={false}
-                tone="expense"
-              />
-            </span>
-            <span className="flex items-center gap-1.5">
-              Net
-              <Amount value={totals.net} currency={totals.currency} size="sm" tone="auto" />
-            </span>
-            <span>transfers excluded</span>
-            {totals.otherCurrencies.length > 0 ? (
-              <span>{totals.otherCurrencies.join(', ')} not included</span>
-            ) : null}
-          </div>
-
-          <TransactionTable
+          <TransactionGrid
             transactions={data}
             timezone={session.user.timezone}
             density={typeof params.density === 'string' ? params.density : 'comfortable'}
+            rangeLabel={search ? `search-${search}` : range.label}
+            /* Handed in as a slot so the page totals and the export button share
+               one line instead of stacking into two bands — on a phone those two
+               rows cost ~90px before any transaction is visible. */
+            summary={
+              <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span className="hidden font-medium tracking-wide uppercase sm:inline">
+                  On this page
+                </span>
+                <span className="flex items-center gap-1.5">
+                  In
+                  <Amount
+                    value={totals.inflow}
+                    currency={totals.currency}
+                    size="sm"
+                    showSign={false}
+                    tone="income"
+                  />
+                </span>
+                <span className="flex items-center gap-1.5">
+                  Out
+                  <Amount
+                    value={totals.outflow}
+                    currency={totals.currency}
+                    size="sm"
+                    showSign={false}
+                    tone="expense"
+                  />
+                </span>
+                <span className="flex items-center gap-1.5">
+                  Net
+                  <Amount value={totals.net} currency={totals.currency} size="sm" tone="auto" />
+                </span>
+                <span className="hidden sm:inline">transfers excluded</span>
+                {totals.otherCurrencies.length > 0 ? (
+                  <span>{totals.otherCurrencies.join(', ')} not included</span>
+                ) : null}
+              </div>
+            }
           />
         </>
       )}

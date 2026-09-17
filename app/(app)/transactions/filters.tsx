@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Search, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SearchBar } from './search-bar';
 
 /** E5-02 / E5-03 — filters, all URL-synced so the view is shareable. */
 export function TransactionFilters({
@@ -23,7 +23,6 @@ export function TransactionFilters({
   const pathname = usePathname();
   const params = useSearchParams();
   const [pending, startTransition] = React.useTransition();
-  const [term, setTerm] = React.useState(search);
 
   function update(patch: Record<string, string | null>) {
     const next = new URLSearchParams(params.toString());
@@ -37,26 +36,10 @@ export function TransactionFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          update({ q: term });
-        }}
-        className="relative flex-1 sm:max-w-xs"
-      >
-        <Search
-          className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
-          aria-hidden="true"
-        />
-        <Input
-          value={term}
-          onChange={(event) => setTerm(event.target.value)}
-          placeholder="Search descriptions…"
-          aria-label="Search transactions"
-          className="pl-8"
-        />
-      </form>
+    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-1">
+      {/* E15-02 — the search box moved out to its own component so it could
+          grow operator autocomplete and a typo warning. */}
+      <SearchBar initialQuery={search} />
 
       <label className="sr-only" htmlFor="type-filter">
         Transaction type
@@ -100,7 +83,6 @@ export function TransactionFilters({
           variant="ghost"
           size="sm"
           onClick={() => {
-            setTerm('');
             update({
               q: null,
               account: null,

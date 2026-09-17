@@ -105,4 +105,4 @@ choice that a future contributor would otherwise have to reverse-engineer.
 
 ## Definition of done
 
-Every item ships against PROJECT_PLAN.md §12. The PR template restates it.
+Every item ships against docs/PROJECT_PLAN.md §12. The PR template restates it.

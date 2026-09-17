@@ -27,7 +27,7 @@ interface OperationRecord {
 }
 
 /**
- * Endpoints the proxy refuses by default (PROJECT_PLAN.md §4.3). These either
+ * Endpoints the proxy refuses by default (docs/PROJECT_PLAN.md §4.3). These either
  * destroy data irrecoverably or reach past the signed-in user's own ledger.
  * Each can be individually re-enabled in settings, behind a step-up re-auth.
  */
@@ -36,6 +36,12 @@ const GUARDED_PATH_PATTERNS = [
   /^\/v1\/data\/purge$/,
   /^\/v1\/cron\//,
   /^\/v1\/users(\/|$)/,
+  // Webhooks were dropped from scope (E17), so nothing in this app calls them.
+  // They stay in the vendored spec because the spec is a faithful copy of
+  // Firefly's API — but an endpoint that configures the user's instance to POST
+  // to an arbitrary URL is not surface worth leaving open for a feature that
+  // does not exist. Configure webhooks in Firefly III itself.
+  /^\/v1\/webhooks(\/|$)/,
 ];
 
 function toPattern(specPath: string): string {
@@ -107,7 +113,7 @@ export interface FireflyOperation {
   readonly summary: string;
   /** Anchored regex matching a concrete request path. */
   readonly pattern: string;
-  /** Denied by the proxy unless explicitly enabled (PROJECT_PLAN.md §4.3). */
+  /** Denied by the proxy unless explicitly enabled (docs/PROJECT_PLAN.md §4.3). */
   readonly guarded: boolean;
 }
 

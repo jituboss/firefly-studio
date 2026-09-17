@@ -103,7 +103,7 @@ firefly-studio/
 │  │  ├─ budgets/  categories/  bills/  piggy-banks/
 │  │  ├─ recurring/  rules/  tags/
 │  │  ├─ reports/
-│  │  ├─ currencies/  webhooks/  admin/
+│  │  ├─ currencies/  admin/
 │  │  └─ settings/
 │  └─ api/
 │     ├─ auth/[...nextauth]/
@@ -233,7 +233,7 @@ Budgets ──► Budget detail (limits, spend, transactions)
 Categories · Bills (Subscriptions) · Piggy banks · Recurring
 Reports ──► Net worth · Income vs Expense · Categories · Budget performance · Cash flow · Tags · Custom
 Rules ──► Rule groups, rule builder, test/trigger
-Tags · Currencies & rates · Webhooks
+Tags · Currencies & rates
 Settings ──► Profile · Security (MFA, sessions) · Firefly connections · Preferences · Data · About
 Admin (if Firefly user is owner) ──► Users, user groups, configuration, cron
 ```
@@ -242,27 +242,28 @@ Admin (if Firefly user is owner) ──► Users, user groups, configuration, cr
 
 ## 6. Delivery plan — milestones
 
-| #      | Milestone                  | Scope                                                                      | Exit criteria                                                       | Est.  |
-| ------ | -------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----- |
-| **M0** | Foundation ✅              | Repo, CI, Docker, design tokens, DB migrations, OpenAPI codegen            | `docker compose up` serves a themed shell; migrations run; CI green | 2 wks |
-| **M1** | Auth & onboarding ✅       | Sign-up/in, verify, reset, sessions, connection wizard, encrypted PAT      | A new user can sign up and attach a Firefly instance end-to-end     | 2 wks |
-| **M2** | Read core ✅               | Proxy + cache, dashboard v1, accounts, transaction list, search            | Dashboard and transaction list render live Firefly data             | 3 wks |
-| **M3** | Write core ✅              | Transaction create/edit/delete, splits, attachments, bulk ops              | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
-| **M4** | Money management ✅        | Budgets, limits, categories, bills, piggy banks, object groups             | All four resource families CRUD-complete                            | 3 wks |
-| **M5** | Reporting ✅               | Insight + chart endpoints, 8 standard reports, builder, exports            | Reports match Firefly's own figures to the cent — verified, §15     | 3 wks |
-| **M6** | Automation & the long tail | Rules, recurring, tags, currencies, exchange rates, webhooks, links, admin | 28/28 API groups covered                                            | 3 wks |
-| **M7** | Polish                     | A11y audit, i18n, PWA, perf budget, empty/error states, onboarding tour    | Lighthouse targets met; axe clean                                   | 2 wks |
-| **M8** | Hardening & launch         | Pen-test fixes, load test, docs, release image, backup/restore             | v1.0 tagged and documented                                          | 2 wks |
+| #      | Milestone                  | Scope                                                                   | Exit criteria                                                       | Est.  |
+| ------ | -------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ----- |
+| **M0** | Foundation ✅              | Repo, CI, Docker, design tokens, DB migrations, OpenAPI codegen         | `docker compose up` serves a themed shell; migrations run; CI green | 2 wks |
+| **M1** | Auth & onboarding ✅       | Sign-up/in, verify, reset, sessions, connection wizard, encrypted PAT   | A new user can sign up and attach a Firefly instance end-to-end     | 2 wks |
+| **M2** | Read core ✅               | Proxy + cache, dashboard v1, accounts, transaction list, search         | Dashboard and transaction list render live Firefly data             | 3 wks |
+| **M3** | Write core ✅              | Transaction create/edit/delete, splits, attachments, bulk ops           | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
+| **M4** | Money management ✅        | Budgets, limits, categories, bills, piggy banks, object groups          | All four resource families CRUD-complete                            | 3 wks |
+| **M5** | Reporting ✅               | Insight + chart endpoints, 8 standard reports, builder, exports         | Reports match Firefly's own figures to the cent — verified, §15     | 3 wks |
+| **M6** | Automation & the long tail | Rules, recurring, tags, currencies, exchange rates, links, admin        | 27/28 API groups covered (webhooks dropped, E17)                    | 3 wks |
+| **M7** | Polish                     | A11y audit, i18n, PWA, perf budget, empty/error states, onboarding tour | Lighthouse targets met; axe clean                                   | 2 wks |
+| **M8** | Hardening & launch         | Pen-test fixes, load test, docs, release image, backup/restore          | v1.0 tagged and documented                                          | 2 wks |
 
 ### 6.1 Effort reconciliation
 
-The backlog in §8 totals **345 ideal engineering days** across 224 items:
+The backlog in §8 totals **338 ideal engineering days** across 219 items
+(was 345 across 224; E17 Webhooks was dropped — 5 items, 7 days):
 
 | Slice                              | Ideal days | 1 engineer @ 70 % focus | 2 engineers | 3 engineers |
 | ---------------------------------- | ---------- | ----------------------- | ----------- | ----------- |
 | **P0 only** (thin but complete v1) | 168 d      | ~48 wks                 | ~24 wks     | ~17 wks     |
-| **P0 + P1** (the real v1.0)        | 302 d      | ~86 wks                 | ~43 wks     | ~30 wks     |
-| Everything incl. P2                | 345 d      | ~99 wks                 | ~49 wks     | ~34 wks     |
+| **P0 + P1** (the real v1.0)        | 296 d      | ~85 wks                 | ~42 wks     | ~30 wks     |
+| Everything incl. P2                | 338 d      | ~97 wks                 | ~48 wks     | ~33 wks     |
 
 The milestone week-counts above are **calendar durations for a three-engineer team** (one on platform/auth, one on
 transactions/accounts, one on reporting/design system), which is the shape this plan assumes. If you are building
@@ -303,7 +304,7 @@ Authoritative list from the v6.5.5 OpenAPI spec. Every row must have a UI home b
 | `attachments`             | `/attachments`, `/{id}`, `/{id}/download`, `/{id}/upload`                                                                                                                                     | receipts                       | E16              | M3        |
 | `links`                   | `/link-types`, `/{id}`, `/{id}/transactions`, `/transaction-links`, `/transaction-links/{id}`                                                                                                 | refunds, reimbursements        | E5               | M6        |
 | `data`                    | `/data/export/{9 resources}`, `/data/bulk/transactions`, `/data/destroy`, `/data/purge`                                                                                                       | export + bulk + danger zone    | E19              | M6        |
-| `webhooks`                | `/webhooks`, `/{id}`, `/{id}/messages`, `/messages/{messageId}`, `/attempts`, `/{id}/submit`, `/{id}/trigger-transaction/{txId}`                                                              | automation + delivery log      | E17              | M6        |
+| `webhooks`                | `/webhooks`, `/{id}`, `/{id}/messages`, `/messages/{messageId}`, `/attempts`, `/{id}/submit`, `/{id}/trigger-transaction/{txId}`                                                              | **out of scope** — see E17     | —                | —         |
 | `preferences`             | `/preferences`, `/preferences/{name}`                                                                                                                                                         | Firefly-side prefs             | E18              | M6        |
 | `configuration`           | `/configuration`, `/configuration/{name}`                                                                                                                                                     | instance config (admin)        | E20              | M6        |
 | `users`                   | `/users`, `/users/{id}`                                                                                                                                                                       | admin only, gated              | E20              | M6        |
@@ -351,7 +352,7 @@ Estimates are ideal engineering days.
 
 - [ ] **E1-14** `P1` `2d` Generate Zod request/response schemas from the vendored spec, for runtime validation at the proxy boundary — needed by M2, not by M0
 - [ ] **E1-15** `P2` `1d` OpenTelemetry Node SDK + OTLP exporter registered in `instrumentation.ts`
-- [ ] **E1-16** `P1` `0.5d` Approve `@sentry/cli` builds in the release job only, and wire `SENTRY_AUTH_TOKEN` so source maps actually upload
+- [x] **E1-16** `P1` `0.5d` Approve `@sentry/cli` builds in the release job only, and wire `SENTRY_AUTH_TOKEN` so source maps actually upload — **already shipped**, reconciled 2026-09-17: the release workflow owns the upload and sets `SENTRY_AUTH_TOKEN` (commit 7d5da9b)
 
 **What M0 delivered**
 
@@ -370,18 +371,18 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 
 **Our own auth**
 
-- [x] **E2-01** `P0` `2d` `users`/`sessions` schema + database-backed sessions — **implemented directly, not via Auth.js v5**; Auth.js forces JWT sessions with the Credentials provider, which defeats server-side revocation. See [ADR-0004](docs/adr/0004-hand-rolled-sessions-instead-of-authjs.md).
+- [x] **E2-01** `P0` `2d` `users`/`sessions` schema + database-backed sessions — **implemented directly, not via Auth.js v5**; Auth.js forces JWT sessions with the Credentials provider, which defeats server-side revocation. See [ADR-0004](adr/0004-hand-rolled-sessions-instead-of-authjs.md).
 - [x] **E2-02** `P0` `2d` Sign-up: email + password, Argon2id (m=19456, t=2, p=1), 12-char floor, inline strength meter — **zxcvbn and the HIBP breach check were cut** (see E2-27); non-enumerating duplicate-email response
 - [x] **E2-03** `P0` `1d` Email verification (single-use SHA-256-hashed token, 24 h expiry, atomic consume) + resend with rate limit
 - [x] **E2-04** `P0` `1d` Sign-in with rate limiting (5/15 min per email, 20/15 min per IP) and non-enumerating errors; constant-time dummy hash so response time does not reveal account existence
 - [x] **E2-05** `P0` `1d` Password reset request + confirm; revokes every session for the user
-- [ ] **E2-06** `P1` `2d` TOTP MFA: enrol, QR, verify, recovery codes (shown once) — _schema in place (`mfa_credentials`, `mfa_recovery_codes`), UI deferred_
+- [x] **E2-06** `P1` `2d` TOTP MFA: enrol, QR, verify, recovery codes (shown once) — _schema in place (`mfa_credentials`, `mfa_recovery_codes`), UI deferred_ — TOTP hand-written against the RFC 6238 vectors (`lib/totp.ts`, 20 tests); enrol/QR/confirm on Settings → Security, challenge at `/sign-in/verify`, single-use recovery codes
 - [ ] **E2-07** `P2` `2d` WebAuthn/passkey as a second factor and as a login method
-- [ ] **E2-08** `P1` `1d` Active-sessions list with device/IP/last-seen and remote revoke — _`revokeAllSessions` exists; the UI does not_
-- [ ] **E2-09** `P1` `1d` `audit_log` viewer in Settings → Security — _the writer ships and records 9 event types; the viewer does not_
-- [ ] **E2-10** `P1` `1d` Account deletion: confirm, cascade, purge cache namespace, tombstone
-- [ ] **E2-11** `P2` `1d` Optional OAuth sign-in (Google/GitHub) with account linking
-- [ ] **E2-12** `P2` `3d` Firefly **OAuth2** connection option (authorization-code + refresh) as an alternative to PAT
+- [x] **E2-08** `P1` `1d` Active-sessions list with device/IP/last-seen and remote revoke — _`revokeAllSessions` exists; the UI does not_ — `app/(settings)/settings/security/` — device list, per-session and revoke-all-others, backed by `server/auth/security.ts`
+- [x] **E2-09** `P1` `1d` `audit_log` viewer in Settings → Security — _the writer ships and records 9 event types; the viewer does not_ — same page — the audit trail with failed sign-ins called out and a type filter
+- [x] **E2-10** `P1` `1d` Account deletion: confirm, cascade, purge cache namespace, tombstone — soft delete behind password re-auth plus a typed DELETE; purges the connection cache namespace first, keeps the tombstone so audit rows stay meaningful
+- [ ] **E2-11** `P2` `1d` Optional OAuth sign-in (Google/GitHub) with account linking — **Blocked on external setup:** needs Google/GitHub OAuth client credentials and a registered redirect URI. Nothing to verify against without them.
+- [ ] **E2-12** `P2` `3d` Firefly **OAuth2** connection option (authorization-code + refresh) as an alternative to PAT — **Blocked on external setup:** needs an OAuth2 client registered on a Firefly III instance. PAT onboarding covers the same ground today.
 
 **Onboarding journey**
 
@@ -395,15 +396,15 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [ ] **E2-20** `P1` `1d` **Step 6 — Done.** First-run product tour (dismissible, resumable from Help)
 - [x] **E2-21** `P0` `1d` Wizard is resumable — progress derived from database state (`onboarding_state` jsonb plus connection status), so a reload or a different device resumes at the right step
 - [x] **E2-22** `P0` `2d` **Connections manager** in Settings: list, rename, rotate token, set default, test now, delete
-- [ ] **E2-23** `P1` `2d` Multiple connections + an instance switcher in the app shell — _the data model and service layer already support N connections; only the switcher UI is missing_
-- [ ] **E2-24** `P1` `1d` Background health check job (hourly): update `status`, notify on transition to failing — _manual "Test now" ships; the scheduled job does not_
-- [ ] **E2-25** `P1` `1d` Global "connection broken" banner with a one-click re-authenticate flow — _the app shell shows a status dot; the banner does not exist_
-- [ ] **E2-26** `P2` `1d` Demo mode — read-only connection to `demo.firefly-iii.org` for evaluation
+- [x] **E2-23** `P1` `2d` Multiple connections + an instance switcher in the app shell — _the data model and service layer already support N connections; only the switcher UI is missing_ — `components/connection-switcher.tsx` in the app shell; `/onboarding?add=1` attaches a second instance
+- [x] **E2-24** `P1` `1d` Background health check job (hourly): update `status`, notify on transition to failing — _manual "Test now" ships; the scheduled job does not_ — opportunistic checks from the app shell (fire-and-forget) plus `GET /api/cron/health` behind `CRON_SECRET`. **Cut: BullMQ.** A queue and a worker for one periodic probe is too many moving parts for a single-container self-host; the endpoint is there for real cron.
+- [x] **E2-25** `P1` `1d` Global "connection broken" banner with a one-click re-authenticate flow — _the app shell shows a status dot; the banner does not exist_ — `components/connection-banner.tsx` — distinguishes unauthorised from unreachable and links to the matching fix
+- [ ] **E2-26** `P2` `1d` Demo mode — read-only connection to `demo.firefly-iii.org` for evaluation — **Blocked on external access:** needs `demo.firefly-iii.org` to be reachable and accept a token.
 
 **Cut from M1, deliberately:**
 
-- [ ] **E2-27** `P1` `1d` Password strength via zxcvbn + HIBP k-anonymity breach check — dropped from E2-02 to avoid an ~800 kB client dependency and an outbound call per sign-up. The 12-character floor and a small common-password list ship instead.
-- [ ] **E2-28** `P0` `1d` Real email transport. M1 ships a **console transport**: verification and reset links are printed to the server log, which is enough to complete both flows in development and self-host evaluation. Blocked on Q4 (Resend / SES / BYO SMTP).
+- [x] **E2-27** `P1` `1d` Password strength via zxcvbn + HIBP k-anonymity breach check — dropped from E2-02 to avoid an ~800 kB client dependency and an outbound call per sign-up. The 12-character floor and a small common-password list ship instead. — HIBP k-anonymity in `server/auth/breach.ts`, opt-in via `PASSWORD_BREACH_CHECK`, fails open. **Cut: zxcvbn** — ~800 kB of client bundle for a better-calibrated nudge; the shared scorer in `lib/password-strength.ts` covers the floor and now backs both the meter and the server check.
+- [x] **E2-28** `P0` `1d` Real email transport. M1 ships a **console transport**: verification and reset links are printed to the server log, which is enough to complete both flows in development and self-host evaluation. Blocked on Q4 (Resend / SES / BYO SMTP). — SMTP (covers SES) and Resend over plain fetch, in `server/mail/index.ts`; console stays the default so evaluation needs no mail provider, and a selected-but-unconfigured transport fails at boot
 
 **What M1 delivered**
 
@@ -427,7 +428,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E3-05** `P0` `2d` Balance trend chart from `/chart/balance/balance`
 - [x] **E3-06** `P0` `2d` Account balance list from `/accounts?type=asset`
 - [x] **E3-07** `P0` `1d` Recent transactions widget — _inline category edit deferred to M3 with the rest of the write path_
-- [ ] **E3-08** `P1` `2d` Budget progress widget with burn-down pacing
+- [x] **E3-08** `P1` `2d` Budget progress widget with burn-down pacing — **already shipped**, reconciled 2026-09-17: `BudgetProgressWidget` in `app/(app)/dashboard/page.tsx`
 - [x] **E3-09** `P1` `1d` Upcoming bills widget from `/bills`, with paid/unpaid state
 - [x] **E3-10** `P1` `1d` Piggy-bank progress widget
 - [x] **E3-11** `P1` `1d` Top spending categories from `/insight/expense/category`
@@ -457,22 +458,22 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E5-01** `P0` `3d` Virtualised transaction grid — one row per split, sticky header, density toggle, server-rendered first screen
 - [x] **E5-02** `P0` `3d` Filter rail — _date range, type and free-text search ship; amount/category/budget/tag/attachment facets land with M3's filter rail_
 - [x] **E5-03** `P0` `1d` URL-synced filter state + pagination over `meta.pagination`
-- [ ] **E5-04** `P0` `1d` Saved views (`saved_views` table) with sidebar pinning
+- [x] **E5-04** `P0` `1d` Saved views (`saved_views` table) with sidebar pinning — **already shipped**, reconciled 2026-09-17: `server/saved-views.ts` + `app/(app)/transactions/saved-views.tsx`
 - [x] **E5-05** `P0` `2d` Transaction detail — all journal fields, every split, foreign amounts, tags, notes
 - [x] **E5-06** `P0` `4d` **Create/edit form** — withdrawal/deposit/transfer tabs, autocomplete account pickers typed by transaction kind, category/budget/bill/tags, date + time, notes, reconciled flag
 - [x] **E5-07** `P0` `3d` **Split transaction editor** — add/remove splits, per-split accounts/category/budget/amount, running total, group title
 - [x] **E5-08** `P0` `2d` **Foreign-currency support** — foreign amount + currency per split, shown on the detail view
 - [x] **E5-09** `P0` `1d` Delete with a typed confirmation — _undo toast deferred; Firefly has no restore endpoint, so undo needs a client-side re-create_
 - [x] **E5-10** `P0` `1d` Duplicate — clones every split into a new-transaction form dated today
-- [ ] **E5-11** `P1` `2d` Multi-select + bulk edit — M3
+- [x] **E5-11** `P1` `2d` Multi-select + bulk edit — M3 — selection + bulk set category/budget/tags + bulk delete, in `app/(app)/transactions/grid.tsx`; writes use allSettled and report partial success
 - [ ] **E5-12** `P1` `1d` Inline edit in the grid — M3
-- [ ] **E5-13** `P1` `2d` Quick-add bar — M3
-- [ ] **E5-14** `P1` `2d` Transaction links — M6
+- [x] **E5-13** `P1` `2d` Quick-add bar — M3 — `app/(app)/transactions/quick-add.tsx` — stays open with the accounts retained for entering a run
+- [ ] **E5-14** `P1` `2d` Transaction links — M6 — **Blocked on M6:** transaction links are an M6 resource (`/link-types`, `/transaction-links`); this item is listed under E5 but tagged M6 in its own text.
 - [x] **E5-15** `P1` `1d` Reconciled flag on the edit form and as a per-split action
-- [ ] **E5-16** `P1` `1d` Export the filtered view to CSV/XLSX
+- [x] **E5-16** `P1` `1d` Export the filtered view to CSV/XLSX — CSV from the rendered rows, one line per split, in the same grid. **Cut: XLSX**, same reasoning as E14-11.
 - [x] **E5-17** `P1` `2d` One debounced, cached `Combobox` over the `/autocomplete/*` endpoints — accounts (typed by transaction kind), categories, budgets, bills
 - [ ] **E5-18** `P2` `2d` Keyboard-only rapid entry — M3
-- [ ] **E5-19** `P2` `1d` Attach receipt by drop — M3
+- [x] **E5-19** `P2` `1d` Attach receipt by drop — M3 — **already shipped** — the drop zone and paste handler in `components/transactions/attachments.tsx`
 
 **What M2 delivered**
 
@@ -494,9 +495,9 @@ Firefly III instance.
 - [x] **E6-03** `P0` `2d` Budget-limit management per period: create, edit, delete — _"copy last period" and bulk-set deferred_
 - [x] **E6-04** `P0` `2d` Budget detail: limit history, transactions — **`/chart/budget/overview` skipped**: it returns one snapshot bar per budget for the whole range, not a date series, so it does not fit the `AreaTrend` component used everywhere else. Attachments deferred.
 - [x] **E6-05** `P1` `1d` `/budgets/transactions-without-budget` view — list page with pagination
-- [ ] **E6-06** `P1` `1d` Available budgets (`/available-budgets`)
-- [ ] **E6-07** `P1` `2d` Budget performance report — folded into M5 reporting
-- [ ] **E6-08** `P1` `1d` Over-budget warnings in the notification inbox
+- [x] **E6-06** `P1` `1d` Available budgets (`/available-budgets`) — **already shipped**, reconciled 2026-09-17: `app/(app)/available-budgets/page.tsx`, per-currency aggregation
+- [x] **E6-07** `P1` `2d` Budget performance report — folded into M5 reporting — **already shipped**, reconciled 2026-09-17: shipped as the M5 budget report, `app/(app)/reports/budgets/page.tsx`
+- [x] **E6-08** `P1` `1d` Over-budget warnings in the notification inbox — **already shipped**, reconciled 2026-09-17: `app/(app)/budgets/page.tsx` writes `over_budget` notifications
 - [ ] **E6-09** `P2` `2d` Envelope-style drag-to-reallocate
 
 ### E7 · Categories — M4
@@ -506,7 +507,7 @@ Firefly III instance.
 - [x] **E7-01** `P0` `1d` Category list with period spend/earn — _sparkline deferred_
 - [x] **E7-02** `P0` `1d` Category CRUD + notes
 - [x] **E7-03** `P0` `2d` Category detail: transactions, period spend/earn totals — **chart and month-over-month trend skipped**, same `/chart/category/overview` shape mismatch as E6-04. Attachments deferred.
-- [ ] **E7-04** `P1` `1d` Uncategorised inbox with bulk categorise
+- [x] **E7-04** `P1` `1d` Uncategorised inbox with bulk categorise — **already shipped**, reconciled 2026-09-17: `app/(app)/categories/uncategorised/` incl. `bulk-toolbar.tsx`
 - [ ] **E7-05** `P1` `1d` Merge categories
 - [ ] **E7-06** `P2` `2d` Suggested category from payee history
 
@@ -517,10 +518,10 @@ Firefly III instance.
 - [x] **E8-01** `P0` `2d` Bill list grouped by active/inactive: amount range, repeat frequency, next expected, paid state
 - [x] **E8-02** `P0` `2d` Bill CRUD: min/max amount, currency, date, end date, repeat freq, skip, active, notes
 - [x] **E8-03** `P0` `2d` Bill detail: matched transactions, payment history — _linked rules deferred to M6 (rules don't exist yet)_
-- [ ] **E8-04** `P1` `2d` Subscription calendar
+- [x] **E8-04** `P1` `2d` Subscription calendar — **already shipped**, reconciled 2026-09-17: `app/(app)/bills/calendar/page.tsx`
 - [x] **E8-05** `P1` `1d` Annualised cost summary / most-expensive ranking — added to subscriptions list
-- [ ] **E8-06** `P1` `1d` Unpaid/overdue alerts in the notification inbox
-- [ ] **E8-07** `P2` `1d` "Create a matching rule from this bill"
+- [x] **E8-06** `P1` `1d` Unpaid/overdue alerts in the notification inbox — **already shipped**, reconciled 2026-09-17: `app/(app)/bills/page.tsx` writes `unpaid_bill` notifications
+- [ ] **E8-07** `P2` `1d` "Create a matching rule from this bill" — **Blocked on M6:** creating a rule needs the rules engine, which is E11/M6.
 
 ### E9 · Piggy banks & object groups — M4
 
@@ -531,7 +532,7 @@ before implementing — see §13.
 - [x] **E9-02** `P0` `2d` Piggy CRUD: account, name, target amount, start/target date, notes — _object group assignment deferred (E9-05)_
 - [x] **E9-03** `P0` `1d` Add/remove money with the resulting `/piggy-banks/{id}/events` history timeline
 - [x] **E9-04** `P1` `1d` Attachments tab; "on track / behind" status — on-track / behind / target-reached badges on list and detail; attachments tab deferred to M3 attachment manager
-- [ ] **E9-05** `P1` `2d` Object-group management
+- [ ] **E9-05** `P1` `2d` Object-group management — _partially shipped: `app/(app)/object-groups/` lists and creates groups. **Missing:** assigning a bill or piggy bank to a group from its own form._
 - [ ] **E9-06** `P2` `1d` Savings-goal projection chart
 
 ### E10 · Recurring transactions — M6
@@ -585,16 +586,16 @@ before implementing — see §13.
 - [x] **E14-10** `P1` `4d` **Custom report builder** — pick a metric, dimension, filter set, and chart type; save to `saved_reports`; pin to the dashboard — metric × dimension × chart, saved and pinned (pinned reports render on the dashboard). **Cut:** an arbitrary filter set beyond the shared period/account/currency scope — the six dimensions map onto insight endpoints, which accept no further filters.
 - [x] **E14-11** `P1` `2d` Export any report to CSV, XLSX, and a print-quality PDF — CSV (RFC 4180 quoted, UTF-8 BOM so Excel reads it correctly) and print-to-PDF via the print stylesheet. **Cut: a native XLSX writer.** It needs a zip encoder and a new dependency for a format Excel already opens from the CSV; deferred rather than half-built.
 - [x] **E14-12** `P1` `1d` Every chart element drills through to the underlying filtered transaction list — Every breakdown row links through; required adding category/budget/tag scoping to the transaction list, which previously understood only `account`
-- [ ] **E14-13** `P2` `2d` Scheduled reports — monthly email with a PDF attached (BullMQ + `report_runs`)
+- [ ] **E14-13** `P2` `2d` Scheduled reports — monthly email with a PDF attached (BullMQ + `report_runs`) — **Blocked on infrastructure:** needs a job runner (BullMQ + worker) and a mail transport. E2-28 now supplies the mail half; the scheduler half is still absent, and the same reasoning as E2-24 applies — a queue and a worker process for one periodic job is a lot for a single-container self-host. **Still planned — not out of scope.** Its greyed-out "Scheduled" nav entry was removed on 2026-09-17: a greyed-out link is a promise, and pointing one at a route that does not exist (`/reports-scheduled`) while the item is blocked on infrastructure advertises something nobody can use. Re-add the entry when the job runner lands, not before.
 - [ ] **E14-14** `P2` `3d` **Year in review** — an annual narrative summary with highlights and shareable cards
 - [ ] **E14-15** `P1` `1d` **Reconciliation test:** an automated check asserting our report totals equal Firefly's own figures to the cent
 
 ### E15 · Search — M2
 
 - [x] **E15-01** `P0` `2d` Global search over `/search/transactions` — in the ⌘K palette with keyboard navigation, and as free-text on the transactions page
-- [ ] **E15-02** `P1` `1d` Firefly search-operator support (`amount_is:`, `category_is:`, `date_after:`, …) with an autocompleting operator hint bar
-- [ ] **E15-03** `P1` `1d` Recent searches + saved searches
-- [ ] **E15-04** `P2` `1d` Search-result → bulk action pipeline
+- [x] **E15-02** `P1` `1d` Firefly search-operator support (`amount_is:`, `category_is:`, `date_after:`, …) with an autocompleting operator hint bar — operator catalogue in `lib/search-operators.ts`, every entry verified against a live instance; autocomplete, keyboard completion and an unknown-operator warning in `app/(app)/transactions/search-bar.tsx`
+- [x] **E15-03** `P1` `1d` Recent searches + saved searches — recent searches in localStorage (per-viewer, never synced); named/saved searches are the existing saved views (E5-04)
+- [x] **E15-04** `P2` `1d` Search-result → bulk action pipeline — falls out of E5-11 — the bulk toolbar renders on search results, since search and list share one grid
 
 ### E16 · Attachments — M3
 
@@ -603,17 +604,26 @@ before implementing — see §13.
 - [x] **E16-01** `P0` `2d` Two-step upload (`POST /attachments` then `/upload`) through a dedicated binary route, with a 25 MB cap
 - [x] **E16-02** `P0` `1d` Drag-and-drop zone, paste-from-clipboard, multi-file, delete
 - [x] **E16-03** `P0` `1d` Streamed download with the upstream `Content-Disposition` preserved
-- [ ] **E16-04** `P1` `1d` Inline preview for images and PDFs in a lightbox
-- [ ] **E16-05** `P1` `1d` Attachment manager: list all, filter by attached model, rename, delete
-- [ ] **E16-06** `P2` `2d` Mobile receipt capture via the camera, with client-side compression before upload
+- [x] **E16-04** `P1` `1d` Inline preview for images and PDFs in a lightbox — lightbox in `components/transactions/attachment-preview.tsx`, images and PDFs only
+- [x] **E16-05** `P1` `1d` Attachment manager: list all, filter by attached model, rename, delete — `app/(app)/attachments/` — list, filter by model and name, rename, preview, download, delete
+- [x] **E16-06** `P2` `2d` Mobile receipt capture via the camera, with client-side compression before upload — `capture="environment"` on mobile plus canvas downscaling in `lib/image-compress.ts`
 
-### E17 · Webhooks — M6
+### E17 · Webhooks — **dropped from scope** (2026-09-17)
 
-- [ ] **E17-01** `P1` `2d` Webhook CRUD: title, active, trigger, response, delivery, URL
-- [ ] **E17-02** `P1` `2d` Delivery log: messages, attempts, status, payload/response inspector with pretty JSON
-- [ ] **E17-03** `P1` `1d` Manual submit (`/webhooks/{id}/submit`) and trigger-for-transaction actions
-- [ ] **E17-04** `P1` `1d` Delete individual messages and attempts
-- [ ] **E17-05** `P2` `1d` Webhook health summary (success rate, last failure) on the list
+Firefly III's webhook endpoints are not given a UI in this project. All five
+items (E17-01 … E17-05, 7 ideal days) are withdrawn, not deferred — there is no
+milestone they are waiting for.
+
+**Why:** a webhook is configuration that makes the user's own Firefly instance
+POST to an arbitrary URL when something changes. Firefly already has a screen
+for that, and it is the right place for it: the delivery log, the retry
+attempts and the failure states all live server-side, so a second UI over the
+same data would mostly be re-rendering Firefly's own state and could only ever
+be a worse copy of it. The proxy also refuses these paths now (§4.3), so the
+surface is closed rather than merely unused.
+
+Anyone who wants webhooks configures them in Firefly III directly; they keep
+working, because Firefly fires them, not us.
 
 ### E18 · Preferences, configuration & misc — M6
 
@@ -905,3 +915,80 @@ internally consistent and quietly disagrees with Firefly.
 - The **month grids call one insight endpoint per month** — those endpoints
   only ever report a single total for the range given, so there is no other way
   to get a series from them. Capped at twelve buckets.
+
+---
+
+## 16. M0–M5 backlog pass — verification log
+
+Run against a live Firefly III v6.5.5 on 2026-09-17, through the Docker Compose
+app container. **In progress** — branch `feat/m0-m5-backlog`, not merged.
+
+Started from an audit of every open item in the M0–M5 epics. **Nine were already
+built and simply unchecked** (the drift LEARNING.md §10 warned about): the budget
+progress widget, saved views, available budgets, the uncategorised inbox, the
+subscription calendar, both notification producers, the Sentry source-map upload,
+and the budget report M5 absorbed. E5-19 turned out to be shipped too. Those are
+now checked with the file that proves each, so nobody rebuilds them.
+
+### Shipped in this pass
+
+| Items                  | What landed                                                  |
+| ---------------------- | ------------------------------------------------------------ |
+| E2-28, E2-27           | SMTP + Resend transports; HIBP breach check                  |
+| E2-08, E2-09, E2-10    | Settings → Security: sessions, audit trail, account deletion |
+| E2-06                  | TOTP two-factor with recovery codes                          |
+| E2-23, E2-24, E2-25    | Instance switcher, health checks, broken-connection banner   |
+| E5-11, E5-13, E5-16    | Bulk edit, quick add, CSV export                             |
+| E15-02, E15-03, E15-04 | Search operators, typo warning, recent searches              |
+| E16-04, E16-05, E16-06 | Attachment lightbox, manager, camera capture                 |
+
+### What the live instance taught us this time
+
+1. **An unrecognised search operator does not error.** Firefly treats
+   `catagory_is:Food` as literal search text, which matches nothing — so a typo
+   returns a confident empty result set indistinguishable from "you have no food
+   spending". A nonsense operator and a real operator with no matches both
+   return 0, so the count cannot tell them apart. Every operator in
+   `lib/search-operators.ts` was verified by finding a query that returns
+   non-zero; the hint bar warns on anything outside that set.
+
+2. **A search value containing a space must be quoted.**
+   `budget_is:Everyday spending` → 0 hits. `budget_is:"Everyday spending"` → 68.
+   Unquoted, the space ends the operator and the remainder becomes free text.
+
+3. **HIBP's range API works exactly as documented** — "Password1234" came back
+   with 321,223 breaches, a random 20-character string with 0 — and `Add-Padding`
+   inflates the response to ~2,190 lines so its size reveals nothing.
+
+4. **Attachment writes invalidated no cache.** There was no `attachments` tag in
+   `tagsForPath`, so a rename kept rendering the old title for a full TTL.
+   Found by renaming and watching Firefly agree while the page did not.
+
+### Bugs found and fixed while verifying
+
+- **Settings was unreachable before onboarding.** The `(app)` layout redirects to
+  `/onboarding` until a connection exists, which is right for every ledger view
+  but meant someone who abandoned the wizard could never reach Settings →
+  Security to delete their own account. Settings moved to its own route group.
+- **The bulk-action confirmation vanished.** The result message lived inside the
+  selection toolbar, which unmounts when a successful action clears the
+  selection. Hoisted out.
+- **`requestMeta` was being shared out of a `'use server'` file**, where every
+  export becomes a publicly callable endpoint. Moved to its own module.
+- **A `server-only` module was imported by a Client Component** (the audit
+  filter). The pure label helpers moved to `lib/audit-labels.ts`.
+- **The range picker collided with typed date operators.** `date_after:` from the
+  picker was appended to every search, and Firefly ANDs terms, so a user's own
+  `date_after:` was silently narrowed and appeared to do nothing.
+
+### Verification method
+
+Every item was exercised against the running stack, not just typechecked:
+Playwright drove the real forms for anything behind a Server Action (sign-up,
+MFA enrolment and challenge, account deletion, bulk edit, quick add, search,
+attachment rename/delete), and the result was confirmed in Firefly's own API or
+in Postgres afterwards. Test rows created along the way were deleted.
+
+`pnpm check:responsive` now covers 23 routes; the suite is green at
+360/390/768/1440 px. Unit tests: 110 passing (43 at M5, plus 20 for TOTP against
+the RFC vectors and 10 for search-operator parsing).
