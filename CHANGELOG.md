@@ -10,6 +10,71 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-18
+
+**The first stable release.** Milestones M0–M5 are complete: you can sign up,
+attach a Firefly III instance, and run the whole money-management and reporting
+surface against it. Everything here was exercised against a live Firefly III
+instance, not just typechecked.
+
+Upgrading from `0.2.0-alpha.1` needs no migration steps beyond the usual — the
+container applies its own migrations on boot. Nothing in your Firefly III ledger
+is touched.
+
+### Added
+
+- **Two-factor authentication.** Enrol an authenticator app, confirm with a
+  code, and get ten single-use recovery codes. Enrolment does not take effect
+  until you have proved the code works, so a mis-scanned QR cannot lock you out.
+- **Security settings.** See every device signed in to your account with its
+  last-seen time, and sign any of them out immediately. Read the full activity
+  trail, including failed sign-in attempts. Close your account, behind your
+  password and a typed confirmation.
+- **Real email.** Verification and reset links can now go out over SMTP (which
+  covers SES) or Resend. The default is still the server log, so evaluating
+  Firefly Studio needs no mail provider — but a transport that is configured
+  incorrectly now fails at startup instead of silently dropping every message.
+- **Optional breached-password checking** against Have I Been Pwned. Off by
+  default; when on, only the first five characters of a hash leave the server,
+  and an outage can never block sign-up.
+- **Multiple Firefly instances.** Attach more than one and switch between them
+  from the header. Connections are re-checked in the background, and a broken
+  one now says so in a banner that distinguishes an expired token from an
+  unreachable server, because those need different fixes.
+- **Bulk editing.** Select transactions — individually, by day, or the whole
+  page — and set a category, budget or tags on all of them, or delete them. A
+  partial failure reports how many actually applied.
+- **Quick add.** Record a simple transaction without leaving the list; the
+  accounts stay filled in so a run of entries is fast.
+- **Export** the current view, or just your selection, to CSV.
+- **Search operators** with autocomplete — `category_is:`, `amount_more:`,
+  `date_after:` and twenty more — plus recent searches. Firefly answers an
+  unrecognised operator with an empty result rather than an error, so a typo
+  looks exactly like "you have none of those"; the search box now warns before
+  you run it.
+- **Attachment manager.** Every receipt in one place, with previews for images
+  and PDFs, renaming, and filtering. On a phone you can photograph a receipt
+  directly, and it is compressed before upload.
+- **A progress bar** across the top during page loads.
+
+### Changed
+
+- The transactions list scrolls with the page instead of inside its own box,
+  keeps its column headers visible, and is far easier to use on a phone — the
+  checkboxes are now finger-sized and the bulk-action bar fits the screen.
+- Documentation moved into `docs/` behind an index, and the README now
+  describes what the app actually does.
+
+### Fixed
+
+- **`position: sticky` never worked anywhere in the app.** The page shell made
+  every sticky element measure against the wrong container, so the app header
+  scrolled off the top of every page instead of staying put.
+- Renaming an attachment kept showing the old name for up to a minute.
+- Settings was unreachable until you had connected a Firefly instance, so
+  anyone who abandoned setup could not reach it to delete their own account.
+- The date range picker silently overrode a date operator typed into search.
+
 ### Removed
 
 - **Webhooks are no longer planned.** Firefly III already has a screen for them
@@ -18,6 +83,12 @@ Each released version is published to Docker Hub as
   Configure webhooks in Firefly III directly — they keep working, because
   Firefly fires them, not this app. The proxy now refuses those endpoints
   rather than leaving them open for a feature that does not exist.
+
+### Known gaps
+
+- Automation — rules, recurring transactions, tags and currencies — is M6 and
+  not built. Those pages are marked in the navigation.
+- Scheduled report emails need a job runner and are not built.
 
 ## [0.2.0-alpha.1] - 2026-09-17
 
@@ -117,5 +188,7 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.1.0-alpha.1...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.3.0
+[0.2.0-alpha.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.2.0-alpha.1
 [0.1.0-alpha.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.1.0-alpha.1
