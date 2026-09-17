@@ -10,3 +10,12 @@ allowBuilds:
   # anyway. Approve it in the release job that uploads, not for every
   # developer install (see E1-16).
   '@sentry/cli': false
+
+# next 15.5.25 pins postcss at 8.4.31, which carries two high advisories
+# (GHSA-6g55-p6wh-862q, GHSA-r28c-9q8g-f849) plus two moderate ones, all of
+# them sourceMappingURL file-disclosure bugs. Nothing here parses untrusted
+# CSS, but a high advisory in the dependency audit is not something to sit on,
+# and our own direct dependency is already on the patched line. 8.4 -> 8.5 is
+# a minor bump on a stable API; the build and the test suite are the check.
+overrides:
+  postcss: ^8.5.28

@@ -41,6 +41,15 @@ a ledger you cannot afford to have written to by mistake.
   invalidation, and a proxy whose allowlist is generated from the vendored
   Firefly III OpenAPI specification.
 
+### Security
+
+- `postcss` is pinned to `^8.5.28` for the whole tree. `next` 15.5.25 resolves
+  it to 8.4.31, which carries two high advisories
+  ([GHSA-6g55-p6wh-862q](https://github.com/advisories/GHSA-6g55-p6wh-862q),
+  [GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849)) —
+  `sourceMappingURL` handling that can read arbitrary files. Nothing here
+  parses untrusted CSS, but the audit is a gate worth keeping green.
+
 ### Notes
 
 - Money is carried as a decimal string end to end and only formatted at the
