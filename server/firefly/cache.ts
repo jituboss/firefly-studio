@@ -76,7 +76,14 @@ export function tagsForPath(path: string): CacheTag[] {
   if (path.includes('/attachments')) tags.push('attachments', 'transactions');
   // M6. `/rule-groups` and `/rules` share a tag because a group write reorders
   // and re-parents the rules inside it, so caching them apart goes stale.
-  if (path.includes('/rule')) tags.push('rules');
+  if (path.includes('/rule')) {
+    tags.push('rules');
+    // Running a rule rewrites the transactions it matches — re-categorising
+    // them, retagging them, even deleting them. Without this the rule run
+    // succeeds and every cached list keeps showing the pre-run values until the
+    // TTL expires, which reads as "the rule did nothing".
+    if (path.includes('/trigger')) tags.push('transactions');
+  }
   // A recurrence write can mint real transactions (POST /trigger), so the
   // transaction lists have to drop too or the new rows stay invisible.
   if (path.includes('/recurrences')) tags.push('recurrences', 'transactions');

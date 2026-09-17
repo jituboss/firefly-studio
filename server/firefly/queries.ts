@@ -367,18 +367,63 @@ export const getRules = () =>
 
 export const getRule = (id: string) => fireflyGet<{ data: Rule }>(`/v1/rules/${id}`);
 
+export interface RuleTestParams {
+  start?: string;
+  end?: string;
+  /** Asset and liability account ids — see the warning below. */
+  accountIds: string[];
+}
+
+/**
+ * Build the query for a rule dry-run.
+ *
+ * `accounts[]` IS NOT OPTIONAL, whatever the spec says. The spec describes it
+ * as an optional filter that "limits" the test, which reads as "omit it to test
+ * everything". Omitting it tests NOTHING: a rule matching 22 transactions
+ * reports 0 matches, with a 200 and an empty array, so the dry-run looks like a
+ * working feature saying the rule is useless. Verified on 6.5.5 — the same rule
+ * returns 22 the moment `accounts[]=1&accounts[]=3&accounts[]=5` is added, with
+ * or without a date range.
+ *
+ * Firefly silently drops anything that is not an asset account or a liability,
+ * so passing the user's full set of those is the closest thing to "all".
+ */
+function ruleTestQuery({ start, end, accountIds }: RuleTestParams): string {
+  const search = new URLSearchParams();
+  if (start) search.set('start', start);
+  if (end) search.set('end', end);
+  for (const id of accountIds) search.append('accounts[]', id);
+  const encoded = search.toString();
+  return encoded ? `?${encoded}` : '';
+}
+
 /**
  * E11-04 dry-run. Always uncached: the whole point is to show what matches the
  * ledger as it is right now, and a cached answer would quietly lie after an edit.
  */
-export const testRule = (id: string, params: { start?: string; end?: string } = {}) =>
-  fireflyGetSafe<Paged<Transaction>>(`/v1/rules/${id}/test${qs(params)}`, { data: [], meta: {} });
-
-export const testRuleGroup = (id: string, params: { start?: string; end?: string } = {}) =>
-  fireflyGetSafe<Paged<Transaction>>(`/v1/rule-groups/${id}/test${qs(params)}`, {
+export const testRule = (id: string, params: RuleTestParams) =>
+  fireflyGetSafe<Paged<Transaction>>(`/v1/rules/${id}/test${ruleTestQuery(params)}`, {
     data: [],
     meta: {},
   });
+
+export const testRuleGroup = (id: string, params: RuleTestParams) =>
+  fireflyGetSafe<Paged<Transaction>>(`/v1/rule-groups/${id}/test${ruleTestQuery(params)}`, {
+    data: [],
+    meta: {},
+  });
+
+/**
+ * The accounts a rule test has to be scoped to. Asset accounts and liabilities
+ * only; Firefly drops the rest.
+ */
+export const getRuleTestAccounts = async (): Promise<string[]> => {
+  const [assets, liabilities] = await Promise.all([
+    getAccountsSafe({ type: 'asset', limit: 200 }),
+    getAccountsSafe({ type: 'liabilities', limit: 200 }),
+  ]);
+  return [...assets.data, ...liabilities.data].map((account) => account.id);
+};
 
 // --- M6: recurring ----------------------------------------------------------
 

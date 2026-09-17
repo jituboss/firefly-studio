@@ -249,7 +249,7 @@ export interface RuleAttributes {
   rule_group_id: string;
   rule_group_title: string | null;
   order: number;
-  trigger: 'store-journal' | 'update-journal' | 'manual';
+  trigger: 'store-journal' | 'update-journal' | 'manual-activation';
   active: boolean;
   strict: boolean;
   stop_processing: boolean;
