@@ -5,8 +5,18 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-17, after milestone M4. Written by an outgoing AI coding
-assistant (Claude) for whoever continues this work.
+**Last updated:** 2026-09-17, at the end of an extended M0–M4 polish pass. Written by an outgoing AI coding assistant for whoever continues this work.
+
+**What changed since the previous handoff note was written:** the M4 branch was merged into `main`, then several follow-up fixes landed against a live Firefly III instance. The current `main` branch has **20+ commits** including:
+
+- dashboard KPI tiles now render in the connection primary currency with compact notation,
+- dashboard balance chart now uses `/v1/chart/account/overview` (earned/spent series) and requests `preselected=all`,
+- balance chart colors are semantic: earned is green (`--income`), spent is red (`--expense`),
+- `AreaTrend` tooltip labels swap based on value sign,
+- accounts page now fetches each account type explicitly, computes real net-worth/assets/liabilities tiles,
+- accounts landing groups show the first 15 accounts with a polished gradient header and a pill "View all N" button,
+- available budgets page shipped with per-currency aggregation and positive spent display,
+- bill calendar and object-group pages shipped during the M0–M4 sweep.
 
 ---
 
@@ -27,24 +37,25 @@ what actually happened building the first four milestones of it.
 milestone table and §8 for the itemised backlog (every finished item is checked `[x]`
 with a note on what was cut and why; nothing was silently dropped).
 
-| Milestone | What it shipped                                                                                                                           | Status         |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| M0        | Repo scaffold, Next.js 15 + TS strict, Tailwind v4 design tokens, Postgres + Drizzle, Docker, CI, vendored Firefly OpenAPI spec + codegen | ✅ done        |
-| M1        | App's own auth (sign-up/in/verify/reset, DB sessions), the Firefly connection onboarding wizard, encrypted PAT storage                    | ✅ done        |
-| M2        | The Firefly proxy (`/api/ff/[...path]`) + Redis cache, dashboard with real KPIs/charts, accounts CRUD-read, transaction list/search       | ✅ done        |
-| M3        | Full transaction write lifecycle: create/edit/delete, split editor, attachments (upload/download)                                         | ✅ done        |
-| M4        | Budgets (+ per-period limits), Categories, Bills/subscriptions, Piggy banks — all CRUD                                                    | ✅ done        |
-| M5        | Reporting (net worth, income/expense, category/budget reports, custom builder)                                                            | ❌ not started |
-| M6        | Rules, recurring transactions, tags, currencies/exchange rates, webhooks, links, admin                                                    | ❌ not started |
-| M7        | Accessibility audit, i18n, PWA, perf budget polish                                                                                        | ❌ not started |
-| M8        | Security hardening pass, load testing, release docs                                                                                       | ❌ not started |
+| Milestone | What it shipped                                                                                                                                | Status         |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| M0        | Repo scaffold, Next.js 15 + TS strict, Tailwind v4 design tokens, Postgres + Drizzle, Docker, CI, vendored Firefly OpenAPI spec + codegen      | ✅ done        |
+| M1        | App's own auth (sign-up/in/verify/reset, DB sessions), the Firefly connection onboarding wizard, encrypted PAT storage                         | ✅ done        |
+| M2        | The Firefly proxy (`/api/ff/[...path]`) + Redis cache, dashboard with real KPIs/charts, accounts CRUD-read, transaction list/search            | ✅ done        |
+| M3        | Full transaction write lifecycle: create/edit/delete, split editor, attachments (upload/download)                                              | ✅ done        |
+| M4        | Budgets (+ per-period limits), Categories, Bills/subscriptions, Piggy banks — all CRUD, plus Available budgets and Object groups landing pages | ✅ done        |
+| M5        | Reporting (net worth, income/expense, category/budget reports, custom builder)                                                                 | ❌ not started |
+| M6        | Rules, recurring transactions, tags, currencies/exchange rates, webhooks, links, admin                                                         | ❌ not started |
+| M7        | Accessibility audit, i18n, PWA, perf budget polish                                                                                             | ❌ not started |
+| M8        | Security hardening pass, load testing, release docs                                                                                            | ❌ not started |
 
 **Start M5 next** unless told otherwise — that's the next unstarted milestone and the plan's
 own "recommended solo path" (§6.1) treats reporting as the differentiator over Firefly's
 stock UI.
 
-Working tree is clean; 8 commits on `main`/whatever branch is checked out. Run `git log
---oneline` to confirm nothing has changed since this was written.
+Working tree is clean; run `git log --oneline` to confirm the current state — the
+branch now has **20+ commits beyond the original M0–M4 merge** from the recent polish
+pass.
 
 ## 3. Before you write a single line — read these four files
 
@@ -301,8 +312,14 @@ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
   pattern if this becomes a problem.
 - **No object-group support** (E9-05) — piggy banks and bills can have Firefly object
   groups but the UI doesn't expose creating/assigning them yet.
+- **Cross-currency arithmetic in list/aggregate views is naive.** Sums are grouped by
+  currency code but not converted, so the dashboard/account totals can look like many
+  separate amounts rather than one consolidated figure.
 - **Auth email is console-only** (§9 above) — needs a real transport (Resend/SES/SMTP)
   before this could go to real users. This is `PROJECT_PLAN.md` §11 Q4, still open.
+- **Project-plan / learning-doc sync drift:** some items now exist in the UI that are
+  still unchecked in `PROJECT_PLAN.md` (e.g. object-group landing page, bill calendar,
+  available budgets). The plan should be reconciled when the next milestone starts.
 - The `pnpm-workspace.yaml` build-approval list may need updating if you add a new
   dependency with a native postinstall step — pnpm will error with a clear message if so.
 
@@ -324,3 +341,24 @@ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
    cross-session/cross-provider handoff notes and lessons, not a changelog; don't let it
    grow unbounded. If it starts duplicating `PROJECT_PLAN.md`, trim it back to just what's
    surprising or hard-won.
+
+## 12. Quick reference — where the actually-shipped UI pages live
+
+Use this map before assuming a feature still needs to be built.
+
+| UI feature                               | Path(s) in this repo                                                                                                                                                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dashboard KPIs + balance chart           | `app/(app)/dashboard/page.tsx`, `components/charts/area-trend.tsx`, `components/dashboard/widgets.tsx`                                                                                                             |
+| Accounts list + type filters + landing   | `app/(app)/accounts/page.tsx`, `app/(app)/accounts/filters.tsx`                                                                                                                                                    |
+| Account create/edit/detail/delete        | `app/(app)/accounts/account-form.tsx`, `app/(app)/accounts/[id]/page.tsx`, `app/(app)/accounts/new/page.tsx`, `app/(app)/accounts/[id]/delete-button.tsx`                                                          |
+| Transactions list + pagination + search  | `app/(app)/transactions/page.tsx`, `app/(app)/transactions/table.tsx`, `app/(app)/transactions/filters.tsx`, `app/(app)/transactions/pagination.tsx`, `app/(app)/transactions/saved-views.tsx`                     |
+| Transaction create/edit/split/duplicate  | `app/(app)/transactions/transaction-form.tsx`, `app/(app)/transactions/[id]/edit/page.tsx`, `app/(app)/transactions/[id]/page.tsx`, `app/(app)/transactions/new/page.tsx`, `server/firefly/transaction-actions.ts` |
+| Attachments (upload/download/delete)     | `components/transactions/attachments.tsx`, `app/api/attachments/route.ts`                                                                                                                                          |
+| Budgets + limits + without-budget view   | `app/(app)/budgets/page.tsx`, `app/(app)/budgets/budget-form.tsx`, `app/(app)/budgets/[id]/page.tsx`, `app/(app)/budgets/[id]/limit-form.tsx`, `app/(app)/budgets/transactions-without-budget/page.tsx`            |
+| Available budgets landing page           | `app/(app)/available-budgets/page.tsx`                                                                                                                                                                             |
+| Categories + uncategorised inbox         | `app/(app)/categories/page.tsx`, `app/(app)/categories/category-form.tsx`, `app/(app)/categories/uncategorised/page.tsx`                                                                                           |
+| Bills / subscriptions + calendar         | `app/(app)/bills/page.tsx`, `app/(app)/bills/bill-form.tsx`, `app/(app)/bills/calendar/page.tsx`                                                                                                                   |
+| Piggy banks                              | `app/(app)/piggy-banks/page.tsx`, `app/(app)/piggy-banks/piggy-form.tsx`, `app/(app)/piggy-banks/[id]/page.tsx`, `app/(app)/piggy-banks/[id]/adjust-form.tsx`                                                      |
+| Object groups                            | `app/(app)/object-groups/page.tsx`, `app/(app)/object-groups/new/page.tsx`                                                                                                                                         |
+| Settings → connections manager           | `app/(app)/settings/connections/page.tsx`, `app/(app)/settings/connections/connection-card.tsx`                                                                                                                    |
+| App shell / navigation / command palette | `components/app-shell.tsx`, `components/command-palette.tsx`                                                                                                                                                       |
