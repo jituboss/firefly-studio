@@ -67,7 +67,7 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
   },
   {
     heading: 'Analyse',
-    items: [{ href: '/reports', label: 'Reports', icon: ChartPie, milestone: 'M5' }],
+    items: [{ href: '/reports', label: 'Reports', icon: ChartPie }],
   },
   {
     heading: 'Automate',

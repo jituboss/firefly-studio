@@ -282,3 +282,78 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * E14-01 — print stylesheet for reports.
+ *
+ * A report is the one thing in this app people hand to someone else, so it has
+ * to survive Ctrl-P. Three problems to solve: the app chrome (sidebar, header,
+ * scope controls) is noise on paper; the dark theme burns a cartridge and
+ * renders light grey text on white; and Recharts draws into an SVG that Chrome
+ * will happily slice in half across a page break.
+ * ------------------------------------------------------------------------- */
+@media print {
+  /* Force the light palette regardless of the on-screen theme. */
+  :root,
+  :root[data-theme='dark'],
+  .dark {
+    --background: #fff;
+    --foreground: #000;
+    --card: #fff;
+    --card-foreground: #000;
+    --muted-foreground: #444;
+    --border: #bbb;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* App chrome and anything a reader cannot click on paper. */
+  aside,
+  header,
+  nav,
+  [data-print='hide'] {
+    display: none !important;
+  }
+
+  /* The shell reserves a 15rem gutter for the sidebar that is no longer there. */
+  main,
+  [id='main'] {
+    padding: 0 !important;
+  }
+  .lg\:pl-60 {
+    padding-left: 0 !important;
+  }
+
+  /* Never split a figure, a table row or a chart across two sheets. */
+  [data-slot='card'],
+  table,
+  tr,
+  .recharts-wrapper {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  [data-slot='card'] {
+    border: 1px solid #bbb !important;
+    box-shadow: none !important;
+  }
+
+  [data-print='break-before'] {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* The privacy toggle blurs amounts; a blurred report is a wasted sheet. */
+  [data-slot='amount'] {
+    filter: none !important;
+  }
+
+  a {
+    text-decoration: none !important;
+    color: #000 !important;
+  }
+}

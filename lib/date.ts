@@ -174,3 +174,60 @@ export function formatAxisDate(
 }
 
 export { addDays, addMonths, endOfMonth, startOfMonth, TZDate, differenceInCalendarDays };
+
+/**
+ * Split an inclusive `start`..`end` pair into whole calendar months.
+ *
+ * M5 reports need per-month figures, and Firefly's `/insight/*` endpoints only
+ * ever return one total for whatever range you hand them — so a month-by-month
+ * table is built by asking for each month separately. Buckets are clipped to
+ * the requested range at both ends, so a half-month at either edge reports the
+ * days actually inside the range rather than the whole calendar month.
+ */
+export function eachMonthInRange(
+  start: string,
+  end: string,
+  timezone: string = DEFAULT_TIMEZONE,
+): Array<{ key: string; label: string; start: string; end: string }> {
+  const first = parseFireflyDate(start, timezone);
+  const last = parseFireflyDate(end, timezone);
+  if (last < first) return [];
+
+  const buckets: Array<{ key: string; label: string; start: string; end: string }> = [];
+  let cursor = new TZDate(startOfMonth(first), timezone);
+
+  // A pathological range (a decade of daily buckets) would produce a table no
+  // one can read and a burst of API calls, so cap it.
+  for (let guard = 0; guard < 120; guard += 1) {
+    if (cursor > last) break;
+    const monthStart = new TZDate(startOfMonth(cursor), timezone);
+    const monthEnd = new TZDate(endOfMonth(cursor), timezone);
+    const clippedStart = monthStart < first ? first : monthStart;
+    const clippedEnd = monthEnd > last ? last : monthEnd;
+
+    buckets.push({
+      key: format(monthStart, 'yyyy-MM'),
+      label: format(monthStart, 'MMM yyyy'),
+      start: toApiDate(clippedStart, timezone),
+      end: toApiDate(clippedEnd, timezone),
+    });
+
+    cursor = new TZDate(addMonths(monthStart, 1), timezone);
+  }
+
+  return buckets;
+}
+
+/** "Mar 2026" for a `YYYY-MM` or `YYYY-MM-DD` key, in the user's timezone. */
+export function formatMonthLabel(
+  key: string,
+  timezone: string = DEFAULT_TIMEZONE,
+  locale = 'en-US',
+): string {
+  const plain = key.length === 7 ? `${key}-01` : key;
+  return new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    year: 'numeric',
+    timeZone: timezone,
+  }).format(parseFireflyDate(plain, timezone));
+}
