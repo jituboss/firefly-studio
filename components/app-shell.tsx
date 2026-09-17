@@ -64,7 +64,6 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
       { href: '/categories', label: 'Categories', icon: Shapes },
       { href: '/bills', label: 'Subscriptions', icon: Receipt },
       { href: '/piggy-banks', label: 'Piggy banks', icon: PiggyBank },
-      { href: '/object-groups', label: 'Object groups', icon: Folder },
     ],
   },
   {
