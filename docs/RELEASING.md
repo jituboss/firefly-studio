@@ -43,10 +43,27 @@ labels; `/api/health` reports the version and the commit it was built from.
    That verifies the tree, writes the version into `package.json`, commits
    `chore(release): …` and creates an annotated tag. It does **not** push.
 
-4. Push. This is the step that publishes:
+4. Move the `latest` git tag, if this is a stable release:
+
+   ```bash
+   git tag -f -a latest -m "Latest release: v0.3.0" main
+   ```
+
+   This is a convenience pointer to the newest stable commit. It is separate
+   from the `latest` DOCKER tag, which the workflow computes from the version —
+   see the table above. Two things to know about it:
+
+   - It deliberately does not start with `v`, so it does not match the
+     workflow's `tags: ['v*']` trigger and cannot set off a second build.
+   - It is a **moving** tag, which git does not really intend. Updating it means
+     `-f` here and `--force` on the push, and anyone who already fetched it
+     keeps the old one until they prune. Leave it alone for prereleases.
+
+5. Push. This is the step that publishes:
 
    ```bash
    git push origin main v0.1.0-alpha.2
+   git push --force origin latest      # only when latest moved
    ```
 
 The `Release` workflow then runs the full gate (format, lint, typecheck, tests,
