@@ -1,4 +1,4 @@
-import { withSentryConfig } from '@sentry/nextjs';
+import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 
 /**
@@ -42,7 +42,6 @@ const nextConfig: NextConfig = {
  */
 export default withSentryConfig(nextConfig, {
   silent: !process.env.CI,
-  disableLogger: true,
   // Source maps are generated for the server but hidden from the client bundle,
   // so stack traces stay readable in Sentry without shipping them to browsers.
   widenClientFileUpload: true,

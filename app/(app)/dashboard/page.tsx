@@ -1,26 +1,24 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { CheckCircle2, CircleDashed } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Amount } from '@/components/ui/amount';
-import {
-  FIREFLY_OPERATION_COUNT,
-  FIREFLY_PATH_COUNT,
-  FIREFLY_SPEC_VERSION,
-  FIREFLY_TAGS,
-} from '@/spec/generated/operations';
+import { getSession } from '@/server/auth/session';
+import { getDefaultConnection } from '@/server/connections';
+import { FIREFLY_OPERATION_COUNT, FIREFLY_TAGS } from '@/spec/generated/operations';
 
 export const metadata: Metadata = { title: 'Dashboard' };
 
 /**
- * M0 placeholder. This route exists to prove the shell, theming, token layer and
- * money primitives render correctly end to end. E3-04 … E3-15 replace the body
- * with real widgets backed by /summary/basic and /chart/balance/balance.
+ * M1 state: the connection is live but no financial data is read yet. E3-04
+ * onward replace this with real widgets backed by /summary/basic and
+ * /chart/balance/balance.
  */
 
 const MILESTONES = [
   { id: 'M0', label: 'Foundation', done: true },
-  { id: 'M1', label: 'Auth & onboarding', done: false },
+  { id: 'M1', label: 'Auth & onboarding', done: true },
   { id: 'M2', label: 'Read core', done: false },
   { id: 'M3', label: 'Write core', done: false },
   { id: 'M4', label: 'Money management', done: false },
@@ -30,45 +28,44 @@ const MILESTONES = [
   { id: 'M8', label: 'Hardening & launch', done: false },
 ];
 
-/** Sample values only — nothing here touches a Firefly instance yet. */
-const TOKEN_PREVIEW = [
-  { label: 'Income', value: '4820.00', tone: 'income' as const },
-  { label: 'Expense', value: '-3155.42', tone: 'expense' as const },
-  { label: 'Transfer', value: '1200.00', tone: 'transfer' as const },
-  { label: 'Net', value: '1664.58', tone: 'auto' as const },
-];
+export default async function DashboardPage() {
+  const session = await getSession();
+  if (!session) redirect('/sign-in');
 
-export default function DashboardPage() {
+  const connection = await getDefaultConnection(session.user.id);
+
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Welcome{session.user.displayName ? `, ${session.user.displayName}` : ''}
+        </h1>
         <p className="text-muted-foreground text-sm">
-          Foundation milestone is in place. Connect a Firefly III instance in M1 to see real
-          figures.
+          Your Firefly III instance is connected. Financial data arrives in M2.
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Vendored API surface</CardTitle>
+          <CardTitle>Connected instance</CardTitle>
           <CardDescription>
-            Generated from <code className="font-mono text-xs">spec/firefly-iii-v1.yaml</code> at
-            build time.
+            <Link href="/settings/connections" className="underline underline-offset-4">
+              Manage connections
+            </Link>
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-4">
           {[
-            { label: 'Firefly III', value: FIREFLY_SPEC_VERSION },
-            { label: 'Paths', value: String(FIREFLY_PATH_COUNT) },
-            { label: 'Operations', value: String(FIREFLY_OPERATION_COUNT) },
-            { label: 'Resource groups', value: String(FIREFLY_TAGS.length) },
+            { label: 'Connection', value: connection?.label ?? '—' },
+            { label: 'Firefly III', value: connection?.fireflyVersion ?? '—' },
+            { label: 'Firefly account', value: connection?.remoteUserEmail ?? '—' },
+            { label: 'Currency', value: connection?.primaryCurrency ?? '—' },
           ].map((stat) => (
-            <div key={stat.label}>
+            <div key={stat.label} className="min-w-0">
               <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                 {stat.label}
               </p>
-              <p className="tabular mt-1 text-2xl font-semibold tracking-tight">{stat.value}</p>
+              <p className="mt-1 truncate text-sm font-medium">{stat.value}</p>
             </div>
           ))}
         </CardContent>
@@ -77,22 +74,19 @@ export default function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Money primitives</CardTitle>
+            <CardTitle>What is next</CardTitle>
             <CardDescription>
-              Tabular numerals, sign glyphs, and a screen-reader label on every amount — colour
-              never carries meaning alone.
+              M2 wires the proxy to {FIREFLY_OPERATION_COUNT} operations across{' '}
+              {FIREFLY_TAGS.length} resource groups.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {TOKEN_PREVIEW.map((row) => (
-              <div
-                key={row.label}
-                className="border-border flex items-center justify-between border-b py-2 last:border-0"
-              >
-                <span className="text-muted-foreground text-sm">{row.label}</span>
-                <Amount value={row.value} currency="EUR" tone={row.tone} size="lg" />
-              </div>
-            ))}
+          <CardContent>
+            <ul className="text-muted-foreground list-disc space-y-1.5 pl-5 text-sm">
+              <li>Dashboard KPI tiles from /summary/basic</li>
+              <li>Account list and balance charts</li>
+              <li>The virtualised transaction grid</li>
+              <li>Global search</li>
+            </ul>
           </CardContent>
         </Card>
 

@@ -11,6 +11,7 @@ import {
   Coins,
   Flame,
   LayoutDashboard,
+  LogOut,
   Menu,
   PiggyBank,
   Receipt,
@@ -25,6 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { signOutAction } from '@/server/auth/actions';
 
 /**
  * M0 application shell. The information architecture is PROJECT_PLAN.md §5.3;
@@ -75,7 +77,7 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
   {
     heading: 'Manage',
     items: [
-      { href: '/recurring-jobs', label: 'Settings', icon: Settings, milestone: 'M1' },
+      { href: '/settings/connections', label: 'Connections', icon: Settings },
       { href: '/reports-scheduled', label: 'Scheduled', icon: CalendarClock, milestone: 'M5' },
     ],
   },
@@ -128,7 +130,17 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  userName,
+  connectionLabel,
+  connectionStatus,
+}: {
+  children: React.ReactNode;
+  userName?: string;
+  connectionLabel?: string | null;
+  connectionStatus?: string | null;
+}) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   return (
@@ -172,8 +184,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="size-4" />
           </Button>
-          <div className="flex-1" />
+          <div className="flex-1">
+            {connectionLabel ? (
+              <span className="text-muted-foreground hidden items-center gap-1.5 text-sm sm:inline-flex">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    connectionStatus === 'ok' ? 'bg-income' : 'bg-warning',
+                  )}
+                />
+                {connectionLabel}
+                <span className="sr-only">
+                  {connectionStatus === 'ok' ? 'connected' : `status: ${connectionStatus}`}
+                </span>
+              </span>
+            ) : null}
+          </div>
+
+          {userName ? (
+            <span className="text-muted-foreground hidden max-w-[16ch] truncate text-sm md:inline">
+              {userName}
+            </span>
+          ) : null}
+
           <ThemeToggle />
+
+          <form action={signOutAction}>
+            <Button type="submit" variant="ghost" size="icon" aria-label="Sign out">
+              <LogOut className="size-4" />
+            </Button>
+          </form>
         </header>
 
         <main id="main" className="px-4 py-6 sm:px-6 lg:px-8">

@@ -1,0 +1,45 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { SESSION_COOKIE_NAME } from '@/lib/session-cookie';
+
+/**
+ * E2-13 — coarse route guard.
+ *
+ * Middleware only checks for the PRESENCE of a session cookie; it cannot query
+ * Postgres (edge runtime). The authoritative check is `requireSession()` in
+ * each layout, which validates the token against the database. This exists to
+ * avoid rendering an authenticated shell for an obviously-signed-out visitor.
+ */
+
+const PUBLIC_PATHS = [
+  '/sign-in',
+  '/sign-up',
+  '/verify-email',
+  '/forgot-password',
+  '/reset-password',
+];
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const hasSession = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+
+  if (!hasSession && !isPublic) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/sign-in';
+    url.search = pathname === '/' ? '' : `?next=${encodeURIComponent(pathname)}`;
+    return NextResponse.redirect(url);
+  }
+
+  if (hasSession && isPublic && pathname !== '/verify-email' && pathname !== '/reset-password') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|monitoring|favicon.ico|robots.txt).*)'],
+};

@@ -58,9 +58,14 @@ const eslintConfig = [
       'no-restricted-syntax': [
         'error',
         {
-          selector: "NewExpression[callee.name='Date'][arguments.length>0]",
+          // Bans `new Date(someString)`, which resolves a Firefly plain date in
+          // implicit local time. Arithmetic on epoch milliseconds — e.g.
+          // `new Date(Date.now() + TTL)` for a session expiry — is unambiguous
+          // and therefore allowed.
+          selector:
+            "NewExpression[callee.name='Date'][arguments.length>0]:not([arguments.0.type='BinaryExpression'])",
           message:
-            'Never parse a date in implicit local time. Use lib/date.ts (parseFireflyDate / parseFireflyDateTime).',
+            'Never parse a date in implicit local time. Use lib/date.ts (parseFireflyDate / parseFireflyDateTime). Epoch arithmetic such as new Date(Date.now() + ttl) is fine.',
         },
         {
           selector: "CallExpression[callee.name='Number'][arguments.length>0]",

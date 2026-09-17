@@ -79,7 +79,7 @@ instance.
 | Forms           | **react-hook-form** + **Zod**                                                             | Shared schemas between client and route handlers                                                  |
 | DB              | **PostgreSQL 16**                                                                         | Required by brief                                                                                 |
 | ORM             | **Drizzle ORM** + `drizzle-kit` migrations                                                | SQL-first, typed, no codegen daemon                                                               |
-| Auth            | **Auth.js v5** (Credentials + optional OAuth), DB session strategy                        | Mature; DB sessions let us revoke                                                                 |
+| Auth            | **Direct DB sessions** (Argon2id + `sessions` table)                                      | Auth.js forces JWT with Credentials, defeating revocation — see ADR-0004                          |
 | Hashing         | **Argon2id** (`@node-rs/argon2`)                                                          | OWASP recommendation                                                                              |
 | Cache / queue   | **Redis 7** (optional; Postgres fallback)                                                 | Response cache, rate limits, BullMQ jobs                                                          |
 | Background jobs | **BullMQ**                                                                                | Scheduled exports, connection health checks                                                       |
@@ -365,43 +365,56 @@ Estimates are ideal engineering days.
 
 ### E2 · Authentication & onboarding — M1
 
+**Status: complete** (2026-09-17). P0 scope delivered and verified against a live Firefly III v6.5.5
+instance. P1/P2 items are carried forward with their original IDs — none were silently dropped.
+
 **Our own auth**
 
-- [ ] **E2-01** `P0` `2d` `users`/`sessions` schema + Auth.js v5 with DB session strategy
-- [ ] **E2-02** `P0` `2d` Sign-up: email + password, Argon2id, zxcvbn meter, HIBP breach check
-- [ ] **E2-03** `P0` `1d` Email verification (single-use hashed token, 24 h expiry) + resend with cooldown
-- [ ] **E2-04** `P0` `1d` Sign-in with rate limiting and non-enumerating errors
-- [ ] **E2-05** `P0` `1d` Password reset request + confirm; invalidate all sessions on reset
-- [ ] **E2-06** `P1` `2d` TOTP MFA: enrol, QR, verify, recovery codes (shown once)
+- [x] **E2-01** `P0` `2d` `users`/`sessions` schema + database-backed sessions — **implemented directly, not via Auth.js v5**; Auth.js forces JWT sessions with the Credentials provider, which defeats server-side revocation. See [ADR-0004](docs/adr/0004-hand-rolled-sessions-instead-of-authjs.md).
+- [x] **E2-02** `P0` `2d` Sign-up: email + password, Argon2id (m=19456, t=2, p=1), 12-char floor, inline strength meter — **zxcvbn and the HIBP breach check were cut** (see E2-27); non-enumerating duplicate-email response
+- [x] **E2-03** `P0` `1d` Email verification (single-use SHA-256-hashed token, 24 h expiry, atomic consume) + resend with rate limit
+- [x] **E2-04** `P0` `1d` Sign-in with rate limiting (5/15 min per email, 20/15 min per IP) and non-enumerating errors; constant-time dummy hash so response time does not reveal account existence
+- [x] **E2-05** `P0` `1d` Password reset request + confirm; revokes every session for the user
+- [ ] **E2-06** `P1` `2d` TOTP MFA: enrol, QR, verify, recovery codes (shown once) — _schema in place (`mfa_credentials`, `mfa_recovery_codes`), UI deferred_
 - [ ] **E2-07** `P2` `2d` WebAuthn/passkey as a second factor and as a login method
-- [ ] **E2-08** `P1` `1d` Active-sessions list with device/IP/last-seen and remote revoke
-- [ ] **E2-09** `P1` `1d` `audit_log` writer + viewer in Settings → Security
+- [ ] **E2-08** `P1` `1d` Active-sessions list with device/IP/last-seen and remote revoke — _`revokeAllSessions` exists; the UI does not_
+- [ ] **E2-09** `P1` `1d` `audit_log` viewer in Settings → Security — _the writer ships and records 9 event types; the viewer does not_
 - [ ] **E2-10** `P1` `1d` Account deletion: confirm, cascade, purge cache namespace, tombstone
 - [ ] **E2-11** `P2` `1d` Optional OAuth sign-in (Google/GitHub) with account linking
 - [ ] **E2-12** `P2` `3d` Firefly **OAuth2** connection option (authorization-code + refresh) as an alternative to PAT
 
 **Onboarding journey**
 
-- [ ] **E2-13** `P0` `1d` Post-verification welcome screen; route guard forces onboarding until a connection is `ok`
-- [ ] **E2-14** `P0` `2d` **Step 1 — Base URL.** Input with normalisation (strip trailing `/`, strip `/api/v1`), then
-      `GET /api/v1/about` probe. Show detected Firefly version, OS, PHP version. Named errors for DNS failure,
-      TLS failure, 404 (not a Firefly instance), timeout.
-- [ ] **E2-15** `P0` `2d` **Step 2 — Personal Access Token.** Inline help with screenshots of Firefly's
-      _Options → Profile → OAuth → Personal Access Tokens_. Validate with `GET /api/v1/about/user`; display the
-      remote user's email and role as confirmation. Reject tokens that 401/403.
-- [ ] **E2-16** `P0` `2d` Envelope-encrypt and persist the PAT (`server/crypto`); store `token_hint`, version, status
-- [ ] **E2-17** `P0` `1d` **Step 3 — Version gate.** Compare against `MIN_FIREFLY_VERSION`; block below 6.1, warn
-      below 6.2 listing the features that will be hidden
-- [ ] **E2-18** `P0` `2d` **Step 4 — Personalise.** Fetch `/currencies/primary` and `/accounts?type=asset`; let the
-      user pick display currency, favourite accounts, date/number format, week start
+- [x] **E2-13** `P0` `1d` Route guard forces onboarding until a connection is `ok` — edge middleware checks cookie presence, each authenticated layout re-validates against Postgres
+- [x] **E2-14** `P0` `2d` **Step 1 — Base URL.** Normalisation (adds scheme, strips trailing `/` and `/api/v1`), SSRF guard, then a reachability probe. **Redefined: `/api/v1/about` requires authentication**, so an unauthenticated 401 with a JSON body is the positive signal that a Firefly III API is present. Named errors for DNS failure, redirect, HTML body, 404 and timeout.
+- [x] **E2-15** `P0` `2d` **Step 2 — Personal Access Token.** Inline written instructions plus a deep link to the instance's profile page; validated with `GET /api/v1/about/user`, which also confirms the remote account's email and role
+- [x] **E2-16** `P0` `2d` Envelope-encrypt and persist the PAT — AES-256-GCM under an HKDF-SHA256 key derived per connection id, so ciphertext moved between rows will not decrypt; stores `token_hint`, `key_version`, status
+- [x] **E2-17** `P0` `1d` **Step 3 — Version gate.** Runs in step 2, not step 1, because reading the version needs a token. Blocks below `MIN_FIREFLY_VERSION`, warns below `RECOMMENDED_FIREFLY_VERSION`
+- [x] **E2-18** `P0` `2d` **Step 4 — Personalise.** Number/date format, week start, and featured accounts from `/accounts?type=asset`; handles an instance with zero accounts
 - [ ] **E2-19** `P1` `1d` **Step 5 — Dashboard preset.** "Everyday spender" / "Saver" / "Investor" / "Blank" layouts
 - [ ] **E2-20** `P1` `1d` **Step 6 — Done.** First-run product tour (dismissible, resumable from Help)
-- [ ] **E2-21** `P0` `1d` Wizard is resumable: progress persisted, back/forward safe, deep-linkable
-- [ ] **E2-22** `P0` `2d` **Connections manager** in Settings: list, add, relabel, rotate token, set default, test now, delete
-- [ ] **E2-23** `P1` `2d` Multiple connections + an instance switcher in the app shell (personal vs. business ledger)
-- [ ] **E2-24** `P1` `1d` Background health check job (hourly): update `status`, notify on transition to failing
-- [ ] **E2-25** `P1` `1d` Global "connection broken" banner with a one-click re-authenticate flow
+- [x] **E2-21** `P0` `1d` Wizard is resumable — progress derived from database state (`onboarding_state` jsonb plus connection status), so a reload or a different device resumes at the right step
+- [x] **E2-22** `P0` `2d` **Connections manager** in Settings: list, rename, rotate token, set default, test now, delete
+- [ ] **E2-23** `P1` `2d` Multiple connections + an instance switcher in the app shell — _the data model and service layer already support N connections; only the switcher UI is missing_
+- [ ] **E2-24** `P1` `1d` Background health check job (hourly): update `status`, notify on transition to failing — _manual "Test now" ships; the scheduled job does not_
+- [ ] **E2-25** `P1` `1d` Global "connection broken" banner with a one-click re-authenticate flow — _the app shell shows a status dot; the banner does not exist_
 - [ ] **E2-26** `P2` `1d` Demo mode — read-only connection to `demo.firefly-iii.org` for evaluation
+
+**Cut from M1, deliberately:**
+
+- [ ] **E2-27** `P1` `1d` Password strength via zxcvbn + HIBP k-anonymity breach check — dropped from E2-02 to avoid an ~800 kB client dependency and an outbound call per sign-up. The 12-character floor and a small common-password list ship instead.
+- [ ] **E2-28** `P0` `1d` Real email transport. M1 ships a **console transport**: verification and reset links are printed to the server log, which is enough to complete both flows in development and self-host evaluation. Blocked on Q4 (Resend / SES / BYO SMTP).
+
+**What M1 delivered**
+
+| Exit criterion                                                  | Evidence                                                                                                                                                                          |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A new user can sign up and attach a Firefly instance end-to-end | Verified against live Firefly III v6.5.5: URL normalised from `…/api/v1/`, step-1 probe, token accepted as `a@a.com` (role `owner`), version gate passed, currency `EUR` detected |
+| PAT never reaches the browser                                   | `0` occurrences of the token in the rendered onboarding, dashboard and connections HTML; `connectionPublicColumns` omits every sealed field                                       |
+| Encryption is real                                              | Ciphertext contains no plaintext; decrypt round-trips; decrypting with another connection's id is **rejected**                                                                    |
+| Guards hold                                                     | Signed out → `/sign-in?next=…`; signed in without onboarding → `/onboarding`; completed → `/dashboard`, and `/onboarding` bounces back                                            |
+| Bad input is refused                                            | Wrong token rejected; `http://` refused unless `FIREFLY_ALLOW_INSECURE_HTTP`; redirects not followed; wrong password rejected                                                     |
+| Runs in the container                                           | `docker compose --profile app up`: all 5 services healthy, authenticated pages 200                                                                                                |
 
 ### E3 · App shell & dashboard — M2
 

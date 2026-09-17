@@ -83,6 +83,16 @@ export const users = pgTable(
     timezone: text('timezone').notNull().default('UTC'),
     status: userStatusEnum('status').notNull().default('active'),
     onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
+    /**
+     * E2-21 — wizard progress, so a reload or a new device resumes where the
+     * user left off rather than restarting at step 1. Holds only the in-flight
+     * base URL and the step reached; never the token.
+     */
+    onboardingState: jsonb('onboarding_state').$type<{
+      step?: number;
+      baseUrl?: string;
+      detectedVersion?: string;
+    }>(),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     failedLoginCount: integer('failed_login_count').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
