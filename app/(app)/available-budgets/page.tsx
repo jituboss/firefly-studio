@@ -1,3 +1,4 @@
+import * as React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -8,15 +9,21 @@ import { getAvailableBudgets } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { formatDate } from '@/lib/date';
 import { Amount } from '@/components/ui/amount';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
-import { toDecimal, add, subtract, divide } from '@/lib/money';
+import { toDecimal, add, subtract, divide, abs } from '@/lib/money';
+import type { AvailableBudget } from '@/server/firefly/queries';
 
 export const metadata: Metadata = { title: 'Available budgets' };
 
-/** E6-06 — envelope totals that roll up budget limits and spending. */
+interface CurrencyBreakdown {
+  amount: string;
+  spentIn: string;
+  spentOut: string;
+  remaining: string;
+}
+
 export default async function AvailableBudgetsPage({
   searchParams,
 }: {
@@ -37,36 +44,117 @@ export default async function AvailableBudgetsPage({
     return startA.localeCompare(startB);
   });
 
-  const totalAmount = items.reduce(
-    (sum, item) => sum.plus(toDecimal(item.attributes.amount ?? 0)),
-    toDecimal(0),
-  );
-  const totalSpentIn = items.reduce(
-    (sum, item) =>
-      sum.plus(
-        toDecimal(
-          item.attributes.spent_in_budgets?.find(() => true)?.sum ??
-            item.attributes.pc_spent_in_budgets?.find(() => true)?.sum ??
-            0,
-        ),
-      ),
-    toDecimal(0),
-  );
-  const totalSpentOut = items.reduce(
-    (sum, item) =>
-      sum.plus(
-        toDecimal(
-          item.attributes.spent_outside_budgets?.find(() => true)?.sum ??
-            item.attributes.pc_spent_outside_budgets?.find(() => true)?.sum ??
-            0,
-        ),
-      ),
-    toDecimal(0),
-  );
-  const remaining = subtract(
-    totalAmount.toString(),
-    add(totalSpentIn.toString(), totalSpentOut.toString()),
-  );
+  const totalsByCurrency = new Map<string, CurrencyBreakdown>();
+  const hasPc = items.every((item) => item.attributes.pc_amount !== null);
+
+  for (const item of items) {
+    const a = item.attributes;
+    const currency = a.currency_code ?? connection.primaryCurrency;
+    const amount = a.amount ?? '0';
+    const spentIn =
+      a.spent_in_budgets?.find((s) => s.currency_code === currency)?.sum ??
+      a.pc_spent_in_budgets?.find(() => true)?.sum ??
+      '0';
+    const spentOut =
+      a.spent_outside_budgets?.find((s) => s.currency_code === currency)?.sum ??
+      a.pc_spent_outside_budgets?.find(() => true)?.sum ??
+      '0';
+    const spent = add(abs(spentIn), abs(spentOut)).toString();
+    const remaining = subtract(amount, spent);
+
+    const existing = totalsByCurrency.get(currency);
+    if (existing) {
+      totalsByCurrency.set(currency, {
+        amount: add(existing.amount, amount).toString(),
+        spentIn: add(existing.spentIn, abs(spentIn)).toString(),
+        spentOut: add(existing.spentOut, abs(spentOut)).toString(),
+        remaining: add(existing.remaining, remaining).toString(),
+      });
+    } else {
+      totalsByCurrency.set(currency, {
+        amount,
+        spentIn: abs(spentIn).toString(),
+        spentOut: abs(spentOut).toString(),
+        remaining: remaining.toString(),
+      });
+    }
+  }
+
+  const primaryCurrency = items[0]?.attributes.primary_currency_code ?? connection.primaryCurrency;
+  const primaryTotals: CurrencyBreakdown | null = hasPc
+    ? {
+        amount: items
+          .reduce((sum, item) => sum.plus(toDecimal(item.attributes.pc_amount ?? 0)), toDecimal(0))
+          .toString(),
+        spentIn: items
+          .reduce(
+            (sum, item) =>
+              sum.plus(
+                toDecimal(
+                  item.attributes.pc_spent_in_budgets?.find(() => true)?.sum ??
+                    item.attributes.spent_in_budgets?.find(
+                      (s) => s.currency_code === item.attributes.currency_code,
+                    )?.sum ??
+                    0,
+                ).abs(),
+              ),
+            toDecimal(0),
+          )
+          .toString(),
+        spentOut: items
+          .reduce(
+            (sum, item) =>
+              sum.plus(
+                toDecimal(
+                  item.attributes.pc_spent_outside_budgets?.find(() => true)?.sum ??
+                    item.attributes.spent_outside_budgets?.find(
+                      (s) => s.currency_code === item.attributes.currency_code,
+                    )?.sum ??
+                    0,
+                ).abs(),
+              ),
+            toDecimal(0),
+          )
+          .toString(),
+        remaining: subtract(
+          items
+            .reduce(
+              (sum, item) => sum.plus(toDecimal(item.attributes.pc_amount ?? 0)),
+              toDecimal(0),
+            )
+            .toString(),
+          add(
+            items
+              .reduce(
+                (sum, item) =>
+                  sum.plus(
+                    toDecimal(
+                      item.attributes.pc_spent_in_budgets?.find(() => true)?.sum ?? 0,
+                    ).abs(),
+                  ),
+                toDecimal(0),
+              )
+              .toString(),
+            items
+              .reduce(
+                (sum, item) =>
+                  sum.plus(
+                    toDecimal(
+                      item.attributes.pc_spent_outside_budgets?.find(() => true)?.sum ?? 0,
+                    ).abs(),
+                  ),
+                toDecimal(0),
+              )
+              .toString(),
+          ),
+        ).toString(),
+      }
+    : null;
+
+  const totals = primaryTotals
+    ? { [primaryCurrency]: primaryTotals }
+    : Object.fromEntries(totalsByCurrency);
+  const totalCurrencies = Object.keys(totals);
 
   return (
     <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
@@ -98,57 +186,62 @@ export default async function AvailableBudgetsPage({
 
       {items.length > 0 ? (
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardContent className="p-5">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Total envelope
-              </p>
-              <Amount
-                value={totalAmount.toString()}
-                currency={connection.primaryCurrency}
-                size="xl"
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Spent in budgets
-              </p>
-              <Amount
-                value={totalSpentIn.toString()}
-                currency={connection.primaryCurrency}
-                size="xl"
-                tone="expense"
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Spent outside budgets
-              </p>
-              <Amount
-                value={totalSpentOut.toString()}
-                currency={connection.primaryCurrency}
-                size="xl"
-                tone="expense"
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-5">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Remaining
-              </p>
-              <Amount
-                value={remaining.toString()}
-                currency={connection.primaryCurrency}
-                size="xl"
-                tone={toDecimal(remaining).isNegative() ? 'expense' : 'income'}
-              />
-            </CardContent>
-          </Card>
+          {totalCurrencies.map((currency) => {
+            const t = totals[currency]!;
+            return (
+              <React.Fragment key={currency}>
+                <Card>
+                  <CardContent className="p-5">
+                    <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                      Total envelope
+                    </p>
+                    <Amount value={t.amount} currency={currency} size="xl" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-5">
+                    <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                      Spent in budgets
+                    </p>
+                    <Amount
+                      value={t.spentIn}
+                      currency={currency}
+                      size="xl"
+                      tone="expense"
+                      showSign={false}
+                    />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-5">
+                    <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                      Spent outside budgets
+                    </p>
+                    <Amount
+                      value={t.spentOut}
+                      currency={currency}
+                      size="xl"
+                      tone="expense"
+                      showSign={false}
+                    />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-5">
+                    <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                      Remaining
+                    </p>
+                    <Amount
+                      value={t.remaining}
+                      currency={currency}
+                      size="xl"
+                      tone={toDecimal(t.remaining).isNegative() ? 'expense' : 'income'}
+                    />
+                  </CardContent>
+                </Card>
+              </React.Fragment>
+            );
+          })}
         </section>
       ) : null}
 
@@ -168,79 +261,80 @@ export default async function AvailableBudgetsPage({
         <Card>
           <CardContent className="p-0">
             <ul className="divide-border divide-y">
-              {items.map((item) => {
-                const a = item.attributes;
-                const currency = a.currency_code ?? connection.primaryCurrency;
-                const amount = a.amount ?? '0';
-                const spentIn =
-                  a.spent_in_budgets?.find((s) => s.currency_code === currency)?.sum ??
-                  a.pc_spent_in_budgets?.find(() => true)?.sum ??
-                  '0';
-                const spentOut =
-                  a.spent_outside_budgets?.find((s) => s.currency_code === currency)?.sum ??
-                  a.pc_spent_outside_budgets?.find(() => true)?.sum ??
-                  '0';
-                const envelopeSpent = add(spentIn, spentOut);
-                const envelopeRemaining = subtract(amount, envelopeSpent);
-                const percentUsed = toDecimal(amount).isZero()
-                  ? 0
-                  : Math.min(100, divide(envelopeSpent, amount).times(100).toNumber());
-
-                return (
-                  <li key={item.id} className="px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <p className="truncate text-sm font-medium">
-                          {a.start && a.end
-                            ? `${formatDate(a.start.slice(0, 10), { timezone: session.user.timezone })} – ${formatDate(a.end.slice(0, 10), { timezone: session.user.timezone })}`
-                            : 'No period'}
-                        </p>
-                        <p className="text-muted-foreground truncate text-xs">
-                          {a.currency_name ?? currency}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <Amount
-                          value={envelopeRemaining.toString()}
-                          currency={currency}
-                          tone={toDecimal(envelopeRemaining).isNegative() ? 'expense' : 'income'}
-                        />
-                        <p className="text-muted-foreground text-xs">
-                          {toDecimal(envelopeSpent).isZero()
-                            ? 'No spend'
-                            : `${percentUsed.toFixed(0)}% used`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <div
-                        className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full"
-                        role="progressbar"
-                        aria-valuenow={percentUsed}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-label="Envelope usage"
-                      >
-                        <div
-                          className={percentUsed > 100 ? 'bg-expense h-full' : 'bg-primary h-full'}
-                          style={{ width: `${Math.min(100, percentUsed)}%` }}
-                        />
-                      </div>
-                      <Amount
-                        value={amount}
-                        currency={currency}
-                        size="sm"
-                        tone="neutral"
-                        showSign={false}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
+              {items.map((item) => (
+                <EnvelopeRow key={item.id} item={item} timezone={session.user.timezone} />
+              ))}
             </ul>
           </CardContent>
         </Card>
       )}
     </div>
+  );
+}
+
+function EnvelopeRow({ item, timezone }: { item: AvailableBudget; timezone: string }) {
+  const a = item.attributes;
+  const currency = a.currency_code ?? 'EUR';
+  const amount = a.amount ?? '0';
+
+  const spentInRaw =
+    a.spent_in_budgets?.find((s) => s.currency_code === currency)?.sum ??
+    a.pc_spent_in_budgets?.find(() => true)?.sum ??
+    '0';
+  const spentOutRaw =
+    a.spent_outside_budgets?.find((s) => s.currency_code === currency)?.sum ??
+    a.pc_spent_outside_budgets?.find(() => true)?.sum ??
+    '0';
+
+  const spentIn = abs(spentInRaw);
+  const spentOut = abs(spentOutRaw);
+  const envelopeSpent = add(spentIn, spentOut).toString();
+  const envelopeRemaining = subtract(amount, envelopeSpent);
+  const percentUsed = toDecimal(amount).isZero()
+    ? 0
+    : divide(envelopeSpent, amount).times(100).toNumber();
+  const overBudget = percentUsed > 100;
+
+  return (
+    <li className="px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="truncate text-sm font-medium">
+            {a.start && a.end
+              ? `${formatDate(a.start.slice(0, 10), { timezone })} – ${formatDate(a.end.slice(0, 10), { timezone })}`
+              : 'No period'}
+          </p>
+          <p className="text-muted-foreground truncate text-xs">{a.currency_name ?? currency}</p>
+        </div>
+        <div className="text-right">
+          <Amount
+            value={envelopeRemaining.toString()}
+            currency={currency}
+            tone={toDecimal(envelopeRemaining).isNegative() ? 'expense' : 'income'}
+          />
+          <p className="text-muted-foreground text-xs">
+            {toDecimal(envelopeSpent).isZero()
+              ? 'No spend'
+              : `${Math.abs(percentUsed).toFixed(0)}% used`}
+          </p>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <div
+          className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full"
+          role="progressbar"
+          aria-valuenow={Math.min(100, percentUsed)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Envelope usage"
+        >
+          <div
+            className={overBudget ? 'bg-expense h-full' : 'bg-primary h-full'}
+            style={{ width: `${Math.min(100, percentUsed)}%` }}
+          />
+        </div>
+        <Amount value={amount} currency={currency} size="sm" tone="neutral" showSign={false} />
+      </div>
+    </li>
   );
 }
