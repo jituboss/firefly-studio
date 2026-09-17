@@ -113,7 +113,7 @@ export default async function BudgetReportPage({
             No budgets with activity in this period. Set a budget limit to see it here.
           </p>
         ) : (
-          <div className="min-w-0 overflow-x-auto">
+          <div className="relative min-w-0 overflow-x-auto">
             <table className="w-full min-w-0 text-sm">
               <thead>
                 <tr className="text-muted-foreground border-border border-b text-left text-xs">

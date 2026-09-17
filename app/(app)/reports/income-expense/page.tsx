@@ -160,7 +160,7 @@ export default async function IncomeExpenseReportPage({
       </div>
 
       <ReportSection title="Monthly detail" description="The figures behind the chart." breakBefore>
-        <div className="min-w-0 overflow-x-auto">
+        <div className="relative min-w-0 overflow-x-auto">
           <table className="w-full min-w-0 text-sm">
             <thead>
               <tr className="text-muted-foreground border-border border-b text-left text-xs">

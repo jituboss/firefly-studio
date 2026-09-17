@@ -28,6 +28,18 @@ const PAGES = [
   '/bills',
   '/piggy-banks',
   '/piggy-banks/new',
+  // M5 reports. The month grids and the Sankey are the widest things in the
+  // app, so they are exactly what this check exists for.
+  '/reports',
+  '/reports/net-worth',
+  '/reports/income-expense',
+  '/reports/categories',
+  '/reports/budgets',
+  '/reports/accounts',
+  '/reports/tags',
+  '/reports/bills',
+  '/reports/cash-flow',
+  '/reports/custom',
 ];
 const WIDTHS = [360, 390, 768, 1440];
 
