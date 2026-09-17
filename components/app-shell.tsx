@@ -83,7 +83,11 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
     heading: 'Manage',
     items: [
       { href: '/settings/connections', label: 'Connections', icon: Settings },
-      { href: '/reports-scheduled', label: 'Scheduled', icon: CalendarClock, milestone: 'M5' },
+      // E14-13, scheduled report emails, is P2 and was deliberately left out of
+      // M5 — it needs a job runner and a mail transport, neither of which exists
+      // yet. Tagged 'later' rather than a milestone number so it does not claim
+      // to be part of a milestone that has shipped.
+      { href: '/reports-scheduled', label: 'Scheduled', icon: CalendarClock, milestone: 'later' },
     ],
   },
 ];

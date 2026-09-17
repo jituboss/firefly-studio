@@ -5,7 +5,7 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-17, at the end of an extended M0–M4 polish pass. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-17, at the end of M5 (reporting). Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous handoff note was written:** the M4 branch was merged into `main`, then several follow-up fixes landed against a live Firefly III instance. The current `main` branch has **20+ commits** including:
 
@@ -33,7 +33,7 @@ what actually happened building the first four milestones of it.
 
 ## 2. Current state — read this first
 
-**Milestones M0–M4 are done. M5–M8 are not started.** See `PROJECT_PLAN.md` §6 for the
+**Milestones M0–M5 are done. M6–M8 are not started.** See `PROJECT_PLAN.md` §6 for the
 milestone table and §8 for the itemised backlog (every finished item is checked `[x]`
 with a note on what was cut and why; nothing was silently dropped).
 
@@ -44,14 +44,19 @@ with a note on what was cut and why; nothing was silently dropped).
 | M2        | The Firefly proxy (`/api/ff/[...path]`) + Redis cache, dashboard with real KPIs/charts, accounts CRUD-read, transaction list/search            | ✅ done        |
 | M3        | Full transaction write lifecycle: create/edit/delete, split editor, attachments (upload/download)                                              | ✅ done        |
 | M4        | Budgets (+ per-period limits), Categories, Bills/subscriptions, Piggy banks — all CRUD, plus Available budgets and Object groups landing pages | ✅ done        |
-| M5        | Reporting (net worth, income/expense, category/budget reports, custom builder)                                                                 | ❌ not started |
+| M5        | Reporting: 8 standard reports + a custom builder, CSV/print export, drill-through                                                              | ✅ done        |
 | M6        | Rules, recurring transactions, tags, currencies/exchange rates, webhooks, links, admin                                                         | ❌ not started |
 | M7        | Accessibility audit, i18n, PWA, perf budget polish                                                                                             | ❌ not started |
 | M8        | Security hardening pass, load testing, release docs                                                                                            | ❌ not started |
 
-**Start M5 next** unless told otherwise — that's the next unstarted milestone and the plan's
-own "recommended solo path" (§6.1) treats reporting as the differentiator over Firefly's
-stock UI.
+**Start M6 next** unless told otherwise — rules, recurring transactions, tags, currencies,
+webhooks and admin. Note the plan's own "recommended solo path" (§6.1) defers M6 wholesale
+in favour of M7 (polish); decide deliberately rather than inheriting the order.
+
+M5 shipped ten report routes under `/reports`, a shared scope bar, a hand-rolled Sankey,
+a custom report builder backed by `saved_reports`, CSV/print export, and drill-through
+from any breakdown row into the transaction list. Its verification log — including the
+reconciliation proving report totals match Firefly to the cent — is `PROJECT_PLAN.md` §15.
 
 Working tree is clean; run `git log --oneline` to confirm the current state — the
 branch now has **20+ commits beyond the original M0–M4 merge** from the recent polish
@@ -207,6 +212,15 @@ call.** Examples hit so far (full detail in `PROJECT_PLAN.md` §13 and §14):
   resource for the whole date range**, not a time series — a different shape from
   `/chart/balance/balance` and `/chart/account/overview`. Don't assume all `/chart/*`
   endpoints share a shape.
+- **Every `/insight/*` endpoint returns one entry per (resource, currency) pair.** A
+  category with both EUR and USD spending comes back twice, with the same `id`. Summing
+  the array adds euros to dollars and invents a number. `lib/reports.ts` handles this
+  once — reuse it rather than re-deriving it per resource in M6.
+- **Insight endpoints report expenses as negative** and only ever return ONE total for
+  whatever range you hand them. There is no `period` parameter: a month-by-month table
+  means one call per month (see the grids in the category/budget/tag reports).
+- `/chart/account/overview` identifies accounts by **name only, no id**, so the name is
+  the only key back to the account's type and its `include_net_worth` flag.
 
 **Practical instruction for whoever continues this:** before implementing a write action
 or trusting a response shape for a new Firefly resource (rules, recurring transactions,
@@ -360,5 +374,13 @@ Use this map before assuming a feature still needs to be built.
 | Bills / subscriptions + calendar         | `app/(app)/bills/page.tsx`, `app/(app)/bills/bill-form.tsx`, `app/(app)/bills/calendar/page.tsx`                                                                                                                   |
 | Piggy banks                              | `app/(app)/piggy-banks/page.tsx`, `app/(app)/piggy-banks/piggy-form.tsx`, `app/(app)/piggy-banks/[id]/page.tsx`, `app/(app)/piggy-banks/[id]/adjust-form.tsx`                                                      |
 | Object groups                            | `app/(app)/object-groups/page.tsx`, `app/(app)/object-groups/new/page.tsx`                                                                                                                                         |
+| Reports shell (scope bar, tabs, print)   | `app/(app)/reports/layout.tsx`, `components/reports/report-scope-bar.tsx`, `components/reports/report-tabs.tsx`, the `@media print` block in `app/globals.css`                                                     |
+| Reports: net worth / income vs expense   | `app/(app)/reports/net-worth/page.tsx`, `app/(app)/reports/income-expense/page.tsx`, `components/charts/net-worth-area.tsx`, `components/charts/income-expense-bars.tsx`                                           |
+| Reports: category / budget / tag         | `app/(app)/reports/categories/page.tsx`, `app/(app)/reports/budgets/page.tsx`, `app/(app)/reports/tags/page.tsx`, `components/reports/monthly-grid.tsx`                                                            |
+| Reports: account / subscription          | `app/(app)/reports/accounts/page.tsx`, `app/(app)/reports/bills/page.tsx`                                                                                                                                          |
+| Cash-flow Sankey                         | `app/(app)/reports/cash-flow/page.tsx`, `lib/sankey.ts`, `components/charts/sankey-flow.tsx`                                                                                                                       |
+| Custom report builder + saved reports    | `app/(app)/reports/custom/page.tsx`, `app/(app)/reports/custom/builder-form.tsx`, `lib/custom-report.ts`, `server/reports.ts`, `server/reports-actions.ts`                                                         |
+| Reporting arithmetic + scoped queries    | `lib/reports.ts`, `lib/report-scope.ts`, `server/firefly/report-queries.ts`                                                                                                                                        |
+| Report export (CSV, print-to-PDF)        | `components/reports/report-export.tsx`                                                                                                                                                                             |
 | Settings → connections manager           | `app/(app)/settings/connections/page.tsx`, `app/(app)/settings/connections/connection-card.tsx`                                                                                                                    |
 | App shell / navigation / command palette | `components/app-shell.tsx`, `components/command-palette.tsx`                                                                                                                                                       |

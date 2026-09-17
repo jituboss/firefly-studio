@@ -249,7 +249,7 @@ Admin (if Firefly user is owner) ──► Users, user groups, configuration, cr
 | **M2** | Read core ✅               | Proxy + cache, dashboard v1, accounts, transaction list, search            | Dashboard and transaction list render live Firefly data             | 3 wks |
 | **M3** | Write core ✅              | Transaction create/edit/delete, splits, attachments, bulk ops              | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
 | **M4** | Money management ✅        | Budgets, limits, categories, bills, piggy banks, object groups             | All four resource families CRUD-complete                            | 3 wks |
-| **M5** | Reporting                  | Insight + chart endpoints, 7 standard reports, builder, exports            | Reports match Firefly's own figures to the cent                     | 3 wks |
+| **M5** | Reporting ✅               | Insight + chart endpoints, 8 standard reports, builder, exports            | Reports match Firefly's own figures to the cent — verified, §15     | 3 wks |
 | **M6** | Automation & the long tail | Rules, recurring, tags, currencies, exchange rates, webhooks, links, admin | 28/28 API groups covered                                            | 3 wks |
 | **M7** | Polish                     | A11y audit, i18n, PWA, perf budget, empty/error states, onboarding tour    | Lighthouse targets met; axe clean                                   | 2 wks |
 | **M8** | Hardening & launch         | Pen-test fixes, load test, docs, release image, backup/restore             | v1.0 tagged and documented                                          | 2 wks |
@@ -822,3 +822,86 @@ bank. The mechanism — confirmed against a live instance before writing `adjust
 assumed from the spec — is `PUT /piggy-banks/{id}` with a new `current_amount` on the relevant entry in
 `accounts[]`. Firefly diffs the old and new values server-side and writes the corresponding `+`/`-` row to
 `/piggy-banks/{id}/events` itself.
+
+---
+
+## 15. M5 verification log
+
+Run against a live Firefly III v6.5.5 on 2026-09-17, through the Docker Compose
+app container (not `pnpm dev`), so what was checked is what ships.
+
+### Reconciliation — the milestone exit criterion
+
+Report totals were compared against the raw `/insight/*` figures the API returns,
+across two different periods:
+
+| Period                | Firefly income | Firefly expense | Income vs expense | Accounts | Cash flow |
+| --------------------- | -------------- | --------------- | ----------------- | -------- | --------- |
+| This year (2026)      | €15,400.00     | €41,090.69      | match             | match    | match     |
+| Last month (Aug 2026) | €3,850.00      | €12,028.98      | match             | match    | match     |
+
+The category report reconciles by construction too: €41,085.69 categorised plus
+€5.00 uncategorised is exactly the €41,090.69 expense total. The budget report's
+€36,195.20 matches `/chart/budget/overview` to the cent, and the subscription
+report's €173.88 annualised is exactly (12.99 + 15.99) / 2 × 12.
+
+**This is why the headline figures come from the `insight` `total` endpoints
+rather than from summing the chart series.** The charts bucket by period and are
+the right source for a series; the insight totals are the numbers Firefly's own
+reports print. Using the charts for both would have produced a report that is
+internally consistent and quietly disagrees with Firefly.
+
+### Functional checks
+
+| Step                                                            | Result                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| All ten report routes render with live data                     | 200, real figures on every one                                            |
+| Scope bar: period, account, currency, compare — all URL-encoded | survives navigation between reports; links reproduce the same report      |
+| Drill-through: category, budget, tag                            | 46 matches for Groceries, 68 for Everyday spending; scope named in header |
+| Custom builder: expense × counterparty × treemap                | €41,090.69 over 7 groups, Rent BV 81%                                     |
+| Custom builder: an impossible pair (income × budget)            | falls back to category; budget/subscription marked "(spending only)"      |
+| Saved report: list, pin, dashboard widget                       | appears in both places with its description                               |
+| Responsive check, 21 routes × 4 widths                          | no horizontal overflow (after the fix below)                              |
+| Regression sweep, 17 M1–M4 routes                               | all 200; signed-out guards still redirect                                 |
+| Unit tests                                                      | 84 passed, unchanged                                                      |
+
+### Three things this run exposed, all now fixed
+
+1. **A per-account share of 264%.** The net-worth report divided each account's
+   closing balance by the side's NET total. An overdrawn current account drags
+   the asset total toward — or past — zero, at which point the ratio stops
+   meaning anything. It now divides by the sum of magnitudes on that side.
+   Only visible because the test ledger happened to be overdrawn; a tidier
+   ledger would have shipped this.
+
+2. **Screen-reader text dragging three pages 60px sideways on mobile.**
+   `.sr-only` is `position: absolute`, and the `overflow-x-auto` wrapper around
+   each report table was not a positioned ancestor — so the hidden label inside
+   a right-aligned `<Amount>` resolved against the initial containing block,
+   escaped the scroll container and extended the document past the viewport.
+   Invisible to the eye (the text is clipped) and invisible to an
+   element-by-element overflow scan (nothing is drawn out there); found only by
+   scripting an actual `scrollTo(9999, 0)` and reading back `window.scrollX`.
+   Making each scroll container `relative` contains them.
+   **Worth remembering: any `overflow-x-auto` that can contain an `<Amount>`
+   needs `relative`.**
+
+3. **Two `*/` sequences inside block comments** (`` `/insight/*/total` ``)
+   silently terminated the comment and produced a cascade of parse errors far
+   from the cause. Harmless once spotted, but it cost two debugging cycles.
+
+### Notes on shape, for whoever builds M6
+
+- `/insight/*` returns **one entry per (resource, currency) pair**. A category
+  with both EUR and USD spending appears twice with the same `id`. Summing the
+  array adds euros to dollars. Every aggregate in `lib/reports.ts` works within
+  one currency and reports the excluded ones back so the UI can disclose them.
+- Expenses arrive **negative**; reports show magnitudes. Normalised once, in
+  `lib/reports.ts`, not at each call site.
+- `/insight/transfer/asset` additionally carries `in`/`out` fields alongside
+  `difference`, which the other insight endpoints do not.
+- `/chart/balance/balance?period=1M` is the only endpoint that yields a monthly
+  income/expense series. Without `period` it returns a single bucket.
+- The **month grids call one insight endpoint per month** — those endpoints
+  only ever report a single total for the range given, so there is no other way
+  to get a series from them. Capped at twelve buckets.

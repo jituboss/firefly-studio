@@ -10,6 +10,56 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.2.0-alpha.1] - 2026-09-17
+
+Reporting. This is the release that makes Firefly Studio worth opening instead
+of Firefly III's own UI.
+
+### Added
+
+- **Ten reports** under a shared shell that keeps your period, account scope and
+  display currency as you move between them, all encoded in the URL so any
+  report is linkable and prints to what is on screen.
+  - **Net worth** — assets against liabilities over time with the net line on
+    top, and every account's opening balance, closing balance and contribution.
+  - **Income vs expense** — monthly bars with a running net, savings rate, and
+    your largest income sources and expense destinations.
+  - **Categories** — a treemap by share, ranked spending and income, and a
+    twelve-month grid.
+  - **Budgets** — planned against actual with variance and usage bars, what you
+    spent outside any budget, and a twelve-month adherence grid.
+  - **Accounts** — money in, money out and transfers per asset account, with
+    transfers keeping their direction.
+  - **Tags** — spend by tag over the period and month by month.
+  - **Subscriptions** — annualised recurring cost, what you actually paid, and
+    everything spent outside a subscription.
+  - **Cash flow** — a Sankey of income sources, through your accounts, into
+    spending categories.
+- **Custom report builder.** Pick a measure, a grouping and a chart; save it,
+  name it, and pin it to your dashboard.
+- **Export.** CSV from any report — generated from the rows on screen, so it
+  cannot disagree with what you were looking at — and a print stylesheet that
+  turns any report into a clean PDF via your browser.
+- **Drill-through.** Every row of every breakdown links to the transactions
+  behind it. The transaction list now understands category, budget and tag
+  scoping, not just account, and names the active scope so a filtered list
+  never looks mysteriously short.
+
+### Fixed
+
+- Three report pages could be scrolled sideways on a phone. Hidden
+  screen-reader text inside right-aligned amounts was escaping its scroll
+  container and dragging the page with it.
+- The net-worth report could show an account's share of the total as more than
+  100% when another account was overdrawn.
+
+### Notes
+
+- Report totals are taken from the same endpoints Firefly's own reports use,
+  and were checked against them across several periods.
+- Figures in different currencies are never added together. Where a report
+  cannot include an amount, it says so rather than quietly under-reporting.
+
 ## [0.1.0-alpha.1] - 2026-09-17
 
 First published build. Firefly Studio is usable end to end against a real
