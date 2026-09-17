@@ -244,9 +244,9 @@ Admin (if Firefly user is owner) ──► Users, user groups, configuration, cr
 
 | #      | Milestone                  | Scope                                                                      | Exit criteria                                                       | Est.  |
 | ------ | -------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----- |
-| **M0** | Foundation                 | Repo, CI, Docker, design tokens, DB migrations, OpenAPI codegen            | `docker compose up` serves a themed shell; migrations run; CI green | 2 wks |
-| **M1** | Auth & onboarding          | Sign-up/in, verify, reset, sessions, connection wizard, encrypted PAT      | A new user can sign up and attach a Firefly instance end-to-end     | 2 wks |
-| **M2** | Read core                  | Proxy + cache, dashboard v1, accounts, transaction list, search            | Dashboard and transaction list render live Firefly data             | 3 wks |
+| **M0** | Foundation ✅              | Repo, CI, Docker, design tokens, DB migrations, OpenAPI codegen            | `docker compose up` serves a themed shell; migrations run; CI green | 2 wks |
+| **M1** | Auth & onboarding ✅       | Sign-up/in, verify, reset, sessions, connection wizard, encrypted PAT      | A new user can sign up and attach a Firefly instance end-to-end     | 2 wks |
+| **M2** | Read core ✅               | Proxy + cache, dashboard v1, accounts, transaction list, search            | Dashboard and transaction list render live Firefly data             | 3 wks |
 | **M3** | Write core ✅              | Transaction create/edit/delete, splits, attachments, bulk ops              | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
 | **M4** | Money management ✅        | Budgets, limits, categories, bills, piggy banks, object groups             | All four resource families CRUD-complete                            | 3 wks |
 | **M5** | Reporting                  | Insight + chart endpoints, 7 standard reports, builder, exports            | Reports match Firefly's own figures to the cent                     | 3 wks |
