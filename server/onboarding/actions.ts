@@ -19,7 +19,19 @@ import {
   type AssetAccount,
 } from '@/server/firefly/probe';
 import { checkVersion } from '@/server/firefly/version';
-import { createConnection, getConnectionToken, getDefaultConnection } from '@/server/connections';
+import {
+  createConnection,
+  getConnectionToken,
+  getDefaultConnection,
+  listConnections,
+  rotateConnectionToken,
+  setDefaultConnection,
+} from '@/server/connections';
+import {
+  managedConfig,
+  provisionManagedConnection,
+  ManagedProvisioningError,
+} from '@/server/managed-firefly';
 
 /** E2-13 … E2-21 — the onboarding wizard's server side. */
 
@@ -167,6 +179,109 @@ export async function connectTokenAction(
       versionWarning: verdict.status === 'warn' ? verdict.message : undefined,
     };
   } catch (error) {
+    return { error: describeError(error) };
+  }
+}
+
+// --- The managed instance ---------------------------------------------------
+
+export interface ManagedState {
+  ok?: boolean;
+  error?: string;
+  remoteEmail?: string;
+}
+
+/**
+ * Connect this user to the instance the deployment operates, provisioning them
+ * an account there the first time.
+ *
+ * This collapses all three onboarding steps into one click: the address comes
+ * from configuration, the token is minted rather than pasted, and the version
+ * gate still runs because the token is real. A user who has been here before
+ * lands back on the same Firefly account — see server/managed-firefly.
+ */
+export async function connectManagedAction(
+  _prev: ManagedState,
+  _formData: FormData,
+): Promise<ManagedState> {
+  const session = await requireSession();
+  const config = managedConfig();
+  if (!config) return { error: 'This deployment has no managed Firefly instance.' };
+
+  // Provisioning registers an account on a remote instance, so it is rate
+  // limited on the same bucket as the manual probe.
+  const limit = await consumeRateLimit(
+    `probe:${session.user.id}`,
+    PROBE_LIMIT.limit,
+    PROBE_LIMIT.windowMs,
+  );
+  if (!limit.allowed) return { error: 'Too many attempts. Wait a few minutes and try again.' };
+
+  try {
+    const provisioned = await provisionManagedConnection(session.user.id, session.user.email);
+    const { baseUrl, token } = provisioned;
+
+    const remoteUser = await probeUser(baseUrl, token);
+    const instance = await probeInstance(baseUrl, token);
+
+    const verdict = checkVersion(instance.version);
+    if (verdict.status === 'blocked') return { error: verdict.message };
+
+    const primaryCurrency = await probePrimaryCurrency(baseUrl, token);
+
+    // Reconnecting must land on the connection that already represents this
+    // managed account rather than stacking up another row for it. Matched on
+    // the remote identity, because the same address can legitimately be
+    // attached a second time with a token of the user's own.
+    const existing = (await listConnections(session.user.id)).find(
+      (entry) => entry.baseUrl === baseUrl && entry.remoteUserEmail === provisioned.remoteEmail,
+    );
+
+    let connectionId: string;
+    if (existing) {
+      await rotateConnectionToken(session.user.id, existing.id, token, remoteUser);
+      connectionId = existing.id;
+    } else {
+      connectionId = (
+        await createConnection({
+          userId: session.user.id,
+          label: config.label,
+          baseUrl,
+          token,
+          instance,
+          remoteUser,
+          primaryCurrency,
+        })
+      ).id;
+    }
+
+    // Choosing the managed instance means wanting to use it. Without this the
+    // switch appeared to succeed while every page still read the old ledger.
+    await setDefaultConnection(session.user.id, connectionId);
+
+    await db
+      .update(users)
+      .set({ onboardingState: { step: 3, baseUrl }, updatedAt: new Date() })
+      .where(eq(users.id, session.user.id));
+
+    const headerList = await headers();
+    await recordAudit({
+      userId: session.user.id,
+      action: 'connection.created',
+      entity: 'firefly_connection',
+      ip: headerList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+      userAgent: headerList.get('user-agent'),
+      metadata: {
+        baseUrl,
+        fireflyVersion: instance.version,
+        managed: true,
+        provisioned: provisioned.created,
+      },
+    });
+
+    return { ok: true, remoteEmail: provisioned.remoteEmail };
+  } catch (error) {
+    if (error instanceof ManagedProvisioningError) return { error: error.message };
     return { error: describeError(error) };
   }
 }

@@ -77,6 +77,17 @@ const serverSchema = z.object({
   // an outbound-request amplifier.
   CRON_SECRET: z.string().min(16).optional(),
 
+  // A Firefly III instance this deployment operates on its users' behalf.
+  // Setting MANAGED_FIREFLY_URL is what offers the "managed" choice during
+  // onboarding; without it the app only ever connects to instances a user
+  // supplies. The admin credentials are used to preflight the instance (is
+  // registration open?) — provisioning a user does not use them, because
+  // Firefly scopes token creation to the session of the user being provisioned.
+  MANAGED_FIREFLY_URL: z.string().url().optional(),
+  MANAGED_FIREFLY_ADMIN_EMAIL: z.string().email().optional(),
+  MANAGED_FIREFLY_ADMIN_PASSWORD: z.string().min(1).optional(),
+  MANAGED_FIREFLY_LABEL: z.string().default('Managed Firefly III'),
+
   SENTRY_DSN: z.string().optional(),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
   OTEL_SERVICE_NAME: z.string().default('firefly-studio'),

@@ -438,7 +438,51 @@ export type FireflyConnection = typeof fireflyConnections.$inferSelect;
 export type NewFireflyConnection = typeof fireflyConnections.$inferInsert;
 export type UserPreferences = typeof userPreferences.$inferSelect;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
+export type ManagedFireflyUser = typeof managedFireflyUsers.$inferSelect;
 export type ConnectionStatus = (typeof connectionStatusEnum.enumValues)[number];
+
+/**
+ * The permanent link between an app user and their account on the managed
+ * Firefly III instance (the one this deployment operates, if MANAGED_FIREFLY_URL
+ * is set).
+ *
+ * This row outlives any connection built from it. A user may switch to their
+ * own Firefly instance and back again any number of times; each switch back has
+ * to land on the SAME Firefly account, or their managed ledger would be
+ * orphaned and silently replaced with an empty one. That is why the mapping is
+ * kept even when no connection currently points at it, and why deleting it is
+ * not part of disconnecting.
+ *
+ * The password is stored sealed because Firefly has no API for minting a token
+ * on another user's behalf: re-provisioning means logging in as them through
+ * Firefly's own login form, which needs the password back in plaintext at that
+ * moment. `server/managed-firefly` is the only place that opens it.
+ */
+export const managedFireflyUsers = pgTable(
+  'managed_firefly_users',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The instance this mapping belongs to; re-pointing the env invalidates it. */
+    baseUrl: text('base_url').notNull(),
+    /** Firefly's own user id, read back from /about/user after provisioning. */
+    remoteUserId: text('remote_user_id').notNull(),
+    remoteEmail: text('remote_email').notNull(),
+    passwordCiphertext: text('password_ciphertext').notNull(),
+    passwordNonce: text('password_nonce').notNull(),
+    passwordAuthTag: text('password_auth_tag').notNull(),
+    keyVersion: smallint('key_version').notNull().default(1),
+    lastProvisionedAt: timestamp('last_provisioned_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    // One managed account per user per instance.
+    uniqueIndex('managed_firefly_users_user_base_url_unique').on(table.userId, table.baseUrl),
+    index('managed_firefly_users_user_idx').on(table.userId),
+  ],
+);
 
 /**
  * Columns safe to select into a render path. The sealed token fields are

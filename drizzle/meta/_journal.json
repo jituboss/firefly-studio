@@ -15,6 +15,13 @@
       "when": 1789622499207,
       "tag": "0001_wandering_james_howlett",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789680638414,
+      "tag": "0002_opposite_silverclaw",
+      "breakpoints": true
     }
   ]
 }

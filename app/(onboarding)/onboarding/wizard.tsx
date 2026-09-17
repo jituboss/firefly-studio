@@ -5,8 +5,10 @@ import { useFormStatus } from 'react-dom';
 import { Check, ExternalLink, Flame, ShieldCheck } from 'lucide-react';
 import {
   completeOnboardingAction,
+  connectManagedAction,
   connectTokenAction,
   probeBaseUrlAction,
+  type ManagedState,
   type ProbeState,
   type TokenState,
 } from '@/server/onboarding/actions';
@@ -75,6 +77,8 @@ export function OnboardingWizard(props: {
   timezone: string;
   /** Shown in the footer so it is obvious which account is being set up. */
   email: string;
+  /** Null unless this deployment operates a Firefly instance of its own. */
+  managed: { label: string; hasAccount: boolean } | null;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(props.initialStep);
 
@@ -82,11 +86,17 @@ export function OnboardingWizard(props: {
     baseUrl: props.initialBaseUrl,
   });
   const [tokenState, tokenAction] = useActionState<TokenState, FormData>(connectTokenAction, {});
+  const [managedState, managedAction] = useActionState<ManagedState, FormData>(
+    connectManagedAction,
+    {},
+  );
 
   // The server actions are the source of truth; these advance the view once
   // they report success. Reloading re-derives the step from the database.
   if (probeState.ok && step === 1) setStep(2);
   if (tokenState.ok && step === 2) setStep(3);
+  // The managed path mints its own token, so it jumps straight past step 2.
+  if (managedState.ok && step === 1) setStep(3);
 
   return (
     <main id="main" className="bg-background min-h-svh px-4 py-10">
@@ -106,6 +116,53 @@ export function OnboardingWizard(props: {
         <Stepper current={step} />
 
         <div className="bg-card rounded-xl border p-6 shadow-sm">
+          {step === 1 && props.managed ? (
+            <div className="mb-6 space-y-4">
+              <div className="space-y-1">
+                <h1 className="text-lg font-semibold tracking-tight">
+                  Where should your money live?
+                </h1>
+                <p className="text-muted-foreground text-sm">
+                  Use the Firefly III this app runs for you, or point it at one of your own.
+                </p>
+              </div>
+
+              {managedState.error ? (
+                <FormMessage tone="error">{managedState.error}</FormMessage>
+              ) : null}
+
+              <form action={managedAction}>
+                <div className="border-primary/40 bg-primary/5 rounded-lg border p-4">
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck
+                      className="text-primary mt-0.5 size-5 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="text-sm font-medium">{props.managed.label}</p>
+                      <p className="text-muted-foreground text-sm">
+                        {props.managed.hasAccount
+                          ? 'You already have a ledger here. Reconnecting puts you back into it — nothing is lost.'
+                          : 'We create your account and set up access for you. No token to find, nothing to install.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Submit>
+                      {props.managed.hasAccount ? 'Reconnect my ledger' : 'Use this one'}
+                    </Submit>
+                  </div>
+                </div>
+              </form>
+
+              <div className="flex items-center gap-3">
+                <span className="bg-border h-px flex-1" />
+                <span className="text-muted-foreground text-xs">or connect your own</span>
+                <span className="bg-border h-px flex-1" />
+              </div>
+            </div>
+          ) : null}
+
           {step === 1 ? (
             <form action={probeAction} className="space-y-4">
               <div className="space-y-1">

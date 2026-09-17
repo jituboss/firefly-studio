@@ -79,6 +79,14 @@ services:
       # E2-24 — set to enable /api/cron/health for a real cron driver. Unset,
       # the endpoint 404s and the app falls back to opportunistic checks.
       CRON_SECRET: ${CRON_SECRET:-}
+      # A Firefly III instance this deployment runs on its users' behalf. Set
+      # MANAGED_FIREFLY_URL to offer it during onboarding; the instance must
+      # have "single user mode" turned OFF so accounts can be provisioned.
+      # Inside this compose network the bundled instance is reachable by name.
+      MANAGED_FIREFLY_URL: ${MANAGED_FIREFLY_URL:-}
+      MANAGED_FIREFLY_ADMIN_EMAIL: ${MANAGED_FIREFLY_ADMIN_EMAIL:-}
+      MANAGED_FIREFLY_ADMIN_PASSWORD: ${MANAGED_FIREFLY_ADMIN_PASSWORD:-}
+      MANAGED_FIREFLY_LABEL: ${MANAGED_FIREFLY_LABEL:-Managed Firefly III}
       # Self-hosted Firefly usually lives on a LAN, so this is on for local dev.
       FIREFLY_ALLOW_PRIVATE_NETWORKS: 'true'
       FIREFLY_ALLOW_INSECURE_HTTP: 'true'

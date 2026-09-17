@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getDefaultConnection } from '@/server/connections';
 import { loadPersonaliseOptions, resolveOnboardingStep } from '@/server/onboarding/actions';
+import { getManagedMapping, managedConfig } from '@/server/managed-firefly';
 import { OnboardingWizard } from './wizard';
 
 export const metadata: Metadata = { title: 'Connect Firefly III' };
@@ -31,6 +32,11 @@ export default async function OnboardingPage({
   // Only reach out to Firefly once a working connection exists.
   const options = step === 3 ? await loadPersonaliseOptions() : { currency: null, accounts: [] };
 
+  // Offered only when this deployment operates an instance. `hasAccount`
+  // changes the wording from "we will create one" to "you already have one".
+  const managed = managedConfig();
+  const managedMapping = managed ? await getManagedMapping(session.user.id) : null;
+
   return (
     <OnboardingWizard
       adding={adding}
@@ -43,6 +49,7 @@ export default async function OnboardingPage({
       accounts={options.accounts}
       timezone={session.user.timezone}
       email={session.user.email}
+      managed={managed ? { label: managed.label, hasAccount: Boolean(managedMapping) } : null}
     />
   );
 }
