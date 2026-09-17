@@ -10,6 +10,38 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-18
+
+Three fixes, no new features.
+
+### Fixed
+
+- **The light theme is usable.** It had no surface hierarchy: the page and the
+  cards on it were within one percent of the same white, so cards, the sidebar
+  and the background collapsed into a single sheet with hairline borders doing
+  all the work. The page is now a soft grey that white cards sit on top of,
+  borders and input edges are strong enough to see, and every colour that
+  carries meaning — income, expense, transfer, warning — is dark enough to read
+  as text on white. Warning text was the worst of them at 2.54:1, below the
+  accessible minimum; it is now 5.40:1. Every token pair was measured, and the
+  light palette now passes the same twenty checks the dark one already did. The
+  dark theme is unchanged.
+- **Browser controls follow the theme.** Select menus, date pickers, scrollbars
+  and autofill were rendered by the browser in whatever scheme the operating
+  system was set to, so a light page could hand you a dark date picker.
+- **Amounts no longer disagree about the currency.** The primary currency was
+  read once when you connected your Firefly instance and never again. If you
+  changed it afterwards, some screens kept showing the old one while others
+  showed the new one. It now follows the instance, and corrects itself within
+  five minutes of a change made in Firefly III directly — immediately, if the
+  change is made here.
+
+### Changed
+
+- Only a version tag publishes a container image. Pushing a branch and its tag
+  together started two runs for one commit and both of them published; the
+  branch's run is now a check, not a release.
+
 ## [0.4.0] - 2026-09-18
 
 **Automation.** Milestone M6 is complete: rules, recurring transactions, tags,
@@ -281,7 +313,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.1
 [0.4.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.3.0
 [0.2.0-alpha.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.2.0-alpha.1
