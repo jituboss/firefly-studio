@@ -75,7 +75,12 @@ jobs:
           # Anything with a hyphen is a prerelease under semver: 0.1.0-alpha.1.
           if [[ "$VERSION" == *-* ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "channel=${VERSION#*-}" >> "$GITHUB_OUTPUT"
+            # The channel is the word, not the word and its number. `${V#*-}`
+            # alone yields "alpha.1", which published a second tag identical to
+            # the version instead of the moving `alpha` tag RELEASING.md
+            # promises. Trim the iteration too.
+            CHANNEL="${VERSION#*-}"
+            echo "channel=${CHANNEL%%.*}" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
             echo "channel=stable" >> "$GITHUB_OUTPUT"
