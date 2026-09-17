@@ -10,6 +10,99 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-18
+
+**Automation.** Milestone M6 is complete: rules, recurring transactions, tags,
+currencies and exchange rates, transaction links, and administration of the
+Firefly instance you are connected to. Everything here was exercised against a
+live Firefly III 6.5.5, not just typechecked.
+
+Upgrading from `0.3.0` needs no action for the app itself — the container
+applies its own migrations on boot. If you run the bundled development stack,
+see **Upgrade notes** below, because the compose file changed.
+
+### Added
+
+- **Rules, with a visual builder.** Compose a rule out of conditions and
+  actions: all 36 of Firefly's trigger keywords and all 21 composable actions,
+  not a convenient subset. Invert any condition, require all or any of them,
+  stop processing after a match. Rules live in groups, which run in order.
+- **A dry run before you commit.** Every rule shows exactly which transactions
+  it would touch, over any date range, changing nothing. Run a rule or a whole
+  group over your history when you are satisfied.
+- **Recurring transactions.** Describe rent, salary or a standing order once
+  and Firefly creates it on schedule — daily through yearly, with skips,
+  weekend handling and nth-weekday-of-month. A forecast lists what is coming,
+  and you can create one by hand without waiting for the date.
+- **Tags.** A list and a cloud weighted by what each tag actually cost, spend
+  and income per tag, optional dates and locations, and tagging or untagging
+  many transactions at once.
+- **Currencies and exchange rates.** Enable, disable or change the primary
+  currency; add your own; record what one currency was worth in another on a
+  date.
+- **Transaction links.** Connect a refund to its purchase, or a reimbursement
+  to what it repays.
+- **A managed Firefly III instance (optional).** Point `MANAGED_FIREFLY_URL` at
+  an instance this deployment operates and onboarding gains a one-click choice:
+  an account is created for each user and their access token minted, so nobody
+  has to find a Personal Access Token by hand. Users can still connect their own
+  instance, and can move between the two whenever they like — the link between
+  an account here and its ledger there is permanent, so switching back always
+  returns you to the same data. See `.env.example`; the instance must accept
+  registrations, so keep it off the public internet.
+- **A settings section for the connected instance.** Its version, the account
+  you are signed in as, its preferences, and — for instance owners — its users,
+  financial administrations and configuration.
+- **A danger zone.** Delete a whole class of records from the connected
+  instance, behind a password re-confirmation, a typed phrase naming exactly
+  what goes, and an audit entry written whether it succeeds or fails.
+- **A way out of onboarding.** Signing in to the wrong account no longer means
+  clearing cookies: every step of the wizard now offers a sign out.
+
+### Changed
+
+- Settings moved out of the sidebar into a tabbed section behind a gear in the
+  header. It is somewhere you visit and leave, not one of the ledger views.
+- CI and Release are one pipeline. A release used to take about forty minutes,
+  most of it emulating `linux/arm64` through QEMU; each architecture now builds
+  on a runner of its own and the gate runs beside the image build rather than
+  before it.
+
+### Fixed
+
+- **The development stack could not start without mail configured.** Docker
+  Compose cannot express "leave this unset", so an absent `SMTP_PORT` arrived as
+  an empty string and failed validation. An empty value now means absent.
+- **Destructive operations were unreachable.** The step-up re-authentication
+  they require existed as a check with nothing able to grant it, so every
+  guarded operation was refused unconditionally.
+
+### Known limitations
+
+- **Exporting data does not work on Firefly III 6.5.5.** All nine of its CSV
+  export endpoints return a server error (`Cannot instantiate abstract class
+League\Csv\AbstractCsv`) — a broken dependency inside Firefly that this app
+  cannot work around. Export from Firefly III's own interface meanwhile.
+- Rules and rule groups render in the order Firefly runs them, but cannot yet be
+  reordered from here.
+
+### Upgrade notes
+
+The bundled development stack no longer runs a second PostgreSQL for Firefly
+III; it shares the app's, in a database of its own. Existing data is not read
+from the old volume, so move it across before switching:
+
+```bash
+docker compose exec -T firefly-db pg_dump -U firefly -d firefly \
+  --no-owner --no-acl > firefly.sql
+docker compose exec -T postgres psql -U firefly_studio -d firefly_studio \
+  -f /docker-entrypoint-initdb.d/00-init.sql
+docker compose exec -T postgres psql -U firefly -d firefly < firefly.sql
+```
+
+Then `docker volume rm firefly-studio_firefly-db-data` once you are satisfied.
+This affects the development stack only, not deployed containers.
+
 ## [0.3.0] - 2026-09-18
 
 **The first stable release.** Milestones M0–M5 are complete: you can sign up,
@@ -188,7 +281,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.3.0
 [0.2.0-alpha.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.2.0-alpha.1
 [0.1.0-alpha.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.1.0-alpha.1
