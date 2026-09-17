@@ -4,7 +4,7 @@ import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import {
   getAccountsSafe,
-  getBalanceChart,
+  getAccountOverviewChart,
   getBasicSummary,
   getBills,
   getBudgetLimits,
@@ -113,7 +113,7 @@ export default async function DashboardPage({
   ] = await Promise.all([
     getBasicSummary(range.start, range.end),
     getBasicSummary(previous.start, previous.end),
-    getBalanceChart(range.start, range.end),
+    getAccountOverviewChart(range.start, range.end),
     getAccountsSafe({ type: 'asset' }),
     getTransactions({ start: range.start, end: range.end, limit: 6 }).catch(() => ({
       data: [],
@@ -191,7 +191,13 @@ export default async function DashboardPage({
       <Card className="min-w-0 overflow-hidden">
         <CardContent className="min-w-0 p-4 sm:p-5">
           <h2 className="mb-4 text-sm font-medium">Balance over time</h2>
-          <AreaTrend data={trend.points} series={trend.series} currency={currency} />
+          <AreaTrend
+            data={trend.points}
+            series={trend.series}
+            currency={currency}
+            positiveLabel="Earned"
+            negativeLabel="Spent"
+          />
         </CardContent>
       </Card>
 

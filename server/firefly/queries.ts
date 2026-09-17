@@ -40,13 +40,13 @@ function chartPeriod(start: string, end: string): '1D' | '1M' {
 
 export const getBalanceChart = (start: string, end: string) =>
   fireflyGetSafe<ChartEntry[]>(
-    `/v1/chart/balance/balance${qs({ start, end, period: chartPeriod(start, end) })}`,
+    `/v1/chart/balance/balance${qs({ start, end, period: chartPeriod(start, end), preselected: 'all' })}`,
     [],
   );
 
 export const getAccountOverviewChart = (start: string, end: string) =>
   fireflyGetSafe<ChartEntry[]>(
-    `/v1/chart/account/overview${qs({ start, end, period: chartPeriod(start, end) })}`,
+    `/v1/chart/account/overview${qs({ start, end, period: chartPeriod(start, end), preselected: 'all' })}`,
     [],
   );
 
