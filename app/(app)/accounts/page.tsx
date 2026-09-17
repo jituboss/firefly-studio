@@ -61,7 +61,7 @@ export default async function AccountsPage({
   })).filter((group) => group.accounts.length > 0);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl min-w-0 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>

@@ -54,7 +54,7 @@ export default async function TransactionsPage({
   const pagination = result.meta.pagination;
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-5">
+    <div className="mx-auto w-full max-w-7xl min-w-0 space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>

@@ -146,8 +146,29 @@ export function AppShell({
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
+  // Without this the page behind the drawer keeps scrolling — including
+  // sideways, which is what clipped the content off the left edge.
+  React.useEffect(() => {
+    if (!mobileOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileOpen]);
+
+  // Escape closes the drawer.
+  React.useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+
   return (
-    <div className="bg-background min-h-svh">
+    <div className="bg-background min-h-svh overflow-x-hidden">
       {/* Desktop sidebar */}
       <aside className="bg-sidebar border-sidebar-border fixed inset-y-0 left-0 z-30 hidden w-60 flex-col overflow-y-auto border-r lg:flex">
         <div className="flex h-14 shrink-0 items-center gap-2 px-5">
@@ -165,7 +186,10 @@ export function AppShell({
             aria-label="Close navigation"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="bg-sidebar border-sidebar-border absolute inset-y-0 left-0 w-64 overflow-y-auto border-r">
+          <aside
+            aria-label="Main navigation"
+            className="bg-sidebar border-sidebar-border absolute inset-y-0 left-0 w-64 max-w-[85vw] overflow-y-auto overscroll-contain border-r"
+          >
             <div className="flex h-14 items-center gap-2 px-5">
               <Flame className="text-primary size-5" aria-hidden="true" />
               <span className="font-semibold tracking-tight">Firefly Studio</span>
@@ -175,7 +199,7 @@ export function AppShell({
         </div>
       ) : null}
 
-      <div className="lg:pl-60">
+      <div className="min-w-0 lg:pl-60">
         <header className="bg-background/80 border-border sticky top-0 z-20 flex h-14 items-center gap-3 border-b px-4 backdrop-blur-sm sm:px-6">
           <Button
             variant="ghost"
@@ -220,7 +244,7 @@ export function AppShell({
           </form>
         </header>
 
-        <main id="main" className="px-4 py-6 sm:px-6 lg:px-8">
+        <main id="main" className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </main>
       </div>

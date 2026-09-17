@@ -64,7 +64,7 @@ export function TransactionTable({
   });
 
   return (
-    <div className="bg-card overflow-hidden rounded-xl border">
+    <div className="bg-card min-w-0 overflow-hidden rounded-xl border">
       {/* Header mirrors the row grid so columns stay aligned while scrolling. */}
       <div className="bg-muted/50 text-muted-foreground grid grid-cols-[6rem_1fr_auto] items-center gap-3 border-b px-4 py-2 text-xs font-medium tracking-wide uppercase md:grid-cols-[6.5rem_1fr_11rem_8rem_8rem]">
         <span>Date</span>

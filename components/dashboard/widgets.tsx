@@ -20,9 +20,9 @@ export function WidgetCard({
   className?: string;
 }) {
   return (
-    <Card className={className}>
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+    <Card className={cn('min-w-0 overflow-hidden', className)}>
+      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="truncate text-sm font-medium">{title}</CardTitle>
         {href ? (
           <Link
             href={href}
@@ -33,7 +33,7 @@ export function WidgetCard({
           </Link>
         ) : null}
       </CardHeader>
-      <CardContent className="pt-0">{children}</CardContent>
+      <CardContent className="min-w-0 pt-0">{children}</CardContent>
     </Card>
   );
 }

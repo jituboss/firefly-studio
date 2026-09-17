@@ -128,11 +128,11 @@ export default async function DashboardPage({
     .slice(0, 8);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground truncate text-sm">
             {connection.label} · {range.label}
           </p>
         </div>
@@ -142,7 +142,7 @@ export default async function DashboardPage({
         </div>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiTile
           label="Net worth"
           value={netWorth.value}
@@ -172,14 +172,14 @@ export default async function DashboardPage({
         />
       </div>
 
-      <Card>
-        <CardContent className="p-5">
+      <Card className="min-w-0 overflow-hidden">
+        <CardContent className="min-w-0 p-4 sm:p-5">
           <h2 className="mb-4 text-sm font-medium">Balance over time</h2>
           <AreaTrend data={trend.points} series={trend.series} currency={currency} />
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
         <WidgetCard title="Accounts" href="/accounts">
           <AccountBalanceList accounts={accounts.data.slice(0, 6)} />
         </WidgetCard>

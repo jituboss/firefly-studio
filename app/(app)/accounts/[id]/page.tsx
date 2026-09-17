@@ -71,7 +71,7 @@ export default async function AccountDetailPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl min-w-0 space-y-6">
       <Link
         href="/accounts"
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
@@ -95,7 +95,7 @@ export default async function AccountDetailPage({
         <DateRangePicker label={range.label} />
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="p-5">
             <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
@@ -153,8 +153,8 @@ export default async function AccountDetailPage({
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="p-5">
+      <Card className="min-w-0 overflow-hidden">
+        <CardContent className="min-w-0 p-4 sm:p-5">
           <h2 className="mb-4 text-sm font-medium">Balance over time</h2>
           <AreaTrend data={points} series={series} currency={currency} height={220} />
         </CardContent>
