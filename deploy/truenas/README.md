@@ -69,6 +69,22 @@ entirely.
 If you would rather use dataset paths for snapshot and replication coverage,
 swap the volumes for host paths and `chown` each to the uid above.
 
+## Mail
+
+`MAIL_TRANSPORT` is `console` until a real transport is set, which prints
+verification and reset links to the container log instead of sending them. For
+SMTP you need `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASSWORD`; the app
+refuses to start with `MAIL_TRANSPORT=smtp` and no host, because a selected but
+unconfigured transport silently swallows every message.
+
+**Leave `SMTP_SECURE` unset on port 587.** The transport turns implicit TLS on
+only for 465 and otherwise starts plaintext and upgrades with STARTTLS, which is
+what the submission port expects — forcing it true makes the connection hang
+rather than fail with anything useful.
+
+`MAIL_FROM` has to be a domain the provider will accept; most reject a sender
+they have not verified.
+
 ## Things to set per host
 
 - `APP_URL` on `app`, and `APP_URL` on `firefly` — verification and reset links
