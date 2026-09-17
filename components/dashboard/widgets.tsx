@@ -158,7 +158,15 @@ export function RecentTransactions({
 }
 
 /** E3-09 — upcoming bills. */
-export function UpcomingBills({ bills, timezone }: { bills: Bill[]; timezone: string }) {
+export function UpcomingBills({
+  bills,
+  timezone,
+  defaultCurrency,
+}: {
+  bills: Bill[];
+  timezone: string;
+  defaultCurrency: string;
+}) {
   const upcoming = bills
     .filter((bill) => bill.attributes.active && bill.attributes.next_expected_match)
     .sort((a, b) =>
@@ -192,7 +200,7 @@ export function UpcomingBills({ bills, timezone }: { bills: Bill[]; timezone: st
             {paid ? <Badge variant="income">Paid</Badge> : null}
             <Amount
               value={bill.attributes.amount_max}
-              currency={bill.attributes.currency_code}
+              currency={bill.attributes.currency_code ?? defaultCurrency}
               showSign={false}
             />
           </li>
@@ -203,7 +211,13 @@ export function UpcomingBills({ bills, timezone }: { bills: Bill[]; timezone: st
 }
 
 /** E3-10 — piggy bank progress. */
-export function PiggyProgress({ piggies }: { piggies: PiggyBank[] }) {
+export function PiggyProgress({
+  piggies,
+  defaultCurrency,
+}: {
+  piggies: PiggyBank[];
+  defaultCurrency: string;
+}) {
   if (piggies.length === 0) {
     return <p className="text-muted-foreground py-6 text-center text-sm">No piggy banks yet.</p>;
   }
@@ -231,14 +245,14 @@ export function PiggyProgress({ piggies }: { piggies: PiggyBank[] }) {
             <div className="text-muted-foreground flex justify-between text-xs">
               <Amount
                 value={piggy.attributes.current_amount}
-                currency={piggy.attributes.currency_code}
+                currency={piggy.attributes.currency_code ?? defaultCurrency}
                 size="sm"
                 showSign={false}
                 tone="neutral"
               />
               <Amount
                 value={piggy.attributes.target_amount}
-                currency={piggy.attributes.currency_code}
+                currency={piggy.attributes.currency_code ?? defaultCurrency}
                 size="sm"
                 showSign={false}
                 tone="neutral"

@@ -6,6 +6,7 @@ import type {
   Bill,
   Budget,
   BudgetLimit,
+  Category,
   ChartEntry,
   InsightEntry,
   Paged,
@@ -110,3 +111,58 @@ export const getBills = (start: string, end: string) =>
 
 export const getPiggyBanks = () =>
   fireflyGetSafe<Paged<PiggyBank>>(`/v1/piggy-banks${qs({ limit: 50 })}`, { data: [], meta: {} });
+
+// --- M4: budgets, categories, bills, piggy banks -----------------------------
+
+export const getBudget = (id: string, start?: string, end?: string) =>
+  fireflyGet<{ data: Budget }>(`/v1/budgets/${id}${qs({ start, end })}`);
+
+export const getBudgetLimitsForBudget = (id: string) =>
+  fireflyGetSafe<Paged<BudgetLimit>>(`/v1/budgets/${id}/limits`, { data: [], meta: {} });
+
+export const getBudgetTransactions = (
+  id: string,
+  params: { start?: string; end?: string; page?: number; limit?: number } = {},
+) =>
+  fireflyGetSafe<Paged<Transaction>>(
+    `/v1/budgets/${id}/transactions${qs({ ...params, limit: params.limit ?? 25 })}`,
+    { data: [], meta: {} },
+  );
+
+export const getCategories = (start?: string, end?: string) =>
+  fireflyGetSafe<Paged<Category>>(`/v1/categories${qs({ start, end, limit: 200 })}`, {
+    data: [],
+    meta: {},
+  });
+
+export const getCategory = (id: string, start?: string, end?: string) =>
+  fireflyGet<{ data: Category }>(`/v1/categories/${id}${qs({ start, end })}`);
+
+export const getCategoryTransactions = (
+  id: string,
+  params: { start?: string; end?: string; page?: number; limit?: number } = {},
+) =>
+  fireflyGetSafe<Paged<Transaction>>(
+    `/v1/categories/${id}/transactions${qs({ ...params, limit: params.limit ?? 25 })}`,
+    { data: [], meta: {} },
+  );
+
+export const getBill = (id: string) => fireflyGet<{ data: Bill }>(`/v1/bills/${id}`);
+
+export const getBillTransactions = (id: string, params: { page?: number; limit?: number } = {}) =>
+  fireflyGetSafe<Paged<Transaction>>(
+    `/v1/bills/${id}/transactions${qs({ ...params, limit: params.limit ?? 25 })}`,
+    { data: [], meta: {} },
+  );
+
+export const getPiggyBank = (id: string) =>
+  fireflyGet<{ data: PiggyBank }>(`/v1/piggy-banks/${id}`);
+
+export interface PiggyEvent {
+  id: string;
+  type: string;
+  attributes: { amount: string; currency_code: string; created_at: string };
+}
+
+export const getPiggyEvents = (id: string) =>
+  fireflyGetSafe<{ data: PiggyEvent[] }>(`/v1/piggy-banks/${id}/events`, { data: [] });

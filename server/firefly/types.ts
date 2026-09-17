@@ -133,6 +133,7 @@ export interface BudgetAttributes {
   auto_budget_type: string | null;
   auto_budget_amount: string | null;
   auto_budget_period: string | null;
+  auto_budget_currency_code?: string | null;
   spent?: Array<{ sum: string; currency_code: string }> | null;
 }
 
@@ -143,8 +144,8 @@ export interface BudgetLimitAttributes {
   start: string;
   end: string;
   amount: string;
-  spent: string | null;
-  currency_code: string;
+  spent: Array<{ sum: string; currency_code: string }> | null;
+  currency_code: string | null;
 }
 
 export type BudgetLimit = Resource<BudgetLimitAttributes>;
@@ -153,10 +154,15 @@ export interface BillAttributes {
   name: string;
   amount_min: string;
   amount_max: string;
-  currency_code: string;
+  currency_code: string | null;
   date: string;
+  end_date: string | null;
+  extension_date: string | null;
   repeat_freq: string;
+  skip: number;
   active: boolean;
+  notes: string | null;
+  object_group_title: string | null;
   next_expected_match: string | null;
   paid_dates?: Array<{ date: string }> | null;
   pay_dates?: string[] | null;
@@ -166,12 +172,18 @@ export type Bill = Resource<BillAttributes>;
 
 export interface PiggyBankAttributes {
   name: string;
-  account_name: string | null;
+  accounts: Array<{ account_id: string; name: string; current_amount: string }>;
   target_amount: string | null;
   current_amount: string | null;
+  left_to_save: string | null;
+  save_per_month: string | null;
   percentage: number | null;
+  start_date: string | null;
   target_date: string | null;
-  currency_code: string;
+  active: boolean;
+  notes: string | null;
+  object_group_title: string | null;
+  currency_code: string | null;
 }
 
 export type PiggyBank = Resource<PiggyBankAttributes>;
@@ -179,6 +191,8 @@ export type PiggyBank = Resource<PiggyBankAttributes>;
 export interface CategoryAttributes {
   name: string;
   notes: string | null;
+  spent?: Array<{ sum: string; currency_code: string }> | null;
+  earned?: Array<{ sum: string; currency_code: string }> | null;
 }
 
 export type Category = Resource<CategoryAttributes>;

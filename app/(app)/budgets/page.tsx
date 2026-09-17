@@ -1,0 +1,187 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { Plus } from 'lucide-react';
+import { getSession } from '@/server/auth/session';
+import { getActiveConnection } from '@/server/firefly/api';
+import { getBudgetLimits, getBudgets } from '@/server/firefly/queries';
+import { resolveRangeFromParams } from '@/lib/date-range';
+import { Amount } from '@/components/ui/amount';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { DateRangePicker } from '@/components/date-range-picker';
+import { abs, divide, subtract, toDecimal } from '@/lib/money';
+
+export const metadata: Metadata = { title: 'Budgets' };
+
+/** E6-01 — budget list with spent/limit/remaining and pacing. */
+export default async function BudgetsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const session = await getSession();
+  if (!session) redirect('/sign-in');
+  const connection = await getActiveConnection();
+  if (!connection) redirect('/onboarding');
+
+  const params = await searchParams;
+  const range = resolveRangeFromParams(params, session.user.timezone);
+
+  const [budgetsResult, limitsResult] = await Promise.all([
+    getBudgets(range.start, range.end),
+    getBudgetLimits(range.start, range.end),
+  ]);
+
+  const budgets = [...budgetsResult.data].sort((a, b) =>
+    a.attributes.name.localeCompare(b.attributes.name),
+  );
+  const limitsByBudget = new Map<string, (typeof limitsResult.data)[number]>();
+  for (const limit of limitsResult.data) {
+    // Multiple limits can exist per budget across periods; keep the widest
+    // overlap with the selected range as "the" limit for this list.
+    limitsByBudget.set(limit.attributes.budget_id, limit);
+  }
+
+  // Pacing: what fraction of the selected period has elapsed.
+  const totalDays = Math.max(
+    1,
+    (Date.parse(`${range.end}T00:00:00Z`) - Date.parse(`${range.start}T00:00:00Z`)) / 86_400_000 +
+      1,
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const elapsedDays = Math.min(
+    totalDays,
+    Math.max(
+      0,
+      (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${range.start}T00:00:00Z`)) / 86_400_000 + 1,
+    ),
+  );
+  const pacingPercent = Math.round((elapsedDays / totalDays) * 100);
+
+  return (
+    <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Budgets</h1>
+          <p className="text-muted-foreground truncate text-sm">
+            {budgets.length} budget{budgets.length === 1 ? '' : 's'} · {pacingPercent}% of period
+            elapsed
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <DateRangePicker label={range.label} />
+          <Button asChild size="sm">
+            <Link href="/budgets/new">
+              <Plus className="size-4" aria-hidden="true" />
+              New
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      {budgets.length === 0 ? (
+        <Card>
+          <CardContent className="p-10 text-center">
+            <p className="text-muted-foreground text-sm">No budgets yet.</p>
+            <Button asChild size="sm" className="mt-4">
+              <Link href="/budgets/new">Create your first budget</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <ul className="space-y-3">
+          {budgets.map((budget) => {
+            const b = budget.attributes;
+            const spentEntry = b.spent?.[0];
+            const limit = limitsByBudget.get(budget.id);
+            const limitAmount = limit?.attributes.amount ?? null;
+            const spentAmount = spentEntry ? abs(spentEntry.sum) : abs(0);
+            const currency =
+              spentEntry?.currency_code ??
+              limit?.attributes.currency_code ??
+              connection.primaryCurrency;
+
+            const percentUsed = limitAmount
+              ? Math.min(100, divide(spentAmount, limitAmount).times(100).toNumber())
+              : null;
+            const remaining = limitAmount ? subtract(limitAmount, spentAmount) : null;
+            const overBudget = limitAmount
+              ? toDecimal(spentAmount).greaterThan(limitAmount)
+              : false;
+            const behindPace =
+              percentUsed !== null && percentUsed > pacingPercent + 10 && !overBudget;
+
+            return (
+              <li key={budget.id}>
+                <Link href={`/budgets/${budget.id}`}>
+                  <Card className="hover:bg-accent/30 min-w-0 transition-colors">
+                    <CardContent className="min-w-0 space-y-2 p-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-medium">{b.name}</span>
+                          {!b.active ? <Badge variant="secondary">Inactive</Badge> : null}
+                          {overBudget ? <Badge variant="expense">Over budget</Badge> : null}
+                          {behindPace ? <Badge variant="warning">Ahead of pace</Badge> : null}
+                        </div>
+                        <div className="text-right text-sm">
+                          <Amount
+                            value={spentAmount}
+                            currency={currency}
+                            tone="expense"
+                            showSign={false}
+                          />
+                          {limitAmount ? (
+                            <span className="text-muted-foreground">
+                              {' '}
+                              /{' '}
+                              <Amount
+                                value={limitAmount}
+                                currency={currency}
+                                tone="neutral"
+                                showSign={false}
+                                size="sm"
+                              />
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {limitAmount ? (
+                        <>
+                          <div
+                            className="bg-muted h-1.5 overflow-hidden rounded-full"
+                            role="progressbar"
+                            aria-valuenow={percentUsed ?? 0}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={`${b.name} budget usage`}
+                          >
+                            <div
+                              className={overBudget ? 'bg-expense h-full' : 'bg-primary h-full'}
+                              style={{ width: `${percentUsed ?? 0}%` }}
+                            />
+                          </div>
+                          <p className="text-muted-foreground text-xs">
+                            {remaining && !toDecimal(remaining).isNegative()
+                              ? `${remaining} ${currency} remaining`
+                              : `Over by ${remaining ? abs(remaining) : '0'} ${currency}`}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground text-xs">
+                          No limit set for this period.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}

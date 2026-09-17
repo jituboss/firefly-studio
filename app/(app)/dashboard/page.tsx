@@ -193,11 +193,15 @@ export default async function DashboardPage({
         </WidgetCard>
 
         <WidgetCard title="Upcoming bills">
-          <UpcomingBills bills={bills.data} timezone={session.user.timezone} />
+          <UpcomingBills
+            bills={bills.data}
+            timezone={session.user.timezone}
+            defaultCurrency={currency}
+          />
         </WidgetCard>
 
         <WidgetCard title="Savings goals">
-          <PiggyProgress piggies={piggies.data} />
+          <PiggyProgress piggies={piggies.data} defaultCurrency={currency} />
         </WidgetCard>
       </div>
     </div>

@@ -248,7 +248,7 @@ Admin (if Firefly user is owner) ──► Users, user groups, configuration, cr
 | **M1** | Auth & onboarding          | Sign-up/in, verify, reset, sessions, connection wizard, encrypted PAT      | A new user can sign up and attach a Firefly instance end-to-end     | 2 wks |
 | **M2** | Read core                  | Proxy + cache, dashboard v1, accounts, transaction list, search            | Dashboard and transaction list render live Firefly data             | 3 wks |
 | **M3** | Write core ✅              | Transaction create/edit/delete, splits, attachments, bulk ops              | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
-| **M4** | Money management           | Budgets, limits, categories, bills, piggy banks, object groups             | All four resource families CRUD-complete                            | 3 wks |
+| **M4** | Money management ✅        | Budgets, limits, categories, bills, piggy banks, object groups             | All four resource families CRUD-complete                            | 3 wks |
 | **M5** | Reporting                  | Insight + chart endpoints, 7 standard reports, builder, exports            | Reports match Firefly's own figures to the cent                     | 3 wks |
 | **M6** | Automation & the long tail | Rules, recurring, tags, currencies, exchange rates, webhooks, links, admin | 28/28 API groups covered                                            | 3 wks |
 | **M7** | Polish                     | A11y audit, i18n, PWA, perf budget, empty/error states, onboarding tour    | Lighthouse targets met; axe clean                                   | 2 wks |
@@ -486,43 +486,53 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 
 ### E6 · Budgets — M4
 
-- [ ] **E6-01** `P0` `2d` Budget list with spent / limit / remaining bars and pacing (are we ahead or behind for the day of the month?)
-- [ ] **E6-02** `P0` `2d` Budget CRUD: name, active, auto-budget type (none/reset/rollover), amount, period
-- [ ] **E6-03** `P0` `2d` Budget-limit management per period: create, edit, delete, copy last period, bulk-set
-- [ ] **E6-04** `P0` `2d` Budget detail: spend chart (`/chart/budget/overview`), limit history, transactions, attachments
-- [ ] **E6-05** `P1` `1d` `/budgets/transactions-without-budget` view — "unbudgeted spending" with a bulk-assign action
-- [ ] **E6-06** `P1` `1d` Available budgets (`/available-budgets`) — envelope total vs. allocated vs. unallocated
-- [ ] **E6-07** `P1` `2d` Budget performance report: planned vs. actual by period, variance, 12-month trend
-- [ ] **E6-08** `P1` `1d` Over-budget warnings surfaced in the notification inbox
-- [ ] **E6-09** `P2` `2d` Envelope-style drag-to-reallocate between budgets
+**Status: core complete** (2026-09-17). CRUD and per-period limit management verified against a live
+Firefly III instance.
+
+- [x] **E6-01** `P0` `2d` Budget list with spent / limit / remaining bars and pacing (% of period elapsed vs. % spent)
+- [x] **E6-02** `P0` `2d` Budget CRUD: name, active, auto-budget type (none/reset/rollover), amount, period
+- [x] **E6-03** `P0` `2d` Budget-limit management per period: create, edit, delete — _"copy last period" and bulk-set deferred_
+- [x] **E6-04** `P0` `2d` Budget detail: limit history, transactions — **`/chart/budget/overview` skipped**: it returns one snapshot bar per budget for the whole range, not a date series, so it does not fit the `AreaTrend` component used everywhere else. Attachments deferred.
+- [ ] **E6-05** `P1` `1d` `/budgets/transactions-without-budget` view
+- [ ] **E6-06** `P1` `1d` Available budgets (`/available-budgets`)
+- [ ] **E6-07** `P1` `2d` Budget performance report — folded into M5 reporting
+- [ ] **E6-08** `P1` `1d` Over-budget warnings in the notification inbox
+- [ ] **E6-09** `P2` `2d` Envelope-style drag-to-reallocate
 
 ### E7 · Categories — M4
 
-- [ ] **E7-01** `P0` `1d` Category list with period spend/earn and sparkline
-- [ ] **E7-02** `P0` `1d` Category CRUD + notes
-- [ ] **E7-03** `P0` `2d` Category detail: `/chart/category/overview`, transactions, attachments, month-over-month trend
-- [ ] **E7-04** `P1` `1d` Uncategorised inbox (`/insight/expense/no-category`) with bulk categorise
-- [ ] **E7-05** `P1` `1d` Merge categories (reassign transactions, then delete the source)
-- [ ] **E7-06** `P2` `2d` Suggested category on transaction entry based on payee history
+**Status: core complete** (2026-09-17).
+
+- [x] **E7-01** `P0` `1d` Category list with period spend/earn — _sparkline deferred_
+- [x] **E7-02** `P0` `1d` Category CRUD + notes
+- [x] **E7-03** `P0` `2d` Category detail: transactions, period spend/earn totals — **chart and month-over-month trend skipped**, same `/chart/category/overview` shape mismatch as E6-04. Attachments deferred.
+- [ ] **E7-04** `P1` `1d` Uncategorised inbox with bulk categorise
+- [ ] **E7-05** `P1` `1d` Merge categories
+- [ ] **E7-06** `P2` `2d` Suggested category from payee history
 
 ### E8 · Bills / Subscriptions — M4
 
-- [ ] **E8-01** `P0` `2d` Bill list: name, amount range, repeat frequency, next expected, paid this period, active
-- [ ] **E8-02** `P0` `2d` Bill CRUD: min/max amount, currency, date, end date, extension date, repeat freq, skip, active, object group, notes
-- [ ] **E8-03** `P0` `2d` Bill detail: matched transactions, linked rules (`/bills/{id}/rules`), attachments, payment history
-- [ ] **E8-04** `P1` `2d` **Subscription calendar** — month view of expected charges with paid/unpaid/overdue state
-- [ ] **E8-05** `P1` `1d` Annualised subscription cost summary and "most expensive subscriptions" ranking
-- [ ] **E8-06** `P1` `1d` Unpaid/overdue bill alerts in the notification inbox
-- [ ] **E8-07** `P2` `1d` "Create a matching rule from this bill" shortcut
+**Status: core complete** (2026-09-17).
+
+- [x] **E8-01** `P0` `2d` Bill list grouped by active/inactive: amount range, repeat frequency, next expected, paid state
+- [x] **E8-02** `P0` `2d` Bill CRUD: min/max amount, currency, date, end date, repeat freq, skip, active, notes
+- [x] **E8-03** `P0` `2d` Bill detail: matched transactions, payment history — _linked rules deferred to M6 (rules don't exist yet)_
+- [ ] **E8-04** `P1` `2d` Subscription calendar
+- [ ] **E8-05** `P1` `1d` Annualised cost summary / most-expensive ranking
+- [ ] **E8-06** `P1` `1d` Unpaid/overdue alerts in the notification inbox
+- [ ] **E8-07** `P2` `1d` "Create a matching rule from this bill"
 
 ### E9 · Piggy banks & object groups — M4
 
-- [ ] **E9-01** `P0` `2d` Piggy-bank list with progress rings, target date, and required-per-month figure
-- [ ] **E9-02** `P0` `2d` Piggy CRUD: account, name, target amount, start/target date, current amount, order, object group, notes
-- [ ] **E9-03** `P0` `1d` Add/remove money with the resulting `/piggy-banks/{id}/events` history timeline
-- [ ] **E9-04** `P1` `1d` Attachments tab; auto-computed "on track / behind" status
-- [ ] **E9-05** `P1` `2d` Object-group management: CRUD, reorder, and grouped rendering across piggy banks and bills
-- [ ] **E9-06** `P2` `1d` Savings-goal projection chart (current pace vs. required pace)
+**Status: core complete** (2026-09-17). Add/remove money mechanism confirmed against a live instance
+before implementing — see §13.
+
+- [x] **E9-01** `P0` `2d` Piggy-bank list with progress bars, target date, and per-month savings pace
+- [x] **E9-02** `P0` `2d` Piggy CRUD: account, name, target amount, start/target date, notes — _object group assignment deferred (E9-05)_
+- [x] **E9-03** `P0` `1d` Add/remove money with the resulting `/piggy-banks/{id}/events` history timeline
+- [ ] **E9-04** `P1` `1d` Attachments tab; "on track / behind" status
+- [ ] **E9-05** `P1` `2d` Object-group management
+- [ ] **E9-06** `P2` `1d` Savings-goal projection chart
 
 ### E10 · Recurring transactions — M6
 
@@ -772,3 +782,43 @@ Run against a live Firefly III v6.5.5 on 2026-09-17.
 3. **A 404 from Firefly surfaced as 502.** The `not_firefly` code conflated "this address is not a
    Firefly API" (an onboarding concern) with "this record does not exist". Split into `not_found`,
    which the proxy passes through as 404 and onboarding still reports as "no Firefly III API here".
+
+---
+
+## 14. M4 verification log
+
+Run against a live Firefly III v6.5.5 on 2026-09-17.
+
+| Step                                                                  | Result                                                                             |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Category: create → list → detail → rename → delete                    | id 7, all steps 200/204, confirmed 404 after delete                                |
+| Budget: create → add a limit → list → detail (limits tab) → delete    | id 2, limit id 2 (€500.00), confirmed 404 after delete                             |
+| Bill: create → list → detail → delete                                 | id 2, confirmed 404 after delete                                                   |
+| Piggy bank: create → list → add money → events → history tab → delete | id 2, `current_amount` 0.00 → 250.00, 1 event recorded, confirmed 404 after delete |
+| Cache invalidation on write                                           | 20 keys → 19 after a category write                                                |
+| Responsive check (11 pages incl. all new M4 routes)                   | no horizontal overflow at 360/390/768/1440px, drawer included                      |
+| Regression check on M1–M3 pages                                       | all still 200; signed-out guards still redirect correctly                          |
+
+**Two things this run exposed, both now fixed:**
+
+1. **`server/firefly/types.ts` had three wrong resource shapes.** `BudgetLimit.spent` was typed as
+   `string | null`; Firefly returns an array of `{sum, currency_code}` per currency, same as `Budget.spent`.
+   `PiggyBankAttributes` had a single `account_name` field; Firefly returns an `accounts` array (a piggy
+   bank can span multiple accounts). Both were fixed by querying the live instance before writing the
+   types, not after hitting a runtime error.
+2. **Piggy-bank creation 422'd**: Firefly requires `transaction_currency_code` (or `_id`) on creation,
+   the same requirement discovered and worked around in the M2 seed script — but I had forgotten to carry
+   it into `createPiggyBankAction`. Found by exercising the live create call before considering the
+   feature done, not by reading the OpenAPI spec (which lists the field as optional at the type level).
+
+**One design note:** `/chart/budget/overview` and `/chart/category/overview` return one snapshot bar per
+resource for the whole selected range, not a date series — a different shape from `/chart/balance/balance`
+and `/chart/account/overview`, which power `AreaTrend` elsewhere in the app. Rather than force a mismatched
+endpoint into that component, both detail pages ship without a chart; spend/earn totals for the period are
+shown as plain figures instead. Flagged as deferred in E6-04 / E7-03 rather than silently dropped.
+
+**Add/remove money mechanism (E9-03):** Firefly has no dedicated deposit/withdraw endpoint for a piggy
+bank. The mechanism — confirmed against a live instance before writing `adjustPiggyBankAction`, not
+assumed from the spec — is `PUT /piggy-banks/{id}` with a new `current_amount` on the relevant entry in
+`accounts[]`. Firefly diffs the old and new values server-side and writes the corresponding `+`/`-` row to
+`/piggy-banks/{id}/events` itself.

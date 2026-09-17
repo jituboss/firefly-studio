@@ -13,7 +13,19 @@
 import { chromium } from 'playwright';
 
 const COOKIE = process.env.FS_SESSION ?? '';
-const PAGES = ['/dashboard', '/accounts', '/transactions', '/accounts/1', '/transactions/new'];
+const PAGES = [
+  '/dashboard',
+  '/accounts',
+  '/transactions',
+  '/accounts/1',
+  '/transactions/new',
+  '/budgets',
+  '/budgets/new',
+  '/categories',
+  '/bills',
+  '/piggy-banks',
+  '/piggy-banks/new',
+];
 const WIDTHS = [360, 390, 768, 1440];
 
 if (!COOKIE) {
