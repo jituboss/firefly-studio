@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  eachMonthInRange,
   formatDate,
+  formatMonthLabel,
   parseFireflyDate,
   parseFireflyDateTime,
   rangeToQuery,
@@ -99,5 +101,55 @@ describe('formatDate relative style', () => {
 
     // The axis formatter is short by design: a tick has a few dozen pixels.
     expect(formatAxisDate('2026-08-03', timezone)).toBe('Aug 3');
+  });
+});
+
+describe('eachMonthInRange', () => {
+  it('splits a span into whole calendar months', () => {
+    const months = eachMonthInRange('2026-01-01', '2026-03-31');
+    expect(months.map((m) => m.key)).toEqual(['2026-01', '2026-02', '2026-03']);
+    expect(months[1]).toMatchObject({ start: '2026-02-01', end: '2026-02-28', label: 'Feb 2026' });
+  });
+
+  it('clips a partial month to the days actually inside the range', () => {
+    // The report grids call one insight endpoint per bucket, so a bucket that
+    // over-reaches its range would double-count the overlap.
+    const months = eachMonthInRange('2026-01-15', '2026-02-10');
+    expect(months[0]).toMatchObject({ start: '2026-01-15', end: '2026-01-31' });
+    expect(months[1]).toMatchObject({ start: '2026-02-01', end: '2026-02-10' });
+  });
+
+  it('handles a range inside one month', () => {
+    expect(eachMonthInRange('2026-05-03', '2026-05-09')).toEqual([
+      { key: '2026-05', label: 'May 2026', start: '2026-05-03', end: '2026-05-09' },
+    ]);
+  });
+
+  it('includes February 29 in a leap year', () => {
+    expect(eachMonthInRange('2028-02-01', '2028-02-29')[0]?.end).toBe('2028-02-29');
+  });
+
+  it('returns nothing when the range runs backwards', () => {
+    expect(eachMonthInRange('2026-06-01', '2026-01-01')).toEqual([]);
+  });
+
+  it('caps a pathological range rather than firing hundreds of requests', () => {
+    expect(eachMonthInRange('1900-01-01', '2100-01-01').length).toBeLessThanOrEqual(120);
+  });
+});
+
+describe('formatMonthLabel', () => {
+  it('reads a YYYY-MM key', () => {
+    expect(formatMonthLabel('2026-03')).toBe('Mar 2026');
+  });
+
+  it('reads a full date too', () => {
+    expect(formatMonthLabel('2026-03-15')).toBe('Mar 2026');
+  });
+
+  it('resolves the month in the user timezone, not the server one', () => {
+    // 1 March in Auckland is still 28 February in UTC; getting this wrong moves
+    // a transaction between months in every report grid.
+    expect(formatMonthLabel('2026-03-01', 'Pacific/Auckland')).toBe('Mar 2026');
   });
 });
