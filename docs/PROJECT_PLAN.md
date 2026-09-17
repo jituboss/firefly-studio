@@ -695,7 +695,7 @@ working, because Firefly fires them, not us.
 - [ ] **E24-04** `P1` `2d` Contract test that replays the vendored spec against a real Firefly container in CI
 - [ ] **E24-05** `P1` `1d` Visual regression on the design system (Playwright snapshots)
 - [ ] **E24-06** `P1` `1d` Seed script that provisions a Firefly container with a realistic multi-year dataset
-- [ ] **E24-07** `P1` `1d` Coverage gate at 80 % for `lib/` and `server/` — _partially done: the gate exists in `vitest.config.mts` and runs in `ci.yml`, but it is set to **70 %** and `include` covers **`lib/` only**. `lib/` currently sits at ~95 % statements / ~85 % branches, so raising the threshold to 80 % is free today. The real remaining work is bringing `server/` in — the proxy allowlist, the cache tag logic and the split-form parser are the pure parts worth covering first (see LEARNING.md §8)._
+- [ ] **E24-07** `P1` `1d` Coverage gate at 80 % for `lib/` and `server/` — _partially done: the gate exists in `vitest.config.mts` and runs in `release.yml`, but it is set to **70 %** and `include` covers **`lib/` only**. `lib/` currently sits at ~95 % statements / ~85 % branches, so raising the threshold to 80 % is free today. The real remaining work is bringing `server/` in — the proxy allowlist, the cache tag logic and the split-form parser are the pure parts worth covering first (see LEARNING.md §8)._
 
 ### E25 · DevOps, docs & release — M8
 
@@ -1019,6 +1019,5 @@ The pass shipped seven `lib/` modules with no tests at all, and CI caught it:
 40 % statements against the 70 % gate. 106 tests were added afterwards, taking
 `lib/` to ~95 % statements and ~85 % branches. Unit tests: **216 passing**.
 
-Worth knowing for the next red build: `ci.yml` runs `test:cov` while
-`release.yml` runs plain `pnpm test`, so a coverage regression reddens CI
-without blocking a release.
+That divergence is closed: the one `release.yml` pipeline runs `test:cov` on
+every trigger, so a coverage regression now blocks a release as well as a merge.

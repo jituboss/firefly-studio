@@ -1,13 +1,24 @@
 name: Release
 
-# Cut a release by pushing an annotated tag: `v0.1.0-alpha.1`, `v1.2.3`.
+# One pipeline. It gates every push and pull request, and the same run that
+# goes green is the one that publishes:
+#
+#   pull_request        verify + build both arches, push nothing
+#   push to main        ... and push the moving `edge` tag
+#   push a `v*` tag     ... and push the version tags, open the GitHub release
+#
 # `pnpm release <version>` creates the tag; pushing it is what publishes.
 on:
   push:
+    branches: [main]
     tags: ['v*']
+  pull_request:
+  workflow_dispatch:
 
-permissions:
-  contents: write # create the GitHub Release
+concurrency:
+  group: release-${{ github.ref }}
+  # Never cancel a run that is mid-publish; superseding a branch build is fine.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   IMAGE: jituboss/firefly-studio
@@ -18,12 +29,83 @@ env:
   DATABASE_URL: postgresql://firefly_studio:firefly_studio@localhost:5432/firefly_studio
 
 jobs:
-  # The same gate as CI. A tag can be pushed from any machine, so the release
-  # verifies rather than trusting whoever cut it.
+  # Seconds, and everything downstream waits on it. A tag that disagrees with
+  # package.json used to fail *after* the verify gate and the image build; here
+  # it fails before either has started.
+  meta:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+      channel: ${{ steps.v.outputs.channel }}
+      release: ${{ steps.v.outputs.release }}
+      publish: ${{ steps.v.outputs.publish }}
+      build_date: ${{ steps.v.outputs.build_date }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: v
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+
+          {
+            echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            # Pull requests never publish: fork runs have no secrets, and an
+            # unreviewed branch has no business owning a Docker Hub tag.
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "publish=false"
+            else
+              echo "publish=true"
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+            # main and manual runs ship as `edge`, stamped with the in-progress
+            # version so a running container can still say what it is.
+            {
+              echo "release=false"
+              echo "version=${PKG}+${GITHUB_SHA::7}"
+              echo "prerelease=false"
+              echo "channel=edge"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG" != "$VERSION" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json ($PKG)."
+            exit 1
+          fi
+
+          # Anything with a hyphen is a prerelease under semver: 0.1.0-alpha.1.
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE=true
+            # The channel is the word, not the word and its number. `${V#*-}`
+            # alone yields "alpha.1", which published a second tag identical to
+            # the version instead of the moving `alpha` tag RELEASING.md
+            # promises. Trim the iteration too.
+            CHANNEL="${VERSION#*-}"
+            CHANNEL="${CHANNEL%%.*}"
+          else
+            PRERELEASE=false
+            CHANNEL=stable
+          fi
+
+          {
+            echo "release=true"
+            echo "version=$VERSION"
+            echo "prerelease=$PRERELEASE"
+            echo "channel=$CHANNEL"
+          } >> "$GITHUB_OUTPUT"
+
   verify:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: meta
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -37,6 +119,7 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -44,57 +127,124 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm db:migrate
-      - run: pnpm build
 
-  publish:
-    name: Publish image and GitHub release
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: verify
-    env:
-      # `if:` cannot read the `secrets` context — GitHub rejects the workflow
-      # file outright with "Unrecognized named-value: 'secrets'". Hoisting the
-      # value into the job env makes it readable as `env.…` in a condition.
-      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:cov
+
+      # Proves the committed migrations actually apply to a clean database,
+      # which `drizzle-kit generate` alone does not (E25-02).
+      - name: Apply migrations to a clean database
+        run: pnpm db:migrate
+
+      - name: Build
+        run: pnpm build
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  # Each architecture builds on a runner of its own architecture, in parallel
+  # with `verify`. Emulating arm64 through QEMU on an amd64 runner — which is
+  # what a single `platforms: linux/amd64,linux/arm64` build does — took over
+  # half an hour on its own, because a Next.js build under binfmt runs an order
+  # of magnitude slower. Native arm64 runners are free for public repositories.
+  #
+  # Nothing here is pullable: the layers go up addressed by digest with no tag
+  # on them, and `publish` is what attaches names, after `verify` is green.
+  build:
+    name: Image (${{ matrix.arch }})
+    needs: meta
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: needs.meta.outputs.publish == 'true'
         with:
-          fetch-depth: 0 # release notes need the previous tag
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Read the version from the tag
-        id: version
+      - name: Build
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            APP_VERSION=${{ needs.meta.outputs.version }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ needs.meta.outputs.build_date }}
+          # A pull request only has to prove the image still builds.
+          outputs: >-
+            ${{ needs.meta.outputs.publish == 'true'
+              && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE)
+              || 'type=cacheonly' }}
+          # Separate scopes: one shared cache would have the two architectures
+          # evicting each other's layers on every run.
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+      - name: Export the digest
+        if: needs.meta.outputs.publish == 'true'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          # Anything with a hyphen is a prerelease under semver: 0.1.0-alpha.1.
-          if [[ "$VERSION" == *-* ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-            # The channel is the word, not the word and its number. `${V#*-}`
-            # alone yields "alpha.1", which published a second tag identical to
-            # the version instead of the moving `alpha` tag RELEASING.md
-            # promises. Trim the iteration too.
-            CHANNEL="${VERSION#*-}"
-            echo "channel=${CHANNEL%%.*}" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "channel=stable" >> "$GITHUB_OUTPUT"
-          fi
+          mkdir -p /tmp/digests
+          # The manifest step reassembles `<image>@sha256:<hex>`, so the file
+          # is named for the bare hex.
+          touch "/tmp/digests/${DIGEST#sha256:}"
 
-      - name: Refuse a tag that disagrees with package.json
-        run: |
-          PKG=$(node -p "require('./package.json').version")
-          if [ "$PKG" != "${{ steps.version.outputs.version }}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json ($PKG)."
-            exit 1
-          fi
+      - name: Upload the digest
+        if: needs.meta.outputs.publish == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
 
-      - uses: docker/setup-qemu-action@v3
+  # The gate and the two images finished in parallel; this is the first step
+  # that makes anything public, and it needs every one of them.
+  publish:
+    name: Publish to Docker Hub
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [meta, verify, build]
+    if: needs.meta.outputs.publish == 'true'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -104,41 +254,90 @@ jobs:
 
       # `latest` must never point at a prerelease: someone running
       # `docker pull jituboss/firefly-studio` expects the stable line. An alpha
-      # gets its exact version plus a moving channel tag (`alpha`) instead.
+      # gets its exact version plus a moving channel tag (`alpha`) instead, and
+      # an untagged commit on main gets `edge` and nothing else.
       - name: Compute tags
-        uses: docker/metadata-action@v5
         id: meta
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
           flavor: |
             latest=false
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.version.outputs.prerelease == 'false' }}
-            type=semver,pattern={{major}},enable=${{ steps.version.outputs.prerelease == 'false' }}
-            type=raw,value=latest,enable=${{ steps.version.outputs.prerelease == 'false' }}
-            type=raw,value=${{ steps.version.outputs.channel }},enable=${{ steps.version.outputs.prerelease == 'true' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ needs.meta.outputs.release == 'true' && needs.meta.outputs.prerelease == 'false' }}
+            type=semver,pattern={{major}},enable=${{ needs.meta.outputs.release == 'true' && needs.meta.outputs.prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ needs.meta.outputs.release == 'true' && needs.meta.outputs.prerelease == 'false' }}
+            type=raw,value=${{ needs.meta.outputs.channel }},enable=${{ needs.meta.outputs.release == 'true' && needs.meta.outputs.prerelease == 'true' }}
+            type=raw,value=edge,enable=${{ needs.meta.outputs.release == 'false' }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      # One multi-arch manifest over the two digests, published under every
+      # tag at once. No layer is re-uploaded — they are already in the registry.
+      - name: Create the manifest
+        working-directory: /tmp/digests
+        run: |
+          # shellcheck disable=SC2046
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: Inspect
+        run: |
+          docker buildx imagetools inspect \
+            "$(jq -r '.tags[0]' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
+
+  release:
+    name: GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [meta, publish]
+    if: needs.meta.outputs.release == 'true'
+    permissions:
+      contents: write # create the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
         with:
-          context: .
-          file: docker/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            APP_VERSION=${{ steps.version.outputs.version }}
-            VCS_REF=${{ github.sha }}
-            BUILD_DATE=${{ github.event.repository.updated_at }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          fetch-depth: 0 # release notes need the previous tag
 
-      # E1-16 — @sentry/cli is blocked for ordinary installs (it downloads a
-      # ~20MB binary). Approve it only here, where source maps are uploaded.
-      # Skipped silently when the token is not configured: a missing Sentry
-      # setup must not stop a release that is otherwise good.
+      - name: Extract this version's changelog section
+        run: |
+          node scripts/changelog-section.mjs "${{ needs.meta.outputs.version }}" > RELEASE_NOTES.md
+          {
+            echo ""
+            echo "## Container image"
+            echo ""
+            echo '```'
+            echo "docker pull ${IMAGE}:${{ needs.meta.outputs.version }}"
+            echo '```'
+          } >> RELEASE_NOTES.md
+
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          prerelease: ${{ needs.meta.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+
+  # E1-16 — @sentry/cli is blocked for ordinary installs (it downloads a ~20MB
+  # binary). Approve it only here, where source maps are uploaded. Runs beside
+  # `publish` rather than inside it, so a second Next.js build never sits on the
+  # critical path, and is skipped silently when the token is not configured: a
+  # missing Sentry setup must not stop a release that is otherwise good.
+  sourcemaps:
+    name: Sentry source maps
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [meta, verify]
+    if: needs.meta.outputs.release == 'true'
+    env:
+      # `if:` cannot read the `secrets` context — GitHub rejects the workflow
+      # file outright with "Unrecognized named-value: 'secrets'". Hoisting the
+      # value into the job env makes it readable as `env.…` in a condition.
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.SENTRY_AUTH_TOKEN != ''
       - uses: pnpm/action-setup@v4
         if: env.SENTRY_AUTH_TOKEN != ''
       - uses: actions/setup-node@v4
@@ -151,28 +350,64 @@ jobs:
         env:
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-          SENTRY_RELEASE: ${{ steps.version.outputs.version }}
+          SENTRY_RELEASE: ${{ needs.meta.outputs.version }}
         run: |
-          pnpm install --frozen-lockfile --allow-build=@sentry/cli
+          pnpm install --frozen-lockfile --prefer-offline --allow-build=@sentry/cli
           pnpm build
 
-      - name: Extract this version's changelog section
-        id: notes
-        run: |
-          node scripts/changelog-section.mjs "${{ steps.version.outputs.version }}" > RELEASE_NOTES.md
-          {
-            echo ""
-            echo "## Container image"
-            echo ""
-            echo '```'
-            echo "docker pull ${{ env.IMAGE }}:${{ steps.version.outputs.version }}"
-            echo '```'
-          } >> RELEASE_NOTES.md
-
-      - name: Create the GitHub release
-        uses: softprops/action-gh-release@v2
+  # Informational: a new upstream release should not block a merge, but it
+  # should be visible. `spec:update --check` exits 2 on removed operations.
+  spec-drift:
+    name: Firefly III spec drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
-          name: ${{ github.ref_name }}
-          body_path: RELEASE_NOTES.md
-          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
-          generate_release_notes: true
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Check for a newer Firefly III specification
+        run: pnpm spec:update --check
+
+      # The committed spec/generated output must match what the script produces.
+      - name: Verify generated output is current
+        run: |
+          pnpm spec:codegen
+          if ! git diff --quiet -- spec/generated; then
+            echo "::error::spec/generated is stale. Run 'pnpm spec:codegen' and commit the result."
+            git diff --stat -- spec/generated
+            exit 1
+          fi
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Audit
+        run: pnpm audit --audit-level high
+
+  # A workflow file that does not parse fails the run with zero jobs and an
+  # error only visible in the run's annotations — which is how an `if:` reading
+  # the `secrets` context reached main and burned two release runs. actionlint
+  # catches that statically, so it never gets that far again.
+  workflows:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color

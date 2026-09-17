@@ -310,9 +310,11 @@ instance first. See §9 for how to spin one up. Don't trust the OpenAPI spec's f
 - **216 Vitest unit tests**, all over pure `lib/` modules. Run `pnpm test`, or
   `pnpm test:cov` for the gate.
 - **`lib/` coverage is a CI gate at 70 %** (`vitest.config.mts`), currently sitting at
-  ~95 % statements / 85 % branches. `ci.yml` runs `test:cov`; `release.yml` runs plain
-  `pnpm test`, so **a coverage regression fails CI but does not block a release** — worth
-  knowing when a release goes green and main is red.
+  ~95 % statements / 85 % branches. The single `release.yml` pipeline runs `test:cov` on
+  every trigger, so the gate that reddens a pull request is the same one a release has to
+  clear. This was not always true: CI and Release were separate files running `test:cov`
+  and plain `pnpm test` respectively, which let a coverage regression ship in a green
+  release while main was red.
 - Two modules are deliberately under-covered. `image-compress.ts` needs
   `createImageBitmap` and `OffscreenCanvas`, which Node does not have, so only its guards
   and its fallback are exercised — the fallback is the part that matters, since a failure

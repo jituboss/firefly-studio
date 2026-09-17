@@ -13,17 +13,22 @@ disagrees with it, so the two can never drift apart silently.
 
 ## Image tags
 
-| Release          | Tags published                |
-| ---------------- | ----------------------------- |
-| `1.2.3` (stable) | `1.2.3`, `1.2`, `1`, `latest` |
-| `0.1.0-alpha.1`  | `0.1.0-alpha.1`, `alpha`      |
-| `0.2.0-beta.1`   | `0.2.0-beta.1`, `beta`        |
-| `1.0.0-rc.1`     | `1.0.0-rc.1`, `rc`            |
+| Release              | Tags published                |
+| -------------------- | ----------------------------- |
+| `1.2.3` (stable)     | `1.2.3`, `1.2`, `1`, `latest` |
+| `0.1.0-alpha.1`      | `0.1.0-alpha.1`, `alpha`      |
+| `0.2.0-beta.1`       | `0.2.0-beta.1`, `beta`        |
+| `1.0.0-rc.1`         | `1.0.0-rc.1`, `rc`            |
+| any commit on `main` | `edge`                        |
 
 **`latest` never points at a prerelease.** Someone running
 `docker pull jituboss/firefly-studio` with no tag is asking for the stable
 line; handing them an alpha would be a trap. Prereleases get a moving channel
 tag instead, so `:alpha` always means "the newest alpha".
+
+`edge` is the tip of `main`, republished by every green pipeline run. It is not
+a release: it has had no changelog entry written for it and no version tag, so
+treat it as a preview rather than something to pin a deployment to.
 
 Every image is built for `linux/amd64` and `linux/arm64` and carries OCI
 labels; `/api/health` reports the version and the commit it was built from.
@@ -66,9 +71,34 @@ labels; `/api/health` reports the version and the commit it was built from.
    git push --force origin latest      # only when latest moved
    ```
 
-The `Release` workflow then runs the full gate (format, lint, typecheck, tests,
-migrations, build), builds both architectures, pushes to Docker Hub and opens
-the GitHub release — marked as a prerelease when the version has a suffix.
+## The pipeline
+
+There is one workflow, `.github/workflows/release.yml`, and it runs on every
+pull request, every push to `main` and every `v*` tag. What differs between
+those is only how far it goes:
+
+| Trigger         | Gate | Image built | Pushed to Docker Hub | GitHub release |
+| --------------- | ---- | ----------- | -------------------- | -------------- |
+| pull request    | ✅   | ✅          | —                    | —              |
+| push to `main`  | ✅   | ✅          | `edge`               | —              |
+| push a `v*` tag | ✅   | ✅          | version tags         | ✅             |
+
+Three things keep it quick:
+
+- **Each architecture builds on a runner of its own architecture** and the two
+  run in parallel, then a manifest step stitches them into one multi-arch tag.
+  The previous workflow emulated `linux/arm64` through QEMU on an amd64 runner,
+  which by itself accounted for most of a forty-minute release — a Next.js
+  build under binfmt runs about an order of magnitude slower than native.
+- **The gate and the image build run side by side** rather than one after the
+  other. The layers go to the registry addressed by digest with no tag on them,
+  so nothing is pullable until the gate is green and the manifest step names it.
+- **The version check happens first**, in a job that takes seconds. A tag that
+  disagrees with `package.json` used to fail after the gate and the image build.
+
+Tag pushes additionally open the GitHub release — marked as a prerelease when
+the version has a suffix — and upload Sentry source maps, in a job beside the
+publish rather than inside it.
 
 ## Repository secrets
 
