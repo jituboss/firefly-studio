@@ -1,8 +1,13 @@
 import 'server-only';
 import { cache } from 'react';
 import { requireSession } from '@/server/auth/session';
-import { getConnectionToken, getDefaultConnection } from '@/server/connections';
+import {
+  getConnectionToken,
+  getDefaultConnection,
+  updateConnectionPrimaryCurrency,
+} from '@/server/connections';
 import { callFirefly, FireflyRequestError } from './client';
+import { probePrimaryCurrency } from './probe';
 import { cacheGet, cacheSet, invalidateTags, tagsForPath, ttlForPath } from './cache';
 import { FIREFLY_OPERATIONS } from '@/spec/generated/operations';
 
@@ -26,6 +31,60 @@ export interface ActiveConnection {
  * `cache()` dedupes this for the lifetime of one request, so twelve dashboard
  * widgets share a single session lookup and a single token decryption.
  */
+/**
+ * Cache slot for the resolved primary currency. It is a real Firefly path, so
+ * `tagsForPath` files it under `currencies` and any currency write — including
+ * this app's own set-primary action — drops it.
+ */
+const PRIMARY_CURRENCY_PATH = '/v1/currencies/primary';
+/**
+ * Short, because this is the one value whose staleness is visible everywhere.
+ * A change made through this app drops the cache immediately (the write is
+ * tagged `currencies`); a change made in Firefly's own interface is only
+ * noticed when this expires, so it is kept to minutes rather than the quarter
+ * hour the figures themselves can tolerate.
+ */
+const PRIMARY_CURRENCY_TTL_SECONDS = 300;
+
+/**
+ * The primary currency AS IT IS NOW, not as it was at onboarding.
+ *
+ * `fireflyConnections.primaryCurrency` is a snapshot taken when the connection
+ * was created. Change the primary currency in Firefly afterwards and that
+ * column keeps the old code, which produced a genuinely confusing split: pages
+ * that read `connection.primaryCurrency` reported the stale currency while
+ * pages that take the code off the figures themselves reported the real one, so
+ * the same ledger showed two different currencies depending on which screen you
+ * were on.
+ *
+ * Resolved through the ordinary Firefly cache, so this costs one request per
+ * TTL per connection rather than one per page, and the stored column is healed
+ * when it turns out to be wrong. Any failure falls back to the stored value:
+ * an unreachable instance should not change what a currency is called.
+ */
+async function resolvePrimaryCurrency(
+  connectionId: string,
+  baseUrl: string,
+  token: string,
+  stored: string | null,
+): Promise<string> {
+  const fallback = stored ?? 'EUR';
+
+  try {
+    const hit = await cacheGet<string>(connectionId, PRIMARY_CURRENCY_PATH);
+    if (hit) return hit;
+
+    const code = await probePrimaryCurrency(baseUrl, token);
+    if (!code) return fallback;
+
+    await cacheSet(connectionId, PRIMARY_CURRENCY_PATH, code, PRIMARY_CURRENCY_TTL_SECONDS);
+    if (code !== stored) await updateConnectionPrimaryCurrency(connectionId, code);
+    return code;
+  } catch {
+    return fallback;
+  }
+}
+
 export const getActiveConnection = cache(async (): Promise<ActiveConnection | null> => {
   const session = await requireSession();
   const connection = await getDefaultConnection(session.user.id);
@@ -39,7 +98,12 @@ export const getActiveConnection = cache(async (): Promise<ActiveConnection | nu
     baseUrl: credentials.baseUrl,
     token: credentials.token,
     label: connection.label,
-    primaryCurrency: connection.primaryCurrency ?? 'EUR',
+    primaryCurrency: await resolvePrimaryCurrency(
+      connection.id,
+      credentials.baseUrl,
+      credentials.token,
+      connection.primaryCurrency,
+    ),
     fireflyVersion: connection.fireflyVersion,
   };
 });

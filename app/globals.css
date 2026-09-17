@@ -14,82 +14,118 @@
    --------------------------------------------------------------------------- */
 
 :root {
+  /* Tells the browser to render its own controls — select menus, date
+     pickers, scrollbars, autofill — in the matching scheme. Without it they
+     follow the OS instead, so a light page could serve a dark date picker to
+     anyone whose system is set the other way. */
+  color-scheme: light;
+
   --radius: 0.625rem;
 
-  /* surfaces */
-  --background: oklch(0.99 0.002 247);
-  --foreground: oklch(0.21 0.03 257);
+  /* ------------------------------------------------------------------
+     Surfaces.
+
+     The page is a soft cool grey and cards are pure white, so a card is
+     raised by its own colour rather than by a hairline border doing all
+     the work. The first light palette had the page at 0.99 and cards at
+     1.0 — a 1% step, measuring 1.03:1, which is below the threshold
+     where an edge reads as an edge. Every card, the sidebar and the page
+     itself collapsed into one sheet of white.
+
+     The ladder now runs page → sidebar → card, the same direction the
+     dark palette uses, with steps you can actually see.
+     ------------------------------------------------------------------ */
+  --background: oklch(0.964 0.005 250);
+  --foreground: oklch(0.2 0.03 257);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.03 257);
+  --card-foreground: oklch(0.2 0.03 257);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.03 257);
-  --muted: oklch(0.968 0.007 247);
-  --muted-foreground: oklch(0.554 0.032 257);
+  --popover-foreground: oklch(0.2 0.03 257);
+  --muted: oklch(0.934 0.009 250);
+  --muted-foreground: oklch(0.492 0.031 257);
 
   /* brand */
-  --primary: oklch(0.52 0.16 258);
-  --primary-foreground: oklch(0.985 0.002 247);
-  --secondary: oklch(0.968 0.007 247);
-  --secondary-foreground: oklch(0.28 0.035 257);
-  --accent: oklch(0.968 0.007 247);
-  --accent-foreground: oklch(0.28 0.035 257);
+  --primary: oklch(0.51 0.17 259);
+  --primary-foreground: oklch(0.99 0.002 247);
+  --secondary: oklch(0.944 0.008 250);
+  --secondary-foreground: oklch(0.27 0.035 257);
+  --accent: oklch(0.928 0.013 253);
+  --accent-foreground: oklch(0.25 0.04 257);
 
   /* chrome */
-  --border: oklch(0.923 0.009 247);
-  --input: oklch(0.923 0.009 247);
-  --ring: oklch(0.52 0.16 258);
+  --border: oklch(0.882 0.011 250);
+  --input: oklch(0.848 0.014 250);
+  --ring: oklch(0.51 0.17 259);
 
   /* ------------------------------------------------------------------
      Accounting semantics. Colour NEVER carries meaning alone — every
      amount also renders a +/- glyph and a screen-reader label (E21-02).
+
+     Each hue is dark enough to clear 4.5:1 as TEXT on a white card,
+     because that is how they are mostly used (`text-expense` appears 31
+     times). They double as fills (`bg-income`), so each keeps a light
+     `-foreground` to sit on top, and a `-muted` tint for soft badges.
+     The previous values were tuned as fills and failed as text: income
+     measured 4.01, transfer 4.24 and warning 2.54.
      ------------------------------------------------------------------ */
-  --income: oklch(0.58 0.14 155);
-  --income-foreground: oklch(0.985 0.002 247);
-  --income-muted: oklch(0.94 0.04 155);
+  --income: oklch(0.513 0.139 156);
+  --income-foreground: oklch(0.99 0.002 247);
+  --income-muted: oklch(0.928 0.052 156);
 
-  --expense: oklch(0.58 0.2 20);
-  --expense-foreground: oklch(0.985 0.002 247);
-  --expense-muted: oklch(0.95 0.035 20);
+  --expense: oklch(0.539 0.205 24);
+  --expense-foreground: oklch(0.99 0.002 247);
+  --expense-muted: oklch(0.936 0.045 24);
 
-  --transfer: oklch(0.58 0.12 245);
-  --transfer-foreground: oklch(0.985 0.002 247);
-  --transfer-muted: oklch(0.94 0.035 245);
+  --transfer: oklch(0.518 0.136 249);
+  --transfer-foreground: oklch(0.99 0.002 247);
+  --transfer-muted: oklch(0.928 0.046 249);
 
-  --warning: oklch(0.72 0.16 75);
-  --warning-foreground: oklch(0.26 0.05 75);
-  --warning-muted: oklch(0.96 0.05 85);
+  /* Amber cannot be both readable as text on white and light enough to
+     take dark text on top, so it is dark here and its foreground is
+     light — the opposite of the dark palette, where the same trade-off
+     lands the other way up. */
+  --warning: oklch(0.53 0.125 72);
+  --warning-foreground: oklch(0.99 0.002 247);
+  --warning-muted: oklch(0.944 0.06 85);
 
-  --over-budget: oklch(0.55 0.21 12);
-  --over-budget-foreground: oklch(0.985 0.002 247);
+  --over-budget: oklch(0.505 0.215 17);
+  --over-budget-foreground: oklch(0.99 0.002 247);
 
-  --destructive: oklch(0.58 0.2 20);
-  --destructive-foreground: oklch(0.985 0.002 247);
+  --destructive: oklch(0.539 0.205 24);
+  --destructive-foreground: oklch(0.99 0.002 247);
 
   /* ------------------------------------------------------------------
      Categorical chart palette (E21-03). Eight hues, ordered so that
      adjacent pairs stay distinguishable under deuteranopia and
      protanopia — verified before any new hue is added here.
-     ------------------------------------------------------------------ */
-  --chart-1: oklch(0.58 0.13 250);
-  --chart-2: oklch(0.65 0.14 155);
-  --chart-3: oklch(0.72 0.15 75);
-  --chart-4: oklch(0.6 0.19 20);
-  --chart-5: oklch(0.6 0.15 305);
-  --chart-6: oklch(0.68 0.11 200);
-  --chart-7: oklch(0.55 0.1 120);
-  --chart-8: oklch(0.7 0.13 40);
 
-  /* sidebar */
-  --sidebar: oklch(0.985 0.002 247);
-  --sidebar-foreground: oklch(0.21 0.03 257);
-  --sidebar-primary: oklch(0.52 0.16 258);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247);
-  --sidebar-accent: oklch(0.955 0.008 247);
-  --sidebar-accent-foreground: oklch(0.28 0.035 257);
-  --sidebar-border: oklch(0.923 0.009 247);
+     Darker than the dark-mode set: these sit on white, where a light
+     yellow or cyan disappears.
+     ------------------------------------------------------------------ */
+  --chart-1: oklch(0.54 0.15 252);
+  --chart-2: oklch(0.56 0.14 156);
+  --chart-3: oklch(0.62 0.14 72);
+  --chart-4: oklch(0.55 0.2 24);
+  --chart-5: oklch(0.55 0.17 305);
+  --chart-6: oklch(0.58 0.11 205);
+  --chart-7: oklch(0.5 0.1 124);
+  --chart-8: oklch(0.6 0.14 42);
+
+  /* The sidebar sits between the page and a card: lighter than the
+     content area so it reads as its own panel, without competing with
+     the cards inside it. */
+  --sidebar: oklch(0.986 0.003 250);
+  --sidebar-foreground: oklch(0.2 0.03 257);
+  --sidebar-primary: oklch(0.51 0.17 259);
+  --sidebar-primary-foreground: oklch(0.99 0.002 247);
+  --sidebar-accent: oklch(0.928 0.013 253);
+  --sidebar-accent-foreground: oklch(0.25 0.04 257);
+  --sidebar-border: oklch(0.882 0.011 250);
 }
 
 .dark {
+  color-scheme: dark;
+
   --background: oklch(0.16 0.015 260);
   --foreground: oklch(0.96 0.005 247);
   --card: oklch(0.2 0.018 260);

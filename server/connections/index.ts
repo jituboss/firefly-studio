@@ -211,3 +211,21 @@ export async function recordConnectionCheck(
     })
     .where(eq(fireflyConnections.id, connectionId));
 }
+
+/**
+ * Keep the cached primary currency in step with the instance.
+ *
+ * The value is captured once at onboarding, and a user who changes their
+ * primary currency in Firefly afterwards would otherwise be shown the old one
+ * forever. See `getActiveConnection`, which calls this when it notices a
+ * difference.
+ */
+export async function updateConnectionPrimaryCurrency(
+  connectionId: string,
+  primaryCurrency: string,
+): Promise<void> {
+  await db
+    .update(fireflyConnections)
+    .set({ primaryCurrency, updatedAt: new Date() })
+    .where(eq(fireflyConnections.id, connectionId));
+}
