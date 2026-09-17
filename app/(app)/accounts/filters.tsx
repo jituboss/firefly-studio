@@ -41,11 +41,13 @@ export function AccountFilters({
         className={selectClass}
       >
         <option value="all">All types</option>
-        <option value="asset">Asset</option>
+        <option value="asset">Assets</option>
         <option value="expense">Expense</option>
         <option value="revenue">Revenue</option>
         <option value="liabilities">Liabilities</option>
         <option value="cash">Cash</option>
+        <option value="initial-balance">Initial balance</option>
+        <option value="reconciliation">Reconciliation</option>
       </select>
 
       <label className="sr-only" htmlFor="sort-filter">

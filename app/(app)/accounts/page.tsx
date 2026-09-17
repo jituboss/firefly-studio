@@ -4,25 +4,39 @@ import { redirect } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
-import { getAccountsSafe } from '@/server/firefly/queries';
-import { add, toDecimal } from '@/lib/money';
+import { getAccountsSafe, getBasicSummary } from '@/server/firefly/queries';
+import { toDecimal } from '@/lib/money';
+import type { Decimal } from 'decimal.js';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { HideBalancesToggle } from '@/components/hide-balances';
 import { AccountFilters } from './filters';
-import type { Account } from '@/server/firefly/types';
+import type { Account, AccountType, BasicSummary } from '@/server/firefly/types';
 
 export const metadata: Metadata = { title: 'Accounts' };
 
-const GROUPS: Array<{ type: string; label: string }> = [
-  { type: 'asset', label: 'Asset accounts' },
-  { type: 'liabilities', label: 'Liabilities' },
-  { type: 'revenue', label: 'Revenue accounts' },
-  { type: 'expense', label: 'Expense accounts' },
-  { type: 'cash', label: 'Cash' },
+/** Display order requested by the user. Types that are not present are hidden. */
+const TYPE_ORDER: AccountType[] = [
+  'asset',
+  'expense',
+  'revenue',
+  'liabilities',
+  'cash',
+  'initial-balance',
+  'reconciliation',
 ];
+
+const TYPE_LABELS: Record<AccountType, string> = {
+  asset: 'Asset accounts',
+  expense: 'Expense accounts',
+  revenue: 'Revenue accounts',
+  liabilities: 'Liabilities',
+  cash: 'Cash',
+  'initial-balance': 'Initial balance',
+  reconciliation: 'Reconciliation',
+};
 
 export default async function AccountsPage({
   searchParams,
@@ -39,7 +53,11 @@ export default async function AccountsPage({
   const showInactive = params.inactive === '1';
   const sort = typeof params.sort === 'string' ? params.sort : 'name';
 
-  const response = await getAccountsSafe({ type: typeFilter === 'all' ? undefined : typeFilter });
+  const today = new Date().toISOString().slice(0, 10);
+  const [response, summary] = await Promise.all([
+    getAccountsSafe({ type: typeFilter === 'all' ? undefined : typeFilter }),
+    getBasicSummary(today, today),
+  ]);
 
   const accounts = response.data
     .filter((account) => (showInactive ? true : account.attributes.active))
@@ -55,18 +73,22 @@ export default async function AccountsPage({
       return a.attributes.name.localeCompare(b.attributes.name);
     });
 
-  const groups = GROUPS.map((group) => ({
-    ...group,
-    accounts: accounts.filter((account) => account.attributes.type === group.type),
+  const isFiltered = typeFilter !== 'all';
+
+  const groups = TYPE_ORDER.map((type) => ({
+    type,
+    label: TYPE_LABELS[type],
+    accounts: accounts.filter((account) => account.attributes.type === type),
   })).filter((group) => group.accounts.length > 0);
 
   return (
     <div className="mx-auto w-full max-w-5xl min-w-0 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground truncate text-sm">
             {accounts.length} account{accounts.length === 1 ? '' : 's'}
+            {isFiltered ? ` · ${TYPE_LABELS[typeFilter as AccountType] ?? typeFilter}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -82,6 +104,15 @@ export default async function AccountsPage({
 
       <AccountFilters type={typeFilter} showInactive={showInactive} sort={sort} />
 
+      {!isFiltered && (
+        <section className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryTile label="Net worth" summary={summary} prefix="net-worth-in-" />
+          <SummaryTile label="Total assets" summary={summary} prefix="asset-balance-in-" />
+          <SummaryTile label="Total liabilities" summary={summary} prefix="liability-balance-in-" />
+          <SummaryTile label="Balance" summary={summary} prefix="balance-in-" />
+        </section>
+      )}
+
       {groups.length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center">
@@ -92,35 +123,114 @@ export default async function AccountsPage({
           </CardContent>
         </Card>
       ) : (
-        groups.map((group) => <AccountGroup key={group.type} {...group} />)
+        groups.map((group) => (
+          <AccountGroup
+            key={group.type}
+            type={group.type}
+            label={group.label}
+            accounts={group.accounts}
+            filtered={isFiltered}
+          />
+        ))
       )}
     </div>
   );
 }
 
-function AccountGroup({ label, accounts }: { type: string; label: string; accounts: Account[] }) {
-  // Totals are only meaningful within a single currency, so group by it.
-  const byCurrency = new Map<string, string[]>();
-  for (const account of accounts) {
-    const code = account.attributes.currency_code ?? 'EUR';
-    byCurrency.set(code, [
-      ...(byCurrency.get(code) ?? []),
-      account.attributes.current_balance ?? '0',
-    ]);
+function SummaryTile({
+  label,
+  summary,
+  prefix,
+}: {
+  label: string;
+  summary: BasicSummary;
+  prefix: string;
+}) {
+  const matches = Object.entries(summary).filter(([key]) => key.startsWith(prefix));
+  if (matches.length === 0) {
+    return (
+      <Card className="min-w-0 overflow-hidden">
+        <CardContent className="min-w-0 p-4">
+          <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            {label}
+          </p>
+          <p className="text-muted-foreground mt-1.5 text-sm">No data</p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold">{label}</h2>
-        <div className="flex gap-3">
-          {[...byCurrency.entries()].map(([code, values]) => (
-            <Amount key={code} value={add(...values)} currency={code} size="sm" showSign={false} />
+    <Card className="min-w-0 overflow-hidden">
+      <CardContent className="min-w-0 p-4">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</p>
+        <div className="mt-1.5 min-w-0 space-y-0.5">
+          {matches.map(([key, entry]) => (
+            <Amount
+              key={key}
+              value={String(entry.monetary_value)}
+              currency={entry.currency_code}
+              size="xl"
+              compact
+              className="block truncate"
+              showSign={false}
+            />
           ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccountGroup({
+  type,
+  label,
+  accounts,
+  filtered,
+}: {
+  type: string;
+  label: string;
+  accounts: Account[];
+  filtered: boolean;
+}) {
+  const totals = new Map<string, Decimal>();
+  for (const account of accounts) {
+    const code = account.attributes.currency_code ?? 'EUR';
+    totals.set(
+      code,
+      (totals.get(code) ?? toDecimal(0)).plus(toDecimal(account.attributes.current_balance)),
+    );
+  }
+
+  const perCurrency = [...totals.entries()]
+    .map(([code, value]) => ({ code, value: value.toString() }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold">{label}</h2>
+          <p className="text-muted-foreground text-xs">
+            {accounts.length} account{accounts.length === 1 ? '' : 's'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {perCurrency.map(({ code, value }) => (
+            <Amount key={code} value={value} currency={code} size="sm" showSign={false} compact />
+          ))}
+          {!filtered && (
+            <Link
+              href={`/accounts?type=${type}`}
+              className="text-muted-foreground hover:text-foreground text-xs"
+            >
+              View all
+            </Link>
+          )}
         </div>
       </div>
 
-      <Card>
+      <Card className="min-w-0 overflow-hidden">
         <CardContent className="p-0">
           <ul className="divide-border divide-y">
             {accounts.map((account) => (
@@ -137,10 +247,7 @@ function AccountGroup({ label, accounts }: { type: string; label: string; accoun
                       ) : null}
                     </div>
                     <p className="text-muted-foreground truncate text-xs">
-                      {account.attributes.iban ??
-                        account.attributes.account_number ??
-                        account.attributes.account_role?.replace(/Asset$/, '') ??
-                        account.attributes.type}
+                      {accountSubtitle(account)}
                     </p>
                   </div>
                   <Amount
@@ -148,6 +255,7 @@ function AccountGroup({ label, accounts }: { type: string; label: string; accoun
                     currency={account.attributes.currency_code ?? 'EUR'}
                     decimalPlaces={account.attributes.currency_decimal_places ?? 2}
                     showSign={false}
+                    compact={filtered}
                     tone={
                       toDecimal(account.attributes.current_balance).isNegative()
                         ? 'expense'
@@ -162,4 +270,17 @@ function AccountGroup({ label, accounts }: { type: string; label: string; accoun
       </Card>
     </section>
   );
+}
+
+function accountSubtitle(account: Account): string {
+  const { attributes } = account;
+  const role = attributes.account_role?.replace(/Asset$/, '') ?? attributes.account_role;
+  const parts = [
+    role,
+    attributes.liability_type,
+    attributes.iban,
+    attributes.account_number,
+    attributes.last_activity ? `Last activity ${attributes.last_activity.slice(0, 10)}` : undefined,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : attributes.type;
 }
