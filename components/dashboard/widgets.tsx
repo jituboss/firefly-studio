@@ -58,10 +58,12 @@ export function KpiTile({
     : null;
 
   return (
-    <Card>
-      <CardContent className="p-5">
-        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</p>
-        <div className="mt-1.5">
+    <Card className="min-w-0">
+      <CardContent className="min-w-0 p-5">
+        <p className="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
+          {label}
+        </p>
+        <div className="mt-1.5 min-w-0">
           <Amount value={value} currency={currency} tone={tone} size="xl" showSign={false} />
         </div>
         {change ? (

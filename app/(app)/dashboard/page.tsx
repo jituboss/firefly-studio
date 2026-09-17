@@ -30,11 +30,31 @@ import type { BasicSummary, ChartEntry } from '@/server/firefly/types';
 
 export const metadata: Metadata = { title: 'Dashboard' };
 
-/** Pull one figure out of /summary/basic, whose keys are suffixed by currency. */
-function summaryValue(summary: BasicSummary, prefix: string): { value: string; currency: string } {
-  const entry = Object.entries(summary).find(([key]) => key.startsWith(prefix));
-  if (!entry) return { value: '0', currency: 'EUR' };
-  return { value: String(entry[1].monetary_value), currency: entry[1].currency_code };
+/**
+ * Pull one figure out of /summary/basic.
+ *
+ * Firefly emits one entry PER CURRENCY, keyed `spent-in-BDT`, `spent-in-USD`
+ * and so on. Taking the first match meant a multi-currency ledger could show
+ * net worth in one currency and spending in another, purely by key order.
+ * Prefer the connection's primary currency; fall back to the largest figure so
+ * a tile never silently reports a trivial secondary balance as the headline.
+ */
+function summaryValue(
+  summary: BasicSummary,
+  prefix: string,
+  preferred: string,
+): { value: string; currency: string } {
+  const matches = Object.entries(summary).filter(([key]) => key.startsWith(prefix));
+  if (matches.length === 0) return { value: '0', currency: preferred };
+
+  const exact = matches.find(([, entry]) => entry.currency_code === preferred);
+  const chosen =
+    exact ??
+    matches.reduce((best, current) =>
+      Math.abs(current[1].monetary_value) > Math.abs(best[1].monetary_value) ? current : best,
+    );
+
+  return { value: String(chosen[1].monetary_value), currency: chosen[1].currency_code };
 }
 
 /** /chart/* returns one object per series, each with a date→value map. */
@@ -91,10 +111,11 @@ export default async function DashboardPage({
     ]);
 
   const currency = connection.primaryCurrency;
-  const netWorth = summaryValue(summary, 'net-worth-in-');
-  const spent = summaryValue(summary, 'spent-in-');
-  const earned = summaryValue(summary, 'earned-in-');
-  const balance = summaryValue(summary, 'balance-in-');
+
+  const netWorth = summaryValue(summary, 'net-worth-in-', currency);
+  const spent = summaryValue(summary, 'spent-in-', currency);
+  const earned = summaryValue(summary, 'earned-in-', currency);
+  const balance = summaryValue(summary, 'balance-in-', currency);
 
   const trend = toTrend(balanceChart);
 
@@ -126,28 +147,28 @@ export default async function DashboardPage({
           label="Net worth"
           value={netWorth.value}
           currency={netWorth.currency || currency}
-          previous={summaryValue(previousSummary, 'net-worth-in-').value}
+          previous={summaryValue(previousSummary, 'net-worth-in-', currency).value}
           tone="neutral"
         />
         <KpiTile
           label="Earned"
           value={earned.value}
           currency={earned.currency || currency}
-          previous={summaryValue(previousSummary, 'earned-in-').value}
+          previous={summaryValue(previousSummary, 'earned-in-', currency).value}
           tone="income"
         />
         <KpiTile
           label="Spent"
           value={spent.value}
           currency={spent.currency || currency}
-          previous={summaryValue(previousSummary, 'spent-in-').value}
+          previous={summaryValue(previousSummary, 'spent-in-', currency).value}
           tone="expense"
         />
         <KpiTile
           label="Balance"
           value={balance.value}
           currency={balance.currency || currency}
-          previous={summaryValue(previousSummary, 'balance-in-').value}
+          previous={summaryValue(previousSummary, 'balance-in-', currency).value}
         />
       </div>
 

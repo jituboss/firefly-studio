@@ -41,7 +41,11 @@ const sizeClasses = {
   sm: 'text-xs',
   md: 'text-sm',
   lg: 'text-lg font-semibold',
-  xl: 'text-3xl font-semibold tracking-tight',
+  // A three-letter ISO code plus a millions-scale figure ("BDT 4,692,202.50")
+  // is ~350px at text-3xl, which overflows a quarter-width KPI tile. Capping at
+  // text-2xl keeps the whole figure visible rather than truncating the headline
+  // number, which is the one thing on the tile that must stay readable.
+  xl: 'text-lg sm:text-xl lg:text-2xl font-semibold tracking-tight',
 } as const;
 
 export function Amount({
