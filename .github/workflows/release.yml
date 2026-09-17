@@ -57,6 +57,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: verify
+    env:
+      # `if:` cannot read the `secrets` context — GitHub rejects the workflow
+      # file outright with "Unrecognized named-value: 'secrets'". Hoisting the
+      # value into the job env makes it readable as `env.…` in a condition.
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -130,16 +135,15 @@ jobs:
       # Skipped silently when the token is not configured: a missing Sentry
       # setup must not stop a release that is otherwise good.
       - uses: pnpm/action-setup@v4
-        if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        if: env.SENTRY_AUTH_TOKEN != ''
       - uses: actions/setup-node@v4
-        if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        if: env.SENTRY_AUTH_TOKEN != ''
         with:
           node-version: 20
           cache: pnpm
       - name: Upload source maps to Sentry
-        if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        if: env.SENTRY_AUTH_TOKEN != ''
         env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_RELEASE: ${{ steps.version.outputs.version }}
