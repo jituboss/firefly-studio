@@ -242,17 +242,17 @@ Admin (if Firefly user is owner) ──► Users, user groups, configuration, cr
 
 ## 6. Delivery plan — milestones
 
-| #      | Milestone                  | Scope                                                                   | Exit criteria                                                       | Est.  |
-| ------ | -------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ----- |
-| **M0** | Foundation ✅              | Repo, CI, Docker, design tokens, DB migrations, OpenAPI codegen         | `docker compose up` serves a themed shell; migrations run; CI green | 2 wks |
-| **M1** | Auth & onboarding ✅       | Sign-up/in, verify, reset, sessions, connection wizard, encrypted PAT   | A new user can sign up and attach a Firefly instance end-to-end     | 2 wks |
-| **M2** | Read core ✅               | Proxy + cache, dashboard v1, accounts, transaction list, search         | Dashboard and transaction list render live Firefly data             | 3 wks |
-| **M3** | Write core ✅              | Transaction create/edit/delete, splits, attachments, bulk ops           | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
-| **M4** | Money management ✅        | Budgets, limits, categories, bills, piggy banks, object groups          | All four resource families CRUD-complete                            | 3 wks |
-| **M5** | Reporting ✅               | Insight + chart endpoints, 8 standard reports, builder, exports         | Reports match Firefly's own figures to the cent — verified, §15     | 3 wks |
-| **M6** | Automation & the long tail | Rules, recurring, tags, currencies, exchange rates, links, admin        | 27/28 API groups covered (webhooks dropped, E17)                    | 3 wks |
-| **M7** | Polish                     | A11y audit, i18n, PWA, perf budget, empty/error states, onboarding tour | Lighthouse targets met; axe clean                                   | 2 wks |
-| **M8** | Hardening & launch         | Pen-test fixes, load test, docs, release image, backup/restore          | v1.0 tagged and documented                                          | 2 wks |
+| #      | Milestone                     | Scope                                                                   | Exit criteria                                                       | Est.  |
+| ------ | ----------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ----- |
+| **M0** | Foundation ✅                 | Repo, CI, Docker, design tokens, DB migrations, OpenAPI codegen         | `docker compose up` serves a themed shell; migrations run; CI green | 2 wks |
+| **M1** | Auth & onboarding ✅          | Sign-up/in, verify, reset, sessions, connection wizard, encrypted PAT   | A new user can sign up and attach a Firefly instance end-to-end     | 2 wks |
+| **M2** | Read core ✅                  | Proxy + cache, dashboard v1, accounts, transaction list, search         | Dashboard and transaction list render live Firefly data             | 3 wks |
+| **M3** | Write core ✅                 | Transaction create/edit/delete, splits, attachments, bulk ops           | Full transaction lifecycle without touching Firefly's own UI        | 2 wks |
+| **M4** | Money management ✅           | Budgets, limits, categories, bills, piggy banks, object groups          | All four resource families CRUD-complete                            | 3 wks |
+| **M5** | Reporting ✅                  | Insight + chart endpoints, 8 standard reports, builder, exports         | Reports match Firefly's own figures to the cent — verified, §15     | 3 wks |
+| **M6** | Automation & the long tail ✅ | Rules, recurring, tags, currencies, exchange rates, links, admin        | 27/28 API groups covered (webhooks dropped, E17)                    | 3 wks |
+| **M7** | Polish                        | A11y audit, i18n, PWA, perf budget, empty/error states, onboarding tour | Lighthouse targets met; axe clean                                   | 2 wks |
+| **M8** | Hardening & launch            | Pen-test fixes, load test, docs, release image, backup/restore          | v1.0 tagged and documented                                          | 2 wks |
 
 ### 6.1 Effort reconciliation
 
@@ -468,7 +468,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E5-11** `P1` `2d` Multi-select + bulk edit — M3 — selection + bulk set category/budget/tags + bulk delete, in `app/(app)/transactions/grid.tsx`; writes use allSettled and report partial success
 - [ ] **E5-12** `P1` `1d` Inline edit in the grid — M3
 - [x] **E5-13** `P1` `2d` Quick-add bar — M3 — `app/(app)/transactions/quick-add.tsx` — stays open with the accounts retained for entering a run
-- [ ] **E5-14** `P1` `2d` Transaction links — M6 — **Blocked on M6:** transaction links are an M6 resource (`/link-types`, `/transaction-links`); this item is listed under E5 but tagged M6 in its own text.
+- [x] **E5-14** `P1` `2d` Transaction links — shipped with M6 (`server/firefly/link-actions.ts`). Note both ids are JOURNAL ids, not transaction group ids.
 - [x] **E5-15** `P1` `1d` Reconciled flag on the edit form and as a per-split action
 - [x] **E5-16** `P1` `1d` Export the filtered view to CSV/XLSX — CSV from the rendered rows, one line per split, in the same grid. **Cut: XLSX**, same reasoning as E14-11.
 - [x] **E5-17** `P1` `2d` One debounced, cached `Combobox` over the `/autocomplete/*` endpoints — accounts (typed by transaction kind), categories, budgets, bills
@@ -537,38 +537,38 @@ before implementing — see §13.
 
 ### E10 · Recurring transactions — M6
 
-- [ ] **E10-01** `P0` `2d` Recurrence list: title, type, next occurrence, repetitions left, active
-- [ ] **E10-02** `P0` `3d` Recurrence CRUD — the most complex form in the app: type, title, first date, repeat_until / nr_of_repetitions, apply_rules, active, repetition config (daily/weekly/monthly/ndom/yearly + skip + weekend handling), and the nested transaction template (splits, accounts, category, budget, tags, piggy bank)
-- [ ] **E10-03** `P0` `1d` Generated-transactions tab (`/recurrences/{id}/transactions`)
-- [ ] **E10-04** `P1` `1d` Manual trigger (`POST /recurrences/{id}/trigger`) with confirmation and result summary
-- [ ] **E10-05** `P1` `2d` Forecast timeline — next 12 occurrences across all recurrences, with a projected cash-flow impact line
+- [x] **E10-01** `P0` `2d` Recurrence list: title, type, next occurrence, repetitions left, active
+- [x] **E10-02** `P0` `3d` Recurrence CRUD — the most complex form in the app: type, title, first date, repeat_until / nr_of_repetitions, apply_rules, active, repetition config (daily/weekly/monthly/ndom/yearly + skip + weekend handling), and the nested transaction template (splits, accounts, category, budget, tags, piggy bank)
+- [x] **E10-03** `P0` `1d` Generated-transactions tab (`/recurrences/{id}/transactions`)
+- [x] **E10-04** `P1` `1d` Manual trigger (`POST /recurrences/{id}/trigger`) with confirmation and result summary
+- [x] **E10-05** `P1` `2d` Forecast timeline — next 12 occurrences across all recurrences, with a projected cash-flow impact line
 - [ ] **E10-06** `P2` `1d` "Convert this transaction into a recurrence" shortcut
 
 ### E11 · Rules & rule groups — M6
 
-- [ ] **E11-01** `P0` `2d` Rule-group list, CRUD, reorder, active toggle
-- [ ] **E11-02** `P0` `4d` **Visual rule builder** — triggers and actions as composable rows, all Firefly trigger/action types, strict/any matching, stop-processing flag
-- [ ] **E11-03** `P0` `2d` Rule CRUD + reorder within a group
-- [ ] **E11-04** `P0` `2d` **Test/dry-run** (`GET /rules/{id}/test`) showing the transactions that would match before you commit
-- [ ] **E11-05** `P1` `1d` Trigger a rule or whole group over a date range (`POST /rules/{id}/trigger`, `/rule-groups/{id}/trigger`) with a progress/result panel
-- [ ] **E11-06** `P1` `1d` Group-level test (`/rule-groups/{id}/test`)
+- [x] **E11-01** `P0` `2d` Rule-group list, CRUD, reorder, active toggle
+- [x] **E11-02** `P0` `4d` **Visual rule builder** — triggers and actions as composable rows, all Firefly trigger/action types, strict/any matching, stop-processing flag
+- [x] **E11-03** `P0` `2d` Rule CRUD + reorder within a group
+- [x] **E11-04** `P0` `2d` **Test/dry-run** (`GET /rules/{id}/test`) showing the transactions that would match before you commit
+- [x] **E11-05** `P1` `1d` Trigger a rule or whole group over a date range (`POST /rules/{id}/trigger`, `/rule-groups/{id}/trigger`) with a progress/result panel
+- [x] **E11-06** `P1` `1d` Group-level test (`/rule-groups/{id}/test`)
 - [ ] **E11-07** `P2` `2d` Rule templates library (common recipes: auto-categorise by payee, tag subscriptions, flag large expenses)
 - [ ] **E11-08** `P2` `1d` Duplicate/export/import a rule as JSON
 
 ### E12 · Tags — M6
 
-- [ ] **E12-01** `P0` `1d` Tag list + tag cloud weighted by usage and spend
-- [ ] **E12-02** `P0` `1d` Tag CRUD with date, description, and lat/long/zoom-level fields
-- [ ] **E12-03** `P0` `1d` Tag detail: transactions, attachments, income/expense/transfer totals from the `insight` endpoints
-- [ ] **E12-04** `P1` `1d` Bulk tag / untag from the transaction grid
+- [x] **E12-01** `P0` `1d` Tag list + tag cloud weighted by usage and spend
+- [x] **E12-02** `P0` `1d` Tag CRUD with date, description, and lat/long/zoom-level fields
+- [x] **E12-03** `P0` `1d` Tag detail: transactions, attachments, income/expense/transfer totals from the `insight` endpoints
+- [x] **E12-04** `P1` `1d` Bulk tag / untag from the transaction grid
 - [ ] **E12-05** `P2` `1d` Map view for geotagged tags
 
 ### E13 · Currencies & exchange rates — M6
 
-- [ ] **E13-01** `P0` `1d` Currency list with enable/disable and set-primary actions
-- [ ] **E13-02** `P0` `1d` Currency CRUD: code, name, symbol, decimal places
-- [ ] **E13-03** `P1` `2d` Exchange-rate manager: list, add, edit, delete rates by pair and date; rate-history chart
-- [ ] **E13-04** `P1` `1d` Bulk rate entry (`/exchange-rates/by-date/{date}`, `/by-currencies/{from}/{to}`)
+- [x] **E13-01** `P0` `1d` Currency list with enable/disable and set-primary actions
+- [x] **E13-02** `P0` `1d` Currency CRUD: code, name, symbol, decimal places
+- [x] **E13-03** `P1` `2d` Exchange-rate manager: list, add, edit, delete rates by pair and date; rate-history chart
+- [x] **E13-04** `P1` `1d` Bulk rate entry (`/exchange-rates/by-date/{date}`, `/by-currencies/{from}/{to}`)
 - [ ] **E13-05** `P1` `1d` Multi-currency display toggle — show native amounts, converted amounts, or both
 - [ ] **E13-06** `P2` `1d` Currency-drill-down from a currency to its accounts / bills / transactions / budget limits / recurrences / rules
 
@@ -627,26 +627,26 @@ working, because Firefly fires them, not us.
 
 ### E18 · Preferences, configuration & misc — M6
 
-- [ ] **E18-01** `P1` `1d` Firefly preferences editor (`/preferences`, `/preferences/{name}`) with typed handling of known keys
+- [x] **E18-01** `P1` `1d` Firefly preferences editor (`/preferences`, `/preferences/{name}`) with typed handling of known keys
 - [ ] **E18-02** `P1` `1d` App preferences page: theme, density, number/date format, week start, default landing page, default date range
-- [ ] **E18-03** `P1` `1d` About page: our version, Firefly version/OS/PHP/db from `/about`, connection diagnostics, `X-Trace-Id` copy button
+- [x] **E18-03** `P1` `1d` About page: our version, Firefly version/OS/PHP/db from `/about`, connection diagnostics, `X-Trace-Id` copy button
 - [ ] **E18-04** `P2` `0.5d` `POST /batch/finish` support for batch-aware workflows
 - [ ] **E18-05** `P2` `0.5d` Cron trigger (`/cron/{cliToken}`) behind an explicit admin toggle
 
 ### E19 · Data, export & danger zone — M6
 
-- [ ] **E19-01** `P1` `2d` Export centre covering all nine `/data/export/*` resources with date-range scoping and progress
-- [ ] **E19-02** `P1` `1d` "Export everything" bundle (zip of all nine CSVs) as a background job
-- [ ] **E19-03** `P1` `2d` **Danger zone** — `/data/destroy` and `/data/purge` behind step-up re-auth, a typed confirmation phrase, and an audit-log entry
+- [ ] **E19-01** `P1` `2d` Export centre covering all nine `/data/export/*` resources with date-range scoping and progress — **BLOCKED UPSTREAM.** Every one of the nine `/data/export/*` endpoints answers HTTP 500 on Firefly III 6.5.5: `Cannot instantiate abstract class League\Csv\AbstractCsv`. That is a broken `league/csv` dependency inside Firefly, not something this app can work around. Verified against all nine resources on 2026-09-18. `/settings/danger` says so in place of offering a button that cannot work. Re-test after a Firefly upgrade; the UI is the easy part.
+- [ ] **E19-02** `P1` `1d` "Export everything" bundle (zip of all nine CSVs) as a background job — blocked on E19-01 for the same reason.
+- [x] **E19-03** `P1` `2d` **Danger zone** — `/data/destroy` and `/data/purge` behind step-up re-auth, a typed confirmation phrase, and an audit-log entry
 - [ ] **E19-04** `P2` `1d` Link out to the Firefly III Data Importer with a short setup guide
 - [ ] **E19-05** `P2` `2d` CSV import mapper that posts through `/data/bulk/transactions`
 
 ### E20 · Admin (instance owners) — M6
 
-- [ ] **E20-01** `P1` `1d` Detect admin/owner role from `/about/user`; hide the whole section otherwise
-- [ ] **E20-02** `P1` `2d` User management (`/users`): list, create, edit role, delete — with hard confirmations
-- [ ] **E20-03** `P1` `2d` User groups / financial administrations (`/user-groups`): list, view, rename
-- [ ] **E20-04** `P1` `1d` Instance configuration editor (`/configuration`, `/configuration/{name}`)
+- [x] **E20-01** `P1` `1d` Detect admin/owner role from `/about/user`; hide the whole section otherwise
+- [x] **E20-02** `P1` `2d` User management (`/users`): list, create, edit role, delete — with hard confirmations
+- [x] **E20-03** `P1` `2d` User groups / financial administrations (`/user-groups`): list, view, rename
+- [x] **E20-04** `P1` `1d` Instance configuration editor (`/configuration`, `/configuration/{name}`)
 
 ### E21 · Design system, a11y & i18n — continuous, audited in M7
 
@@ -1021,3 +1021,97 @@ The pass shipped seven `lib/` modules with no tests at all, and CI caught it:
 
 That divergence is closed: the one `release.yml` pipeline runs `test:cov` on
 every trigger, so a coverage regression now blocks a release as well as a merge.
+
+---
+
+## 17. M6 verification log
+
+Everything below was exercised against a live Firefly III 6.5.5 in the compose
+stack (`docker compose --profile firefly --profile app up -d`), driven through
+the running container rather than a dev server. Server Actions cannot be
+curled, so each write was driven with Playwright; each read was also checked
+with `curl` against the same instance.
+
+### 17.1 What shipped
+
+| Epic | Items          | Where                                                                |
+| ---- | -------------- | -------------------------------------------------------------------- |
+| E10  | 01–05          | `/recurring`, `server/firefly/recurrence-actions.ts`                 |
+| E11  | 01–06          | `/rules`, `lib/rule-vocabulary.ts`, `server/firefly/rule-actions.ts` |
+| E12  | 01–04          | `/tags`, `server/firefly/tag-actions.ts`                             |
+| E13  | 01–04          | `/currencies`, `/currencies/rates`                                   |
+| E18  | 01, 03         | `/settings/firefly`                                                  |
+| E19  | 03             | `/settings/danger`                                                   |
+| E20  | 01–04          | `/settings/firefly` (owner-gated)                                    |
+| E5   | 14             | `server/firefly/link-actions.ts`                                     |
+| E23  | 04 (completed) | `elevateSessionAction` — the half that was missing                   |
+
+### 17.2 API behaviours found by making real calls
+
+Each of these cost a debugging session and is now pinned in a comment beside
+the code that depends on it. Added to the list in LEARNING.md §7.
+
+1. **`GET /rules/{id}/test` returns 0 matches unless `accounts[]` is supplied.**
+   The spec calls the parameter optional and says it "limits" the test. Omitting
+   it tests nothing and answers `200` with an empty array, so a rule matching 22
+   transactions reports 0 — a dry run that looks like it works and declares
+   every rule useless. Supplying the asset/liability account ids returns the 22,
+   with or without a date range.
+2. **A recurrence must have exactly one of `nr_of_repetitions` or
+   `repeat_until`.** Neither and both produce the same 422. There is therefore
+   no "runs forever" recurrence to offer.
+3. **`POST /recurrences/{id}/trigger` takes a single `date`.** A `start`/`end`
+   pair returns a 500 (`Call to a member function format() on null`), which
+   reads as a broken endpoint rather than a bad request.
+4. **`POST /exchange-rates` wants `from` and `to`** — not the
+   `from_currency_code`/`to_currency_code` the GET response uses. Echoing back
+   the field names you just read gives "The from field is required".
+5. **`/configuration` returns a bare array**, with no `data` envelope, unlike
+   every other endpoint — and its `value` is genuinely `unknown`: several
+   entries hold objects and arrays.
+6. **`PUT /transactions/{id}` replaces a split's `tags` array**, it does not
+   merge. Proved by setting `[probeA,probeB]`, sending `[probeC]` alone, and
+   watching the first two disappear. Bulk tagging must read-modify-write.
+7. **Tags name themselves `tag`, not `name`.** Sending `name` is ignored rather
+   than rejected, so the mistake shows up as a blank row, not a 422.
+8. **`POST /rules/{id}/trigger` answers 204 with an empty body** — the
+   `JSON.parse('')` trap from M3, handled centrally in `client.ts`.
+9. **Rule triggers have `prohibited` (the NOT modifier); actions do not.**
+10. **A rule's `trigger` is its firing mode**, a different thing from its
+    `triggers` (the conditions). One letter apart, unrelated meanings.
+11. **All nine `/data/export/*` endpoints answer HTTP 500** —
+    `Cannot instantiate abstract class League\Csv\AbstractCsv`. Upstream bug;
+    E19-01/02 cannot be built against 6.5.5.
+12. **The Firefly API cannot set a user's password.** The User schema has no
+    password field, and Passport scopes token creation to the session of the
+    user the token belongs to, so there is no API path from admin credentials to
+    a usable token for someone else. This is why `server/managed-firefly` drives
+    Firefly's registration form instead — see the module comment.
+
+### 17.3 Bugs caught by verifying rather than assuming
+
+- The rule dry-run silently matched nothing (item 1 above) and would have
+  shipped as a working-looking feature that declared every rule useless.
+- The recurrence form defaulted to an end mode Firefly rejects, so every
+  submission 422'd.
+- `/settings/firefly` rendered `[object Object]` for several configuration
+  entries because `ConfigurationEntry.value` was typed as a scalar. It compiled
+  cleanly; only a real instance showed it.
+- The managed-instance card matched "connected" on base URL alone, so attaching
+  the same server with a token of your own reported you as still managed and
+  hid the way back.
+- Reconnecting to the managed instance created a second connection row and left
+  the old one default, so the switch appeared to work while every page still
+  read the previous ledger.
+- `elevateSession` had no caller, making every guarded operation permanently
+  unreachable.
+
+### 17.4 What is deliberately not done
+
+- **E19-01 / E19-02** — blocked upstream, see §17.2 item 11.
+- **P2 items** across E10–E13, E18–E19 (rule templates, rule import/export, tag
+  map view, currency drill-down, cron trigger, batch finish, CSV import mapper,
+  convert-to-recurrence shortcut). None blocks the milestone.
+- **Rule and rule-group reordering** is read-only: the lists render in Firefly's
+  `order`, but there is no drag to change it. Firefly assigns a sentinel
+  (`31337`) on create and reorders on write, so this needs its own pass.

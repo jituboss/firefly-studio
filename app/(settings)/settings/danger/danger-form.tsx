@@ -105,8 +105,7 @@ export function DangerForm({ options, elevated }: { options: Option[]; elevated:
 
           {elevated ? null : (
             <p className="text-muted-foreground text-xs">
-              You will also need to confirm your password in Settings → Security before this is
-              allowed.
+              Confirm your password above first — this stays locked until you do.
             </p>
           )}
 

@@ -51,7 +51,7 @@ export async function destroyDataAction(
   if (!session.isElevated) {
     return {
       error:
-        'Confirm your password first — this needs a recently re-authenticated session. Open Settings → Security, confirm your password, then come back.',
+        'Confirm your password first, using the box above. Deleting data needs a recently re-authenticated session.',
     };
   }
 

@@ -5,7 +5,7 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-18, at the `v0.3.0` release — the M0–M5 backlog pass is merged and shipped. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-18, after M6. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous handoff note was written:** the M4 branch was merged into `main`, then several follow-up fixes landed against a live Firefly III instance. The current `main` branch has **20+ commits** including:
 
@@ -33,7 +33,7 @@ what actually happened building the first four milestones of it.
 
 ## 2. Current state — read this first
 
-**Milestones M0–M5 are done. M6–M8 are not started.** See `PROJECT_PLAN.md` §6 for the
+**Milestones M0–M6 are done. M7–M8 are not started.** See `PROJECT_PLAN.md` §6 for the
 milestone table and §8 for the itemised backlog (every finished item is checked `[x]`
 with a note on what was cut and why; nothing was silently dropped).
 
@@ -45,7 +45,7 @@ with a note on what was cut and why; nothing was silently dropped).
 | M3        | Full transaction write lifecycle: create/edit/delete, split editor, attachments (upload/download)                                              | ✅ done        |
 | M4        | Budgets (+ per-period limits), Categories, Bills/subscriptions, Piggy banks — all CRUD, plus Available budgets and Object groups landing pages | ✅ done        |
 | M5        | Reporting: 8 standard reports + a custom builder, CSV/print export, drill-through                                                              | ✅ done        |
-| M6        | Rules, recurring transactions, tags, currencies/exchange rates, links, admin                                                                   | ❌ not started |
+| M6        | Rules, recurring transactions, tags, currencies/exchange rates, links, admin, danger zone                                                      | ✅ done        |
 | M7        | Accessibility audit, i18n, PWA, perf budget polish                                                                                             | ❌ not started |
 | M8        | Security hardening pass, load testing, release docs                                                                                            | ❌ not started |
 
@@ -88,9 +88,15 @@ version:
 for them and owns the delivery log and retry state, so a second UI could only be a worse
 copy; the proxy refuses those paths now and the spec-registry test pins that.
 
-**M6 is next** — rules, recurring transactions, tags, currencies and admin. Note the plan's
-own "recommended solo path" (§6.1) defers M6 wholesale in favour of M7 (polish); decide
-deliberately rather than inheriting the order.
+**M7 is next** — accessibility audit, i18n, PWA, perf budget. M6 shipped rules (with a
+visual builder and dry run), recurring transactions, tags, currencies and exchange rates,
+transaction links, the Firefly instance settings page, owner-gated administration, and the
+danger zone. Its verification log, including twelve API behaviours that only showed up by
+making real calls, is `PROJECT_PLAN.md` §17 — **read §17.2 before touching any M6 code.**
+
+Two things M6 left open on purpose: the export centre (E19-01/02) is blocked by an upstream
+Firefly bug — all nine `/data/export/*` endpoints return HTTP 500 on 6.5.5 — and rule
+reordering is read-only.
 
 M5 shipped ten report routes under `/reports`, a shared scope bar, a hand-rolled Sankey,
 a custom report builder backed by `saved_reports`, CSV/print export, and drill-through
@@ -299,6 +305,30 @@ call.** Examples hit so far (full detail in `PROJECT_PLAN.md` §13 and §14):
 - An attachment's `attachable_id` is the **journal (split) id**, not the transaction group
   id, so there is no reliable link from an attachment back to its transaction page.
 
+**M6 added twelve more of these.** They are listed in full in `PROJECT_PLAN.md` §17.2; the
+ones most likely to bite again:
+
+- **`GET /rules/{id}/test` returns 0 matches unless `accounts[]` is supplied.** The spec
+  calls it an optional filter that "limits" the test; omitting it tests NOTHING and
+  answers 200 with an empty array. A rule matching 22 transactions reported 0. This is the
+  single most dangerous kind of Firefly behaviour — a successful response that is silently
+  wrong rather than an error.
+- **A recurrence needs exactly one of `nr_of_repetitions` or `repeat_until`** — neither and
+  both give the same 422, so there is no "runs forever" option to offer.
+- **`POST /recurrences/{id}/trigger` takes a single `date`**; a start/end pair 500s.
+- **`POST /exchange-rates` wants `from`/`to`**, not the `from_currency_code`/
+  `to_currency_code` the GET response uses.
+- **`/configuration` returns a bare array** with no `data` envelope — the only endpoint
+  that does — and its values include objects, not just scalars.
+- **`PUT /transactions/{id}` REPLACES a split's `tags` array rather than merging**, so any
+  "add a tag" has to read-modify-write or it silently drops every other tag.
+- **The Firefly API cannot set a user's password.** The User schema has no password field
+  and Passport scopes token creation to the token-owner's own session, so there is no API
+  path from admin credentials to a token for someone else. `server/managed-firefly` drives
+  Firefly's registration form for exactly this reason — read its module comment before
+  changing it, and re-run `preflightManagedFirefly()` after any Firefly upgrade, because it
+  depends on Firefly's web pages rather than its documented API.
+
 **Practical instruction for whoever continues this:** before implementing a write action
 or trusting a response shape for a new Firefly resource (rules, recurring transactions,
 tags, currencies — all of M6), make a real `curl` call against a running
@@ -307,8 +337,10 @@ instance first. See §9 for how to spin one up. Don't trust the OpenAPI spec's f
 
 ## 8. Testing approach — what exists and what deliberately doesn't
 
-- **216 Vitest unit tests**, all over pure `lib/` modules. Run `pnpm test`, or
-  `pnpm test:cov` for the gate.
+- **230 Vitest unit tests**, all over pure `lib/` modules. Run `pnpm test`, or
+  `pnpm test:cov` for the gate. The newest of them (`rule-vocabulary.test.ts`) pins the
+  rule builder's 36 trigger and 21 action keywords against the vendored spec, so a Firefly
+  update that adds one reddens CI instead of quietly producing a UI that cannot express it.
 - **`lib/` coverage is a CI gate at 70 %** (`vitest.config.mts`), currently sitting at
   ~95 % statements / 85 % branches. The single `release.yml` pipeline runs `test:cov` on
   every trigger, so the gate that reddens a pull request is the same one a release has to
@@ -330,6 +362,11 @@ instance first. See §9 for how to spin one up. Don't trust the OpenAPI spec's f
 - **The rate limiter is Postgres-backed** (`rate_limits` table), not Redis. Repeated
   sign-in attempts while testing will lock you out and the symptom is "Too many sign-in
   attempts", not a bug in whatever you just wrote. `delete from rate_limits` to clear.
+- **The app shell's sign-out control is the first `button[type=submit]` on every
+  authenticated page.** An unscoped `page.click('button[type=submit]')` in a Playwright
+  script signs you out instead of submitting the form, and the next navigation bounces to
+  `/sign-in` — which looks exactly like a broken session. Scope every click:
+  `page.click('main button[type=submit]')`, or better, `getByRole('button', { name: /…/ })`.
 - **Screenshot the page; do not only measure it.** The transactions list passed every
   numeric check — no overflow, checkboxes aligned to the pixel — while day labels sat 24px
   right of the descriptions they labelled and the mobile bulk bar stacked its Delete
