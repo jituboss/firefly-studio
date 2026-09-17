@@ -1,6 +1,6 @@
 {
   "name": "firefly-studio",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "A modern front-end client for Firefly III",
   "packageManager": "pnpm@12.4.2",
