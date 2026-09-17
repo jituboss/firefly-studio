@@ -129,6 +129,18 @@ export const getBudgetTransactions = (
     { data: [], meta: {} },
   );
 
+/** E6-05 — transactions that have no budget assigned. */
+export const getTransactionsWithoutBudget = (params: {
+  start?: string;
+  end?: string;
+  page?: number;
+  limit?: number;
+}) =>
+  fireflyGetSafe<Paged<Transaction>>(
+    `/v1/budgets/transactions-without-budget${qs({ ...params, limit: params.limit ?? 25 })}`,
+    { data: [], meta: {} },
+  );
+
 export const getCategories = (start?: string, end?: string) =>
   fireflyGetSafe<Paged<Category>>(`/v1/categories${qs({ start, end, limit: 200 })}`, {
     data: [],

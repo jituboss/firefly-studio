@@ -11,6 +11,7 @@ import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { toDecimal, divide, multiply, add } from '@/lib/money';
 
 export const metadata: Metadata = { title: 'Subscriptions' };
 
@@ -32,6 +33,40 @@ export default async function BillsPage({
   const bills = [...result.data].sort((a, b) => a.attributes.name.localeCompare(b.attributes.name));
   const active = bills.filter((b) => b.attributes.active);
   const inactive = bills.filter((b) => !b.attributes.active);
+
+  // E8-05 — annualised cost summary for active subscriptions.
+  const annualisedByBill = new Map(
+    active.map((bill) => {
+      const b = bill.attributes;
+      const occurrencesPerYear: Record<string, number> = {
+        weekly: 52,
+        monthly: 12,
+        quarterly: 4,
+        'half-year': 2,
+        yearly: 1,
+      };
+      const base = occurrencesPerYear[b.repeat_freq] ?? 12;
+      const adjusted = divide(base, (b.skip ?? 0) + 1);
+      const cost =
+        b.amount_min === b.amount_max ? b.amount_max : divide(add(b.amount_min, b.amount_max), 2);
+      const annualised = multiply(cost, adjusted.toNumber()).toString();
+      return [bill.id, { annualised, currency: b.currency_code ?? connection.primaryCurrency }];
+    }),
+  );
+  const rankedActive = [...active].sort((a, b) => {
+    const aa = toDecimal(annualisedByBill.get(a.id)?.annualised ?? 0).negated();
+    const bb = toDecimal(annualisedByBill.get(b.id)?.annualised ?? 0).negated();
+    return aa.comparedTo(bb);
+  });
+  const topExpensive = rankedActive.slice(0, 5);
+  const totalAnnualised = [...annualisedByBill.values()].reduce(
+    (sum, { annualised }) => sum.plus(toDecimal(annualised)),
+    toDecimal(0),
+  );
+
+  // Cross-currency totals are naive: we sum the numeric values without FX
+  // conversion. A single-currency ledger is accurate; multi-currency ledgers
+  // should revisit this when M5 reporting adds currency handling.
 
   return (
     <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
@@ -61,6 +96,60 @@ export default async function BillsPage({
         </Card>
       ) : (
         <>
+          {active.length > 0 ? (
+            <section className="grid gap-4 sm:grid-cols-2">
+              <Card>
+                <CardContent className="p-5">
+                  <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                    Annualised cost
+                  </p>
+                  <div className="mt-1.5">
+                    <Amount
+                      value={totalAnnualised.toString()}
+                      currency={connection.primaryCurrency}
+                      size="xl"
+                      tone="expense"
+                      showSign={false}
+                    />
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Across {active.length} active subscription{active.length === 1 ? '' : 's'} ·
+                    naive cross-currency sum
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-5">
+                  <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                    Most expensive
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {topExpensive.map((bill) => {
+                      const info = annualisedByBill.get(bill.id)!;
+                      return (
+                        <div key={bill.id} className="flex items-center justify-between gap-3">
+                          <Link
+                            href={`/bills/${bill.id}`}
+                            className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
+                          >
+                            {bill.attributes.name}
+                          </Link>
+                          <Amount
+                            value={info.annualised}
+                            currency={info.currency}
+                            size="sm"
+                            tone="expense"
+                            showSign={false}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          ) : null}
+
           {[
             { label: 'Active', items: active },
             { label: 'Inactive', items: inactive },

@@ -154,4 +154,4 @@ export function formatDate(value: string | Date | TZDate, options: FormatDateOpt
   return new Intl.DateTimeFormat(locale, { dateStyle, timeZone: timezone }).format(date);
 }
 
-export { addDays, addMonths, endOfMonth, startOfMonth, TZDate };
+export { addDays, addMonths, endOfMonth, startOfMonth, TZDate, differenceInCalendarDays };

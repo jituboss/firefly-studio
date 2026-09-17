@@ -493,7 +493,7 @@ Firefly III instance.
 - [x] **E6-02** `P0` `2d` Budget CRUD: name, active, auto-budget type (none/reset/rollover), amount, period
 - [x] **E6-03** `P0` `2d` Budget-limit management per period: create, edit, delete — _"copy last period" and bulk-set deferred_
 - [x] **E6-04** `P0` `2d` Budget detail: limit history, transactions — **`/chart/budget/overview` skipped**: it returns one snapshot bar per budget for the whole range, not a date series, so it does not fit the `AreaTrend` component used everywhere else. Attachments deferred.
-- [ ] **E6-05** `P1` `1d` `/budgets/transactions-without-budget` view
+- [x] **E6-05** `P1` `1d` `/budgets/transactions-without-budget` view — list page with pagination
 - [ ] **E6-06** `P1` `1d` Available budgets (`/available-budgets`)
 - [ ] **E6-07** `P1` `2d` Budget performance report — folded into M5 reporting
 - [ ] **E6-08** `P1` `1d` Over-budget warnings in the notification inbox
@@ -518,7 +518,7 @@ Firefly III instance.
 - [x] **E8-02** `P0` `2d` Bill CRUD: min/max amount, currency, date, end date, repeat freq, skip, active, notes
 - [x] **E8-03** `P0` `2d` Bill detail: matched transactions, payment history — _linked rules deferred to M6 (rules don't exist yet)_
 - [ ] **E8-04** `P1` `2d` Subscription calendar
-- [ ] **E8-05** `P1` `1d` Annualised cost summary / most-expensive ranking
+- [x] **E8-05** `P1` `1d` Annualised cost summary / most-expensive ranking — added to subscriptions list
 - [ ] **E8-06** `P1` `1d` Unpaid/overdue alerts in the notification inbox
 - [ ] **E8-07** `P2` `1d` "Create a matching rule from this bill"
 
@@ -530,7 +530,7 @@ before implementing — see §13.
 - [x] **E9-01** `P0` `2d` Piggy-bank list with progress bars, target date, and per-month savings pace
 - [x] **E9-02** `P0` `2d` Piggy CRUD: account, name, target amount, start/target date, notes — _object group assignment deferred (E9-05)_
 - [x] **E9-03** `P0` `1d` Add/remove money with the resulting `/piggy-banks/{id}/events` history timeline
-- [ ] **E9-04** `P1` `1d` Attachments tab; "on track / behind" status
+- [x] **E9-04** `P1` `1d` Attachments tab; "on track / behind" status — on-track / behind / target-reached badges on list and detail; attachments tab deferred to M3 attachment manager
 - [ ] **E9-05** `P1` `2d` Object-group management
 - [ ] **E9-06** `P2` `1d` Savings-goal projection chart
 

@@ -91,6 +91,17 @@ export default async function BudgetsPage({
           </CardContent>
         </Card>
       ) : (
+        <p className="text-muted-foreground text-sm">
+          <Link
+            href="/budgets/transactions-without-budget"
+            className="text-foreground hover:underline"
+          >
+            View transactions without a budget
+          </Link>
+        </p>
+      )}
+
+      {budgets.length === 0 ? null : (
         <ul className="space-y-3">
           {budgets.map((budget) => {
             const b = budget.attributes;

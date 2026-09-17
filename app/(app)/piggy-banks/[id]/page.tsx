@@ -5,7 +5,8 @@ import { ArrowLeft } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getPiggyBank, getPiggyEvents } from '@/server/firefly/queries';
-import { formatDate } from '@/lib/date';
+import { formatDate, parseFireflyDate, now, differenceInCalendarDays } from '@/lib/date';
+import type { PiggyBank } from '@/server/firefly/types';
 import { isNegative } from '@/lib/money';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,30 @@ import { AdjustForm } from './adjust-form';
 import { DeletePiggyButton } from './delete-button';
 
 export const metadata: Metadata = { title: 'Piggy bank' };
+
+function piggyStatus(
+  p: PiggyBank['attributes'],
+  timezone: string,
+): { label: string; variant: 'income' | 'expense' | 'warning' | 'secondary' } | null {
+  const targetAmount = p.target_amount;
+  const targetDate = p.target_date;
+  const currentPercent = p.percentage ?? 0;
+
+  if (!targetAmount || !targetDate) return null;
+  if (currentPercent >= 100) return { label: 'Target reached', variant: 'income' };
+
+  const today = now(timezone);
+  const start = p.start_date ? parseFireflyDate(p.start_date, timezone) : today;
+  const end = parseFireflyDate(targetDate, timezone);
+  const totalDays = Math.max(1, differenceInCalendarDays(end, start));
+  const elapsedDays = Math.max(0, Math.min(totalDays, differenceInCalendarDays(today, start)));
+  const expectedPercent = (elapsedDays / totalDays) * 100;
+
+  if (currentPercent >= expectedPercent) return { label: 'On track', variant: 'income' };
+  if (currentPercent >= expectedPercent - 10)
+    return { label: 'Slightly behind', variant: 'warning' };
+  return { label: 'Behind', variant: 'expense' };
+}
 
 export default async function PiggyBankDetailPage({
   params,
@@ -44,6 +69,7 @@ export default async function PiggyBankDetailPage({
   const currency = a.currency_code ?? connection.primaryCurrency;
   const account = a.accounts[0];
   const percent = Math.min(100, Math.max(0, a.percentage ?? 0));
+  const status = piggyStatus(a, session.user.timezone);
 
   return (
     <div className="mx-auto w-full max-w-3xl min-w-0 space-y-6">
@@ -59,6 +85,7 @@ export default async function PiggyBankDetailPage({
         <div className="flex items-center gap-2">
           <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">{a.name}</h1>
           {!a.active ? <Badge variant="secondary">Inactive</Badge> : null}
+          {status ? <Badge variant={status.variant}>{status.label}</Badge> : null}
         </div>
         {account ? <p className="text-muted-foreground text-sm">{account.name}</p> : null}
       </header>
@@ -114,6 +141,17 @@ export default async function PiggyBankDetailPage({
               </span>
             ) : null}
           </div>
+          {status?.label === 'Behind' || status?.label === 'Slightly behind' ? (
+            <p className="text-xs">
+              {status.label === 'Behind' ? (
+                <span className="text-expense">
+                  Behind schedule — increase monthly savings or extend the target date.
+                </span>
+              ) : (
+                <span className="text-warning">Slightly behind schedule.</span>
+              )}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

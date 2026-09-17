@@ -5,13 +5,40 @@ import { Plus } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getPiggyBanks } from '@/server/firefly/queries';
+import type { PiggyBank } from '@/server/firefly/types';
+import { parseFireflyDate, now, differenceInCalendarDays } from '@/lib/date';
 import { Amount } from '@/components/ui/amount';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 export const metadata: Metadata = { title: 'Piggy banks' };
 
-/** E9-01 — piggy bank list with progress rings and required-per-month. */
+function piggyStatus(
+  p: PiggyBank['attributes'],
+  timezone: string,
+): { label: string; variant: 'income' | 'expense' | 'warning' | 'secondary' } | null {
+  const targetAmount = p.target_amount;
+  const targetDate = p.target_date;
+  const currentPercent = p.percentage ?? 0;
+
+  if (!targetAmount || !targetDate) return null;
+  if (currentPercent >= 100) return { label: 'Target reached', variant: 'income' };
+
+  const today = now(timezone);
+  const start = p.start_date ? parseFireflyDate(p.start_date, timezone) : today;
+  const end = parseFireflyDate(targetDate, timezone);
+  const totalDays = Math.max(1, differenceInCalendarDays(end, start));
+  const elapsedDays = Math.max(0, Math.min(totalDays, differenceInCalendarDays(today, start)));
+  const expectedPercent = (elapsedDays / totalDays) * 100;
+
+  if (currentPercent >= expectedPercent) return { label: 'On track', variant: 'income' };
+  if (currentPercent >= expectedPercent - 10)
+    return { label: 'Slightly behind', variant: 'warning' };
+  return { label: 'Behind', variant: 'expense' };
+}
+
+/** E9-01 / E9-04 — piggy bank list with progress rings, required-per-month, and on-track status. */
 export default async function PiggyBanksPage() {
   const session = await getSession();
   if (!session) redirect('/sign-in');
@@ -55,6 +82,7 @@ export default async function PiggyBanksPage() {
             const p = piggy.attributes;
             const currency = p.currency_code ?? connection.primaryCurrency;
             const percent = Math.min(100, Math.max(0, p.percentage ?? 0));
+            const status = piggyStatus(p, session.user.timezone);
 
             return (
               <li key={piggy.id}>
@@ -63,9 +91,12 @@ export default async function PiggyBanksPage() {
                     <CardContent className="min-w-0 space-y-3 p-5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate font-medium">{p.name}</span>
-                        <span className="text-muted-foreground tabular text-xs">
-                          {percent.toFixed(0)}%
-                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {status ? <Badge variant={status.variant}>{status.label}</Badge> : null}
+                          <span className="text-muted-foreground tabular text-xs">
+                            {percent.toFixed(0)}%
+                          </span>
+                        </div>
                       </div>
                       <div
                         className="bg-muted h-2 overflow-hidden rounded-full"
@@ -101,6 +132,17 @@ export default async function PiggyBanksPage() {
                       {p.save_per_month && !p.save_per_month.startsWith('-') ? (
                         <p className="text-muted-foreground text-xs">
                           Save {p.save_per_month} {currency}/month to reach your target
+                        </p>
+                      ) : null}
+                      {status?.label === 'Behind' || status?.label === 'Slightly behind' ? (
+                        <p className="text-xs">
+                          {status.label === 'Behind' ? (
+                            <span className="text-expense">
+                              Behind schedule — increase monthly savings or extend the target date.
+                            </span>
+                          ) : (
+                            <span className="text-warning">Slightly behind schedule.</span>
+                          )}
                         </p>
                       ) : null}
                     </CardContent>
