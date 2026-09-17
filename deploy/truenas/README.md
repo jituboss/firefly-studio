@@ -1,10 +1,14 @@
 # TrueNAS SCALE deployment
 
-`docker-compose.yml` and `init-db.sql` in this directory are **gitignored**:
-they hold real generated secrets — the encryption key, both database
-passwords, the Firefly admin password — and belong on the machine that deploys
-them, not in the history. This file describes their shape so the deployment can
-be rebuilt from scratch.
+`docker-compose.yml` in this directory is **gitignored**: it holds real
+generated secrets — the encryption key, both database passwords, the Firefly
+admin password — and belongs on the machine that deploys it, not in the
+history. This file describes its shape so the deployment can be rebuilt from
+scratch.
+
+It is a single self-contained file. Named volumes, so there are no dataset
+directories to create and no ownership to get right, and the database bootstrap
+SQL is inlined as a `configs:` entry rather than being a second file to place.
 
 ## What the stack runs
 
@@ -33,7 +37,7 @@ Database passwords should stay alphanumeric: one of them is interpolated into
 **Keep `APP_ENCRYPTION_KEY`.** Losing it means every stored Firefly token
 becomes undecryptable and every connection has to be re-authorised.
 
-## init-db.sql is not optional
+## The inlined bootstrap SQL is not optional
 
 Postgres only runs it when the data directory is empty, and the application's
 own migrations do not create what it creates. It must:
@@ -44,29 +48,32 @@ own migrations do not create what it creates. It must:
 - create the `firefly` role and database, with the password matching
   `DB_PASSWORD` on the `firefly` service.
 
-Guard both with `IF NOT EXISTS` so the file stays safe to re-apply by hand
-against a data directory that already exists.
+Guard both with `IF NOT EXISTS` so it stays safe to re-apply by hand against a
+data directory that already exists.
 
-## Dataset permissions
+**Write it without a `DO $$ … $$` block.** Compose treats `$$` as the escape for
+a literal `$`, so a dollar-quoted block arrives inside the container as `DO $`
+and fails with `syntax error at or near "$"` — _after_ the `CREATE EXTENSION`
+lines above it have already succeeded, so the file looks like it ran and the
+failure only surfaces later as Firefly III being unable to log in. Use
+`SELECT '…' WHERE NOT EXISTS (…)\gexec` instead, which needs no dollar sign.
 
-Each image runs as a different user, and a directory the container cannot write
-to is the usual reason a TrueNAS deploy comes up unhealthy:
+## Storage
 
-```bash
-mkdir -p /mnt/<pool>/apps/firefly-studio/{postgres,redis,firefly-upload}
-chown -R 70:70   /mnt/<pool>/apps/firefly-studio/postgres        # postgres
-chown -R 999:999 /mnt/<pool>/apps/firefly-studio/redis           # redis
-chown -R 33:33   /mnt/<pool>/apps/firefly-studio/firefly-upload  # www-data
-```
+Named volumes, deliberately. The four images run as four different users — 70
+(postgres), 999 (redis), 1001 (the app) and 33 (www-data, Firefly) — and a host
+path the container cannot write to is the usual reason a TrueNAS deploy comes up
+unhealthy. Letting Docker own the directories removes that class of problem
+entirely.
 
-Host paths rather than named volumes, so snapshots and replication cover the
-data.
+If you would rather use dataset paths for snapshot and replication coverage,
+swap the volumes for host paths and `chown` each to the uid above.
 
 ## Things to set per host
 
-- `APP_URL` on both services — verification and reset links are built from it.
+- `APP_URL` on `app`, and `APP_URL` on `firefly` — verification and reset links
+  are built from them, and a wrong value sends mail pointing at the wrong host.
 - `TZ` on every service.
-- The pool name in every volume path.
 
 ## The managed Firefly instance
 
