@@ -119,23 +119,8 @@ services:
   # -------------------------------------------------------------------------
   # A real Firefly III instance to develop against (E24-06 seeds it).
   # Opt in with: docker compose --profile firefly up -d
+  # It uses the `postgres` service above rather than a second database server.
   # -------------------------------------------------------------------------
-  firefly-db:
-    profiles: ['firefly']
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: firefly
-      POSTGRES_PASSWORD: firefly
-      POSTGRES_DB: firefly
-    volumes:
-      - firefly-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U firefly -d firefly']
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   firefly:
     profiles: ['firefly']
     image: fireflyiii/core:version-6.5.5
@@ -146,8 +131,11 @@ services:
       APP_ENV: local
       APP_KEY: SomeRandomStringOf32CharsExactly
       SITE_OWNER: dev@localhost
+      # Firefly shares the one Postgres server with the app, in a database of
+      # its own owned by a role of its own, so neither can read the other's
+      # tables. docker/init-db.sql creates both on first start.
       DB_CONNECTION: pgsql
-      DB_HOST: firefly-db
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_DATABASE: firefly
       DB_USERNAME: firefly
@@ -156,11 +144,10 @@ services:
     volumes:
       - firefly-upload:/var/www/html/storage/upload
     depends_on:
-      firefly-db:
+      postgres:
         condition: service_healthy
 
 volumes:
   postgres-data:
   redis-data:
-  firefly-db-data:
   firefly-upload:
