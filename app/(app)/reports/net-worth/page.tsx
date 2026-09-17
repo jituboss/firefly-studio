@@ -126,7 +126,18 @@ export default async function NetWorthReportPage({
 
       <ReportSection
         title="Assets and liabilities over time"
-        description={`${scope.label} · opening net worth ${report.openingNet}`}
+        description={
+          <>
+            {scope.label} · opening net worth{' '}
+            <Amount
+              value={report.openingNet}
+              currency={report.currency}
+              showSign={false}
+              tone="neutral"
+              size="sm"
+            />
+          </>
+        }
         actions={
           <ReportExportButton
             rows={exportRows}

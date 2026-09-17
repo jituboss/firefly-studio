@@ -405,24 +405,35 @@ export function buildNetWorth(
 
   let closingAssets = toDecimal(0);
   let closingLiabilities = toDecimal(0);
+  // Share is measured against the sum of MAGNITUDES on each side, not against
+  // the side's net total. An overdrawn current account can drag the asset total
+  // negative or to near zero, and dividing by that produced shares of 264% on a
+  // real ledger — a percentage that cannot be read as a share of anything.
+  let assetMagnitude = toDecimal(0);
+  let liabilityMagnitude = toDecimal(0);
   for (const account of indexed) {
     const closing = toDecimal(account.values.get(lastDate) ?? 0);
-    if (account.kind === 'liability') closingLiabilities = add(closingLiabilities, closing.abs());
-    else closingAssets = add(closingAssets, closing);
+    if (account.kind === 'liability') {
+      closingLiabilities = add(closingLiabilities, closing.abs());
+      liabilityMagnitude = add(liabilityMagnitude, closing.abs());
+    } else {
+      closingAssets = add(closingAssets, closing);
+      assetMagnitude = add(assetMagnitude, closing.abs());
+    }
   }
 
   const accounts: NetWorthAccountRow[] = indexed
     .map((account) => {
       const opening = toDecimal(account.values.get(firstDate) ?? 0);
       const closing = toDecimal(account.values.get(lastDate) ?? 0);
-      const side = account.kind === 'liability' ? closingLiabilities : closingAssets;
+      const side = account.kind === 'liability' ? liabilityMagnitude : assetMagnitude;
       return {
         name: account.label,
         kind: account.kind,
         opening: opening.toString(),
         closing: closing.toString(),
         change: subtract(closing, opening).toString(),
-        percent: side.isZero() ? 0 : divide(closing.abs(), side.abs()).times(100).toNumber(),
+        percent: side.isZero() ? 0 : divide(closing.abs(), side).times(100).toNumber(),
       };
     })
     .sort((a, b) => abs(b.closing).comparedTo(abs(a.closing)));
@@ -442,4 +453,194 @@ export function buildNetWorth(
     otherCurrencies,
     excludedAccounts,
   };
+}
+
+// --- budgets -----------------------------------------------------------------
+
+export interface BudgetReportRow {
+  name: string;
+  budgeted: string;
+  spent: string;
+  /** Budget left, floored at zero — never a negative "remaining". */
+  left: string;
+  overspent: string;
+  /** Spent as a share of budgeted, uncapped so overspend reads above 100. */
+  usage: number;
+  /** budgeted − spent: negative means over. */
+  variance: string;
+}
+
+export interface BudgetReport {
+  currency: string;
+  rows: BudgetReportRow[];
+  totalBudgeted: string;
+  totalSpent: string;
+  totalOverspent: string;
+  otherCurrencies: string[];
+}
+
+/**
+ * E14-05 — planned against actual, from `/chart/budget/overview`.
+ *
+ * That endpoint returns ONE BAR PER BUDGET for the whole range — not a time
+ * series — with `budgeted`, `spent`, `left` and `overspent` in `entries`
+ * (LEARNING.md §7: the `/chart/*` endpoints do not share a shape). `spent`
+ * arrives negative and is normalised to a magnitude here.
+ */
+export function buildBudgetReport(
+  series: ChartSeriesLike[],
+  preferredCurrency: string,
+): BudgetReport {
+  const codes = new Set(
+    series.map((entry) => (entry.currency_code ?? '').toUpperCase()).filter(Boolean),
+  );
+  const wanted = preferredCurrency.toUpperCase();
+  const currency = codes.has(wanted) ? wanted : ([...codes].sort()[0] ?? wanted);
+
+  const rows: BudgetReportRow[] = [];
+  let totalBudgeted = toDecimal(0);
+  let totalSpent = toDecimal(0);
+  let totalOverspent = toDecimal(0);
+
+  for (const entry of series) {
+    const code = (entry.currency_code ?? '').toUpperCase();
+    if (code && code !== currency) continue;
+
+    const budgeted = abs(entry.entries.budgeted ?? 0);
+    const spent = abs(entry.entries.spent ?? 0);
+    const overspent = abs(entry.entries.overspent ?? 0);
+    // `left` is taken from Firefly rather than recomputed, so the figure agrees
+    // with what Firefly's own budget page shows.
+    const left = abs(entry.entries.left ?? 0);
+
+    if (budgeted.isZero() && spent.isZero()) continue;
+
+    totalBudgeted = add(totalBudgeted, budgeted);
+    totalSpent = add(totalSpent, spent);
+    totalOverspent = add(totalOverspent, overspent);
+
+    rows.push({
+      name: entry.label,
+      budgeted: budgeted.toString(),
+      spent: spent.toString(),
+      left: left.toString(),
+      overspent: overspent.toString(),
+      usage: budgeted.isZero() ? 0 : divide(spent, budgeted).times(100).toNumber(),
+      variance: subtract(budgeted, spent).toString(),
+    });
+  }
+
+  rows.sort((a, b) => toDecimal(b.spent).comparedTo(toDecimal(a.spent)));
+
+  return {
+    currency,
+    rows,
+    totalBudgeted: totalBudgeted.toString(),
+    totalSpent: totalSpent.toString(),
+    totalOverspent: totalOverspent.toString(),
+    otherCurrencies: [...codes].filter((code) => code !== currency).sort(),
+  };
+}
+
+// --- month-over-month grids --------------------------------------------------
+
+export interface MonthlyCell {
+  monthKey: string;
+  amount: string;
+  /** Percentage against whatever this grid measures against, or null. */
+  ratio: number | null;
+}
+
+export interface MonthlyGridRow {
+  id?: string;
+  name: string;
+  cells: MonthlyCell[];
+  total: string;
+}
+
+export interface MonthlyGrid {
+  months: Array<{ key: string; label: string }>;
+  rows: MonthlyGridRow[];
+  /** Column totals, same order as `months`. */
+  totals: string[];
+  grandTotal: string;
+}
+
+/**
+ * Pivot per-month insight payloads into a resource × month grid.
+ *
+ * `perMonth` is parallel to `months`: one insight response per bucket, which is
+ * how a month-by-month table gets built out of endpoints that only ever report
+ * a single total for the range they are given.
+ */
+export function buildMonthlyGrid(
+  months: Array<{ key: string; label: string }>,
+  perMonth: InsightLike[][],
+  currency: string,
+  options: { limit?: number } = {},
+): MonthlyGrid {
+  const wanted = currency.toUpperCase();
+  const byResource = new Map<
+    string,
+    { id?: string; name: string; amounts: Map<string, ReturnType<typeof toDecimal>> }
+  >();
+
+  months.forEach((month, index) => {
+    for (const entry of perMonth[index] ?? []) {
+      if ((entry.currency_code ?? '').toUpperCase() !== wanted) continue;
+      const name = entry.name?.trim() || 'Unnamed';
+      const key = entry.id ?? name;
+      let row = byResource.get(key);
+      if (!row) {
+        row = { id: entry.id, name, amounts: new Map() };
+        byResource.set(key, row);
+      }
+      row.amounts.set(month.key, add(row.amounts.get(month.key) ?? 0, abs(entry.difference)));
+    }
+  });
+
+  const ranked = [...byResource.values()]
+    .map((row) => {
+      let total = toDecimal(0);
+      for (const value of row.amounts.values()) total = add(total, value);
+      return { ...row, totalDecimal: total };
+    })
+    .filter((row) => row.totalDecimal.greaterThan(0))
+    .sort((a, b) => b.totalDecimal.comparedTo(a.totalDecimal));
+
+  const visible = options.limit ? ranked.slice(0, options.limit) : ranked;
+
+  // The peak cell sets the heat scale, so the busiest month is the darkest and
+  // everything else is read relative to it.
+  let peak = toDecimal(0);
+  for (const row of visible) {
+    for (const value of row.amounts.values()) {
+      if (value.greaterThan(peak)) peak = value;
+    }
+  }
+
+  const rows: MonthlyGridRow[] = visible.map((row) => ({
+    id: row.id,
+    name: row.name,
+    total: row.totalDecimal.toString(),
+    cells: months.map((month) => {
+      const amount = row.amounts.get(month.key) ?? toDecimal(0);
+      return {
+        monthKey: month.key,
+        amount: amount.toString(),
+        ratio: peak.isZero() ? null : divide(amount, peak).times(100).toNumber(),
+      };
+    }),
+  }));
+
+  const totals = months.map((month) => {
+    let column = toDecimal(0);
+    for (const row of visible) column = add(column, row.amounts.get(month.key) ?? 0);
+    return column.toString();
+  });
+
+  let grandTotal = toDecimal(0);
+  for (const row of visible) grandTotal = add(grandTotal, row.totalDecimal);
+
+  return { months, rows, totals, grandTotal: grandTotal.toString() };
 }
