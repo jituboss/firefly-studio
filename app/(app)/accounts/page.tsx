@@ -311,7 +311,7 @@ function AccountGroup({
               href={`/accounts?type=${type}`}
               className="text-muted-foreground hover:text-foreground text-xs"
             >
-              View all
+              View all {accounts.length}
             </Link>
           )}
         </div>
@@ -320,7 +320,7 @@ function AccountGroup({
       <Card className="min-w-0 overflow-hidden">
         <CardContent className="p-0">
           <ul className="divide-border divide-y">
-            {accounts.map((account) => (
+            {(filtered ? accounts : accounts.slice(0, 15)).map((account) => (
               <li key={account.id}>
                 <Link
                   href={`/accounts/${account.id}`}
