@@ -49,6 +49,12 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
+// Excludes the App Router's generated icon routes (icon.png, icon.svg,
+// apple-icon.png) alongside favicon.ico and robots.txt — browsers request
+// these directly on sign-in/marketing pages before any session cookie
+// exists, so redirecting them to /sign-in would just break the favicon.
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|monitoring|favicon.ico|robots.txt).*)'],
+  matcher: [
+    '/((?!api|_next/static|_next/image|monitoring|favicon.ico|robots.txt|icon.png|icon.svg|apple-icon.png).*)',
+  ],
 };
