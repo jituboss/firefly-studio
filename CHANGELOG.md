@@ -10,6 +10,24 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-09-18
+
+### Added
+
+- **The app finally has icons.** The browser tab, bookmark, and home-screen
+  icon are the brand mark the app already uses — the flame, white on brand
+  blue — as a multi-size `favicon.ico` (16/32/48), a scalable SVG, a 512px
+  PNG, and a 180×180 Apple touch icon. No favorites or bookmarks show a
+  blank tile anymore.
+
+### Fixed
+
+- **Icons work signed out, too.** The session middleware treats the
+  generated icon routes like pages, so a logged-out visitor's browser was
+  being redirected to sign-in instead of receiving the favicon — exactly
+  on the screens where a tab icon matters most. The icon routes are now
+  exempt from the auth gate, same as `favicon.ico` always was.
+
 ## [0.4.3] - 2026-09-18
 
 ### Fixed
