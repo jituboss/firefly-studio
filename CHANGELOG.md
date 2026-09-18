@@ -10,6 +10,31 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-09-18
+
+### Fixed
+
+- **Removing your last Firefly connection no longer leaves the app broken.**
+  The "setup finished" flag stays set forever once onboarding completes, so
+  after deleting a connection every page tried to read a ledger that no
+  longer existed. Zero connections now means the onboarding state: the app
+  takes you back to the connection wizard — the managed instance and the
+  connect-your-own path both there — instead of erroring on every click.
+  Your account, preferences and any other connections are untouched.
+- **There is always a way to add an instance.** "Add another instance" only
+  existed inside the instance switcher, which appears once you have two —
+  so after removing a connection there was no way back in. Settings →
+  Connections now has an "Add a Firefly instance" button, always.
+- **Deleting the default connection promotes the next survivor** (the one
+  you touched most recently) instead of leaving the choice to accident.
+- **Reconnecting a managed instance from Settings drops you straight into
+  the app.** It used to report "Connected." and leave you on the settings
+  page with everything still broken until the next navigation. Your
+  preferences are kept — the wizard no longer resets number formats, date
+  formats or featured accounts when it runs again.
+- **Removing your only connection now says so** before you confirm, instead
+  of a promise that everything is fine.
+
 ## [0.4.2] - 2026-09-18
 
 ### Fixed
