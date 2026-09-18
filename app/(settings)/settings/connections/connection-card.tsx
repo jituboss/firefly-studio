@@ -12,6 +12,7 @@ import {
   testConnectionAction,
   type ConnectionActionState,
 } from '@/server/connections/actions';
+import { deleteConfirmMessage } from '@/lib/connection-lifecycle';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input, Label } from '@/components/ui/input';
@@ -35,7 +36,14 @@ function PendingButton({ children, ...props }: React.ComponentProps<typeof Butto
   );
 }
 
-export function ConnectionCard({ connection }: { connection: PublicConnection }) {
+export function ConnectionCard({
+  connection,
+  isOnly,
+}: {
+  connection: PublicConnection;
+  /** Connection lifecycle fix — the last connection needs an honest warning. */
+  isOnly: boolean;
+}) {
   const [testState, testAction] = useActionState<ConnectionActionState, FormData>(
     testConnectionAction,
     {},
@@ -128,9 +136,7 @@ export function ConnectionCard({ connection }: { connection: PublicConnection })
           <form
             action={deleteConnectionAction}
             onSubmit={(event) => {
-              if (
-                !confirm(`Remove "${connection.label}"? Your Firefly III data is not affected.`)
-              ) {
+              if (!confirm(deleteConfirmMessage(connection.label, isOnly))) {
                 event.preventDefault();
               }
             }}

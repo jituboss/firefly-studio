@@ -1,11 +1,15 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { eq } from 'drizzle-orm';
+import { db } from '@/server/db';
+import { users } from '@/server/db/schema';
 import { requireSession } from '@/server/auth/session';
 import { recordAudit } from '@/server/audit';
 import {
   deleteConnection,
   getConnectionToken,
+  listConnections,
   recordConnectionCheck,
   renameConnection,
   rotateConnectionToken,
@@ -110,5 +114,21 @@ export async function deleteConnectionAction(formData: FormData): Promise<void> 
     entity: 'firefly_connection',
     entityId: connectionId,
   });
-  revalidatePath('/settings/connections');
+
+  // Connection lifecycle fix — with zero connections left, `onboardingState`
+  // resuming at the token step (E2-21) would point the wizard at a server
+  // that no longer has a row here. Clearing it sends the user back to step 1
+  // instead of a stale step 2.
+  const remaining = await listConnections(session.user.id);
+  if (remaining.length === 0) {
+    await db
+      .update(users)
+      .set({ onboardingState: null, updatedAt: new Date() })
+      .where(eq(users.id, session.user.id));
+  }
+
+  // Connection lifecycle fix — the connection count now decides whether the
+  // user can even reach the app (see app/(app)/layout.tsx), so the whole
+  // tree has to revalidate, not just this settings page.
+  revalidatePath('/', 'layout');
 }

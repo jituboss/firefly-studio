@@ -208,6 +208,11 @@ export async function connectManagedAction(
   const config = managedConfig();
   if (!config) return { error: 'This deployment has no managed Firefly instance.' };
 
+  // Connection lifecycle fix — captured before anything below can change it,
+  // to tell a reconnect (settings-page "Reconnect my ledger") apart from the
+  // first-run wizard, which must keep going to step 3.
+  const isReconnect = Boolean(session.user.onboardingCompletedAt);
+
   // Provisioning registers an account on a remote instance, so it is rate
   // limited on the same bucket as the manual probe.
   const limit = await consumeRateLimit(
@@ -217,6 +222,7 @@ export async function connectManagedAction(
   );
   if (!limit.allowed) return { error: 'Too many attempts. Wait a few minutes and try again.' };
 
+  let managedResult: ManagedState;
   try {
     const provisioned = await provisionManagedConnection(session.user.id, session.user.email);
     const { baseUrl, token } = provisioned;
@@ -279,11 +285,24 @@ export async function connectManagedAction(
       },
     });
 
-    return { ok: true, remoteEmail: provisioned.remoteEmail };
+    managedResult = { ok: true, remoteEmail: provisioned.remoteEmail };
   } catch (error) {
     if (error instanceof ManagedProvisioningError) return { error: error.message };
     return { error: describeError(error) };
   }
+
+  // Connection lifecycle fix — a reconnect is the same ledger, matched on
+  // remote identity above, and preferences already exist for this account,
+  // so step 3 would just be re-asking questions that are already answered.
+  // The first-run path (onboarding not yet completed) still needs it: a
+  // brand-new server means new featured accounts worth picking.
+  //
+  // This has to run outside the try/catch above: redirect() throws
+  // internally to unwind the render, and that catch would otherwise swallow
+  // it as a generic connection error.
+  if (isReconnect) redirect('/dashboard');
+
+  return managedResult;
 }
 
 // --- Step 3: personalise ----------------------------------------------------

@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/server/db';
 import { connectionPublicColumns, fireflyConnections } from '@/server/db/schema';
 import { open, seal, tokenHint } from '@/server/crypto';
@@ -191,10 +191,39 @@ export async function renameConnection(
     .where(and(eq(fireflyConnections.id, connectionId), eq(fireflyConnections.userId, userId)));
 }
 
+/**
+ * Connection lifecycle fix — deleting the default connection must not leave
+ * the user with connections but no default. `getDefaultConnection` falls
+ * back to array order if that ever happens, which is exactly the kind of
+ * "works by accident" behaviour that broke on the next reshuffle, so the
+ * promotion is explicit here instead.
+ */
 export async function deleteConnection(userId: string, connectionId: string): Promise<void> {
-  await db
-    .delete(fireflyConnections)
-    .where(and(eq(fireflyConnections.id, connectionId), eq(fireflyConnections.userId, userId)));
+  await db.transaction(async (tx) => {
+    const [deleted] = await tx
+      .delete(fireflyConnections)
+      .where(and(eq(fireflyConnections.id, connectionId), eq(fireflyConnections.userId, userId)))
+      .returning({ id: fireflyConnections.id, isDefault: fireflyConnections.isDefault });
+
+    if (!deleted?.isDefault) return;
+
+    // Promote the most recently updated survivor — an arbitrary but
+    // deterministic choice, and "the one you touched last" is a reasonable
+    // proxy for "the one you meant to keep using".
+    const [promoted] = await tx
+      .select({ id: fireflyConnections.id })
+      .from(fireflyConnections)
+      .where(eq(fireflyConnections.userId, userId))
+      .orderBy(desc(fireflyConnections.updatedAt))
+      .limit(1);
+
+    if (promoted) {
+      await tx
+        .update(fireflyConnections)
+        .set({ isDefault: true })
+        .where(eq(fireflyConnections.id, promoted.id));
+    }
+  });
 }
 
 export async function recordConnectionCheck(

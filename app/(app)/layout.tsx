@@ -22,6 +22,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     listUnreadNotifications(session.user.id),
   ]);
 
+  // Connection lifecycle fix — `onboardingCompletedAt` stays true forever
+  // once set, even after the user removes their last connection. Every
+  // ledger page resolves reads through the default connection, so a zero-
+  // connection user here is a broken app, not a quiet empty dashboard.
+  if (connections.length === 0) redirect('/onboarding');
+
   // E2-24 — opportunistic health check, deliberately NOT awaited. A hanging
   // Firefly instance must never add its timeout to this page load; the result
   // lands in the database and shows on the next render.

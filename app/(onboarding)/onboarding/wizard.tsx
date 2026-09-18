@@ -79,6 +79,16 @@ export function OnboardingWizard(props: {
   email: string;
   /** Null unless this deployment operates a Firefly instance of its own. */
   managed: { label: string; hasAccount: boolean } | null;
+  /**
+   * Connection lifecycle fix — step 3 prefills from the user's saved
+   * preferences rather than hardcoded defaults, so re-running the wizard
+   * (adding another instance, or reconnecting after a removal) does not
+   * silently reset formats or featured accounts.
+   */
+  defaultNumberFormat?: string;
+  defaultDateFormat?: string;
+  defaultWeekStart?: number;
+  defaultAccountIds?: string[];
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(props.initialStep);
 
@@ -293,7 +303,7 @@ export function OnboardingWizard(props: {
                   <select
                     id="numberFormat"
                     name="numberFormat"
-                    defaultValue="en-US"
+                    defaultValue={props.defaultNumberFormat ?? 'en-US'}
                     className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
                   >
                     <option value="en-US">1,234.56</option>
@@ -308,7 +318,7 @@ export function OnboardingWizard(props: {
                   <select
                     id="weekStart"
                     name="weekStart"
-                    defaultValue="1"
+                    defaultValue={String(props.defaultWeekStart ?? 1)}
                     className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
                   >
                     <option value="1">Monday</option>
@@ -323,7 +333,7 @@ export function OnboardingWizard(props: {
                 <select
                   id="dateFormat"
                   name="dateFormat"
-                  defaultValue="medium"
+                  defaultValue={props.defaultDateFormat ?? 'medium'}
                   className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
                 >
                   <option value="short">15/03/2026</option>
@@ -341,26 +351,31 @@ export function OnboardingWizard(props: {
                     </span>
                   </legend>
                   <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
-                    {props.accounts.map((account) => (
-                      <label
-                        key={account.id}
-                        className="hover:bg-accent flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          name="accountIds"
-                          value={account.id}
-                          defaultChecked
-                          className="size-4"
-                        />
-                        <span className="flex-1">{account.name}</span>
-                        {account.currencyCode ? (
-                          <span className="text-muted-foreground text-xs">
-                            {account.currencyCode}
-                          </span>
-                        ) : null}
-                      </label>
-                    ))}
+                    {props.accounts.map((account) => {
+                      const savedAccountIds = props.defaultAccountIds ?? [];
+                      const defaultChecked =
+                        savedAccountIds.length > 0 ? savedAccountIds.includes(account.id) : true;
+                      return (
+                        <label
+                          key={account.id}
+                          className="hover:bg-accent flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            name="accountIds"
+                            value={account.id}
+                            defaultChecked={defaultChecked}
+                            className="size-4"
+                          />
+                          <span className="flex-1">{account.name}</span>
+                          {account.currencyCode ? (
+                            <span className="text-muted-foreground text-xs">
+                              {account.currencyCode}
+                            </span>
+                          ) : null}
+                        </label>
+                      );
+                    })}
                   </div>
                 </fieldset>
               ) : (
