@@ -10,6 +10,8 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-09-19
+
 ### Fixed
 
 - Uncategorised inbox: the bulk "Set category" action submitted the form
