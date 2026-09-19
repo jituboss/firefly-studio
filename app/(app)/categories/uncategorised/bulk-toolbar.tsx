@@ -21,12 +21,26 @@ function Submit({ count }: { count: number }) {
  * E7-04 — sticky bulk-action bar: pick a category and apply it to every
  * selected transaction group.
  */
-export function BulkToolbar({ selectedCount }: { selectedCount: number }) {
+export function BulkToolbar({
+  selectedIds,
+  onSuccess,
+}: {
+  selectedIds: string[];
+  onSuccess?: () => void;
+}) {
   const [category, setCategory] = React.useState('');
   const [state, action] = useActionState<BulkCategoryState, FormData>(bulkSetCategoryAction, {});
 
+  const onSuccessRef = React.useRef(onSuccess);
   React.useEffect(() => {
-    if (state.ok) setCategory('');
+    onSuccessRef.current = onSuccess;
+  });
+
+  React.useEffect(() => {
+    if (state.ok) {
+      setCategory('');
+      onSuccessRef.current?.();
+    }
   }, [state]);
 
   const formAction = (formData: FormData) => {
@@ -34,7 +48,7 @@ export function BulkToolbar({ selectedCount }: { selectedCount: number }) {
     action(formData);
   };
 
-  const count = selectedCount;
+  const count = selectedIds.length;
 
   return (
     <form action={formAction} className="bg-muted/50 sticky top-14 z-10 rounded-lg border p-3">
@@ -53,6 +67,9 @@ export function BulkToolbar({ selectedCount }: { selectedCount: number }) {
         {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
       </div>
       <input type="hidden" name="category_name" value={category} />
+      {selectedIds.map((id) => (
+        <input key={id} type="hidden" name="ids" value={id} />
+      ))}
     </form>
   );
 }

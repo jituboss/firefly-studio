@@ -20,20 +20,11 @@ export function UncategorisedClient({
 
   const ids = React.useMemo(() => transactions.map((t) => t.id), [transactions]);
 
-  React.useEffect(() => {
-    document.dispatchEvent(
-      new CustomEvent('uncategorised-rows', { detail: { rows: ids.map((id) => ({ id })) } }),
-    );
-  }, [ids]);
-
   const toggle = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      document.dispatchEvent(
-        new CustomEvent('uncategorised-sync-selection', { detail: { ids: [...next] } }),
-      );
       return next;
     });
   };
@@ -42,16 +33,13 @@ export function UncategorisedClient({
     setSelected((prev) => {
       const all = new Set(ids);
       const next = prev.size === ids.length ? new Set<string>() : all;
-      document.dispatchEvent(
-        new CustomEvent('uncategorised-sync-selection', { detail: { ids: [...next] } }),
-      );
       return next;
     });
   };
 
   return (
     <>
-      <BulkToolbar selectedCount={selected.size} />
+      <BulkToolbar selectedIds={[...selected]} onSuccess={() => setSelected(new Set())} />
       <UncategorisedTable
         transactions={transactions}
         timezone={timezone}

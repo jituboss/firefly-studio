@@ -10,6 +10,13 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+### Fixed
+
+- Uncategorised inbox: the bulk "Set category" action submitted the form
+  without the selected transaction ids, so applying a category always
+  failed with "Select at least one transaction." Also removed two dead
+  document events dispatched by the page.
+
 ## [0.4.4] - 2026-09-18
 
 ### Added
