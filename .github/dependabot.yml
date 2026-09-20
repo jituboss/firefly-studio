@@ -31,6 +31,17 @@ updates:
         update-types: ['version-update:semver-major']
       - dependency-name: react-dom
         update-types: ['version-update:semver-major']
+      # Pinned to Next's major, not its own. eslint-config-next 16 was merged
+      # against Next 15 and broke `pnpm lint` outright — ESLint died with a
+      # circular-structure error before it read a single file. This one moves
+      # when Next does.
+      - dependency-name: eslint-config-next
+        update-types: ['version-update:semver-major']
+      # Pinned to the runtime in docker/Dockerfile. Types for a newer Node than
+      # the one we ship describe APIs that are not there, which typechecks
+      # something that then fails at run time.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     labels: ['dependencies']
 
   - package-ecosystem: github-actions
@@ -50,3 +61,11 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     labels: ['dependencies', 'docker']
+    ignore:
+      # Node majors are chosen, not bumped. Dependabot moved this to
+      # node:25-alpine, which does not build: 25 is the Current line and no
+      # longer ships corepack, so the image failed on its second layer. Only
+      # even-numbered LTS releases belong here, and moving between them is a
+      # deliberate step with the image built and booted to prove it.
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
