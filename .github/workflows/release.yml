@@ -132,7 +132,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -372,7 +372,7 @@ jobs:
       - uses: actions/setup-node@v7
         if: env.SENTRY_AUTH_TOKEN != ''
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
       - name: Upload source maps to Sentry
         if: env.SENTRY_AUTH_TOKEN != ''
@@ -396,7 +396,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile --prefer-offline
       - name: Check for a newer Firefly III specification
@@ -422,7 +422,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile --prefer-offline
       - name: Audit

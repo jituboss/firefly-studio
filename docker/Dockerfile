@@ -4,7 +4,14 @@
 # Multi-stage, non-root, standalone Next.js output.
 # ---------------------------------------------------------------------------
 
-FROM node:25-alpine AS base
+# Node 24, the current LTS — NOT 25.
+#
+# Dependabot moved this to node:25-alpine, which does not build at all: Node 25
+# is the Current line and no longer ships corepack, so the next line fails with
+# `corepack: not found` and the image never gets past its second layer. It is
+# also the wrong support line for a self-hosted finance app — an odd-numbered
+# release is EOL in months, where 24 is supported into 2028.
+FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm" PATH="/pnpm:$PATH"
 RUN corepack enable && apk add --no-cache libc6-compat
 
