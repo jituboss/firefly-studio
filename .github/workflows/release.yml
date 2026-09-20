@@ -288,7 +288,7 @@ jobs:
       # This job only runs for a tag, so every tag computed here is a real one.
       - name: Compute tags
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE }}
           flavor: |
