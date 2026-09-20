@@ -40,6 +40,25 @@ const RESET = process.argv.includes('--reset');
  */
 const CURRENCY = (process.env.DEMO_CURRENCY ?? 'EUR').toUpperCase();
 const SCALE: Record<string, number> = { EUR: 1, USD: 1.1, GBP: 0.85, BDT: 130, INR: 90, JPY: 160 };
+
+/**
+ * Name, symbol and decimals for the currencies above.
+ *
+ * Needed because Firefly ships a fixed currency list and it is NOT the same on
+ * every instance — BDT is present on some and absent on others. On an instance
+ * that lacks it, `/currencies/BDT/enable` answers 404: the route binder cannot
+ * resolve a code that has no row, so there is nothing to enable. The seed then
+ * built a whole ledger whose every account was refused with "The selected
+ * currency code is invalid", which is a long way from the actual cause.
+ */
+const CURRENCY_META: Record<string, { name: string; symbol: string; decimals: number }> = {
+  EUR: { name: 'Euro', symbol: '\u20AC', decimals: 2 },
+  USD: { name: 'US Dollar', symbol: '$', decimals: 2 },
+  GBP: { name: 'British Pound', symbol: '\u00A3', decimals: 2 },
+  BDT: { name: 'Bangladeshi Taka', symbol: '\u09F3', decimals: 2 },
+  INR: { name: 'Indian Rupee', symbol: '\u20B9', decimals: 2 },
+  JPY: { name: 'Japanese Yen', symbol: '\u00A5', decimals: 0 },
+};
 const scale = SCALE[CURRENCY] ?? 1;
 
 async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -148,13 +167,42 @@ async function main() {
 
   const currency = CURRENCY;
 
-  // Enable it and make it primary, in that order — Firefly refuses to make a
-  // disabled currency primary. Both need a content-type header even with no
-  // body: without one they answer 415 rather than doing anything.
+  // Create it when this instance does not ship it. See CURRENCY_META.
+  const known = await api(`/v1/currencies/${currency}`).then(
+    () => true,
+    () => false,
+  );
+  if (!known) {
+    const meta = CURRENCY_META[currency];
+    if (!meta) {
+      throw new Error(
+        `This Firefly instance has no ${currency}, and the seed has no name or symbol to create it with. ` +
+          `Add ${currency} to CURRENCY_META in scripts/demo-seed.ts, or create it once in Firefly under Options → Currencies.`,
+      );
+    }
+    await api('/v1/currencies', 'POST', {
+      code: currency,
+      name: meta.name,
+      symbol: meta.symbol,
+      decimal_places: meta.decimals,
+      enabled: true,
+    });
+    console.log(`  currency: created ${currency} — this instance did not ship it`);
+  }
+
+  /*
+   * Enable it and make it primary, in that order — Firefly refuses to make a
+   * disabled currency primary. Both need a content-type header even with no
+   * body: without one they answer 415 rather than doing anything.
+   *
+   * These used to be caught and warned about, and the line below printed
+   * "(enabled, primary)" either way. That is why a 404 here surfaced hundreds
+   * of lines later as an invalid currency code on every account. A demo seeded
+   * in the wrong currency shows a dashboard of zeroes, so failing here is
+   * strictly better than continuing.
+   */
   for (const path of [`/v1/currencies/${currency}/enable`, `/v1/currencies/${currency}/primary`]) {
-    await api(path, 'POST', {}).catch((error: unknown) =>
-      console.warn(`  ${path}: ${(error as Error).message.slice(0, 120)}`),
-    );
+    await api(path, 'POST', {});
   }
   console.log(`  currency: ${currency} (enabled, primary)`);
 
@@ -344,6 +392,7 @@ async function main() {
     '/v1/piggy-banks?limit=100',
   );
   const piggyNames = new Set(piggies.data.map((p) => p.attributes.name));
+  let piggyCount = piggyNames.size;
   for (const [name, target, saved] of [
     ['New kitchen', 8000, 5200],
     ['Japan 2027', 6000, 1850],
@@ -352,17 +401,19 @@ async function main() {
     if (piggyNames.has(name)) continue;
     await api('/v1/piggy-banks', 'POST', {
       name,
-      // Two fields the spec does not mark required and Firefly 422s without:
-      // a currency, and a start date.
+      // Three fields the spec does not mark required and Firefly 422s without:
+      // a currency, a start date, and — inside `accounts` — `account_id`. It
+      // is NOT `id`: that spelling is accepted by the schema and then rejected
+      // by the validator with "accounts.0.account_id field is required", which
+      // failed every piggy bank while the seed reported three of them.
       transaction_currency_code: currency,
       start_date: day(months(12)[0]!),
       target_amount: money(target),
-      accounts: [{ id: savings.id, current_amount: money(saved) }],
-    }).catch((error: unknown) =>
-      console.warn(`  piggy "${name}": ${(error as Error).message.slice(0, 120)}`),
-    );
+      accounts: [{ account_id: savings.id, current_amount: money(saved) }],
+    });
+    piggyCount += 1;
   }
-  console.log('  piggy banks: 3');
+  console.log(`  piggy banks: ${piggyCount}`);
 
   // --- three years of transactions ------------------------------------------
   const timeline = months(MONTHS_OF_HISTORY);
