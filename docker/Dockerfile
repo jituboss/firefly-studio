@@ -4,7 +4,7 @@
 # Multi-stage, non-root, standalone Next.js output.
 # ---------------------------------------------------------------------------
 
-FROM node:20-alpine AS base
+FROM node:25-alpine AS base
 ENV PNPM_HOME="/pnpm" PATH="/pnpm:$PATH"
 RUN corepack enable && apk add --no-cache libc6-compat
 
