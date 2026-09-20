@@ -5,10 +5,10 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-20, at `v0.6.0`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-20, at `v0.6.1`. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous note:** it was written after M6 and said the latest release was
-`v0.3.0`. Six releases have happened since. `main` is at **`v0.6.0`**, M7 is most of the way done,
+`v0.3.0`. Seven releases have happened since. `main` is at **`v0.6.1`**, M7 is most of the way done,
 and the app is AGPL-3.0 licensed — it had no `LICENSE` file at all until 0.5.0, which legally meant
 all rights reserved while a public image was being published on every tag.
 
@@ -349,6 +349,16 @@ this codebase the code reads correctly and the rendered result is wrong.
   at all and every navigation started cold. Thirteen boundaries took it from 0 to 22 prefetched
   routes. The prefetches are cheap (5–7 kB of skeleton, no ledger data), which was checked rather
   than assumed.
+- **A green dependency PR is not a safe one, and this repository has the scars.** Eight dependabot
+  pull requests were merged in one sitting; three were actively harmful and none looked it:
+  `node:20-alpine` → `node:25-alpine` broke the image build outright (25 is the Current line and no
+  longer ships corepack, so it dies on the second layer), `eslint-config-next` 16 against Next 15
+  made `pnpm lint` fail to START — a circular-structure error before it read a file, so the gate was
+  not enforcing anything rather than failing loudly — and `@types/node` 26 put the type definitions
+  a major ahead of the runtime, which typechecks code that then fails at run time. All three are
+  pinned in `.github/dependabot.yml` with the reason; **if you loosen one, build and boot the image
+  before merging.** The lesson generalises: a bump that disables a gate is worse than one that
+  breaks a feature, because nothing goes red.
 - **Rebuild the container before you believe a screenshot.** An hour went into investigating a
   "missing" feature that was simply not in the running image.
 

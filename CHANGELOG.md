@@ -10,6 +10,41 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-20
+
+**A front door, and a base image that builds.** Signing in is now the landing
+page, and the production image is back on a supported Node.
+
+Upgrading from `0.6.0` needs no action.
+
+### Added
+
+- **The sign-in page is now the landing page.** It explains what Firefly Studio
+  is to someone arriving for the first time, without getting in the way of
+  someone who just wants to sign in: on a phone the form is the first thing on
+  screen and the explanation sits below it, and on a wide screen they are side
+  by side. Static markup and CSS — no images, no extra JavaScript.
+
+### Fixed
+
+- **The container image would not build at all.** An automated dependency
+  update moved the base image to Node 25, which no longer includes the tool the
+  build uses to install dependencies. The image is on Node 24 LTS now, which is
+  supported into 2028, and the build is verified by running the container
+  rather than only building it. **This is the reason to take this release:
+  `0.6.0`'s image was the last one that built.**
+- **Two checks had stopped protecting anything.** A dependency update had
+  silently disabled the linter — it was failing to start rather than failing on
+  a rule — and another had put the TypeScript definitions a major version ahead
+  of the Node that actually runs, which lets code typecheck and then fail in
+  production. Both are pinned to the versions that match what ships, with the
+  reasoning recorded so they are not "upgraded" again by accident.
+
+### Changed
+
+- Dependency updates for Sentry, TanStack Query, Lucide icons, Prettier and the
+  GitHub Actions used by the build.
+
 ## [0.6.0] - 2026-09-20
 
 **Installable, and considerably more honest.** Firefly Studio can now be
@@ -533,7 +568,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.0...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.1
 [0.6.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.0
 [0.5.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.5.1
 [0.5.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.5.0

@@ -22,10 +22,12 @@ presentation and workflow layer with its own identity system, so you sign in her
 attach your own Firefly instance with a Personal Access Token. Your ledger never moves,
 and you can keep using Firefly III's own UI alongside it.
 
-> **Status: beta (`v0.4.5`).** Milestones M0–M6 are complete — the whole
-> money-management, reporting and automation surface runs against your own instance.
-> What remains is polish and hardening: accessibility, i18n and PWA (M7), then a
-> security pass, load testing and launch docs (M8). See the [roadmap](#roadmap).
+> **Status: beta (`v0.6.1`).** Milestones M0–M6 are complete — the whole
+> money-management, reporting and automation surface runs against your own instance
+> — and M7 is most of the way there: the app is installable, passes an automated
+> accessibility audit in both themes, and ships with a bundle budget and a typed
+> error taxonomy. What remains is i18n, optimistic updates and the M8 security
+> pass. See the [roadmap](#roadmap).
 
 ## Features
 
@@ -39,6 +41,7 @@ and you can keep using Firefly III's own UI alongside it.
 | **Automation** — rule groups with a visual builder and a dry run, recurring transactions with a forecast and manual trigger, tags with a cloud view and bulk tagging                                   | ✅    |
 | **Currencies** — enable/disable, set the primary currency, manage exchange rates                                                                                                                       | ✅    |
 | **Attachments** — upload, drag/drop/paste, camera capture, lightbox preview, and a manager for everything stored                                                                                       | ✅    |
+| **A front door** — the sign-in page doubles as the landing page: it explains what this is to a first-time visitor without making a returning one scroll past it                                        | ✅    |
 | **Accounts & auth** — sign-up, email verification, password reset, database-backed sessions, TOTP two-factor with recovery codes, active-session management, audit trail, account deletion             | ✅    |
 | **Connections** — guided onboarding that probes your instance, several instances per account with a switcher, background health checks, and an optional managed instance users can be provisioned onto | ✅    |
 | **Settings & admin** — Firefly preferences, an About/diagnostics panel, owner-gated user, user-group and instance-configuration management, and a danger zone behind step-up re-auth                   | ✅    |

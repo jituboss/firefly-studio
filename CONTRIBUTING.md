@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node 20.11+ (Node 20 LTS is what CI and the Docker image use)
+- Node 20.11+ to build; **Node 24 LTS is what CI and the Docker image run**, so match it if you can
 - pnpm 12 — `corepack enable pnpm`
 - Docker, for Postgres and Redis
 
