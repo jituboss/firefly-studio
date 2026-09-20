@@ -10,6 +10,27 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-09-20
+
+**The demo tools now work where you actually need them: inside the container.**
+
+### Fixed
+
+- **Setting up the demo on a deployed container was impossible.** The
+  instructions said to run `pnpm demo:seed`, which cannot work in the shipped
+  image: it has no `scripts/` directory, no TypeScript and no package manager,
+  and it runs as a user that cannot write to `/app`, so even bootstrapping
+  `pnpm` fails with a permission error. The demo tools now ship prebuilt
+  alongside the migrator and run with plain `node`:
+
+  ```sh
+  node dist/demo-seed.cjs --reset
+  node dist/demo-account.cjs
+  ```
+
+  Verified by running both inside the production image as its non-root user.
+  The README and the TrueNAS deployment notes carry the corrected commands.
+
 ## [0.6.3] - 2026-09-20
 
 **There is a demo now.** A shared account with three years of invented data, so
@@ -628,7 +649,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.3...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.4
 [0.6.3]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.3
 [0.6.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.2
 [0.6.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.1

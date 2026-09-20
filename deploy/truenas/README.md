@@ -108,3 +108,34 @@ The `0.4` tag follows the newest patch in that line and never moves to 0.5, so
 `docker compose pull && docker compose up -d` picks up fixes. Pin an exact
 version instead to decide each upgrade yourself. Migrations run on boot
 (`RUN_MIGRATIONS_ON_BOOT`), behind an advisory lock, so a restart is enough.
+
+## The demo account
+
+The demo tooling ships **inside the image**, already built. Running `pnpm`
+in the container's shell fails and will keep failing: there is no `scripts/`
+directory, no TypeScript, no tsx, and the container runs as uid 1001, which
+cannot write to `/app` — so corepack cannot even unpack a package manager
+there. Use `node` against the prebuilt bundles instead.
+
+From the TrueNAS shell, inside the app container:
+
+```sh
+FIREFLY_URL=http://firefly:8080 \
+FIREFLY_PAT=<a personal access token on that instance> \
+DEMO_CURRENCY=BDT \
+  node dist/demo-seed.cjs --reset
+
+FIREFLY_URL=http://firefly:8080 FIREFLY_PAT=<token> \
+  node dist/demo-account.cjs
+```
+
+`FIREFLY_URL` must be the address **the app** uses — the compose service name,
+not `127.0.0.1`, which inside the container is the container. `DATABASE_URL`
+and `APP_ENCRYPTION_KEY` are already in the environment.
+
+**`--reset` destroys that ledger**: accounts, transactions, budgets, the lot.
+Point it at the demo instance, never at one holding real data.
+
+Then set `DEMO_EMAIL` and `DEMO_PASSWORD` on the `app` service and restart it.
+The sign-in page grows a "Try the demo" button; without those two variables the
+demo does not exist and nothing about the app changes.

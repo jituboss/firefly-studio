@@ -28,7 +28,7 @@
     "spec:codegen": "tsx scripts/spec-codegen.ts",
     "prepare": "node scripts/install-hooks.mjs",
     "lint:fix": "eslint . --fix",
-    "build:migrator": "tsx scripts/build-migrator.ts",
+    "build:migrator": "tsx scripts/build-cli.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "docker compose down -v postgres && docker compose up -d postgres && sleep 3 && pnpm db:migrate && pnpm db:seed",
     "user:verify": "tsx scripts/verify-user.ts",
@@ -42,8 +42,8 @@
     "check:bundle": "node scripts/check-bundle.mjs",
     "check:bundle:update": "rm -rf .next && pnpm build && node scripts/check-bundle.mjs --update",
     "demo:seed": "tsx scripts/demo-seed.ts",
-    "demo:account": "tsx scripts/demo-account.ts",
-    "demo:reset": "tsx scripts/demo-seed.ts --reset && tsx scripts/demo-account.ts"
+    "demo:account": "tsx scripts/build-cli.ts && node dist/demo-account.cjs",
+    "demo:reset": "tsx scripts/demo-seed.ts --reset && pnpm demo:account"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

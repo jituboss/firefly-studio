@@ -5,10 +5,10 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-20, at `v0.6.3`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-20, at `v0.6.4`. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous note:** it was written after M6 and said the latest release was
-`v0.3.0`. Eight releases have happened since. `main` is at **`v0.6.3`**, M7 is most of the way done,
+`v0.3.0`. Eight releases have happened since. `main` is at **`v0.6.4`**, M7 is most of the way done,
 and the app is AGPL-3.0 licensed — it had no `LICENSE` file at all until 0.5.0, which legally meant
 all rights reserved while a public image was being published on every tag.
 
@@ -357,6 +357,12 @@ this codebase the code reads correctly and the rendered result is wrong.
   In this case a top-level `import * as Sentry` in `instrumentation-client.ts`, which shipped the
   browser SDK to every visitor while the `if` below it only gated `init()`. A static import is not
   conditional, however conditional the code under it looks.
+- **Anything an operator must run inside the container has to ship prebuilt.** The runtime image is
+  a Next.js standalone build: no `scripts/`, no TypeScript, no tsx, and a non-root user who cannot
+  write to `/app`, so `pnpm` cannot even unpack itself there. `scripts/build-cli.ts` bundles the
+  migrator and the demo tools to `dist/*.cjs` for plain `node`. It aliases `server-only` to an empty
+  module at bundle time, which is also how a CLI can legitimately use the token-sealing code without
+  the hack of stubbing `require.cache`.
 - **A seeded ledger is only right if it is seeded in the instance's own primary currency.** The
   KPI tiles read `/summary/basic`, which is keyed by currency, so a ledger seeded in EUR against an
   instance whose primary is BDT renders a dashboard of zeroes — every figure present, none of them

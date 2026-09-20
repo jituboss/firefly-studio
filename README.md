@@ -22,7 +22,7 @@ presentation and workflow layer with its own identity system, so you sign in her
 attach your own Firefly instance with a Personal Access Token. Your ledger never moves,
 and you can keep using Firefly III's own UI alongside it.
 
-> **Status: beta (`v0.6.3`).** Milestones M0–M6 are complete — the whole
+> **Status: beta (`v0.6.4`).** Milestones M0–M6 are complete — the whole
 > money-management, reporting and automation surface runs against your own instance
 > — and M7 is most of the way there: the app is installable, passes an automated
 > accessibility audit in both themes, and ships with a bundle budget and a typed
@@ -55,23 +55,41 @@ including creating and editing transactions, works normally.
 Point it at a **throwaway** Firefly III instance — the seed destroys and
 rebuilds that ledger.
 
+**On a deployed container** (TrueNAS, compose, anywhere the image runs). The
+tools ship prebuilt, because the image has no package manager and runs as a
+user that cannot write to `/app` — `pnpm` cannot even bootstrap itself in
+there. Use `node`, not `pnpm`:
+
 ```bash
-# The URL must be the one the APP will use. When they differ — as in compose,
-# where the app reaches Firefly by service name — verify via the other.
-export FIREFLY_URL=http://firefly:8080
-export FIREFLY_PROBE_URL=http://127.0.0.1:8080
-export FIREFLY_PAT=<a personal access token on that instance>
+docker compose exec \
+  -e FIREFLY_URL=http://firefly:8080 \
+  -e FIREFLY_PAT=<token> \
+  -e DEMO_CURRENCY=EUR \
+  app node dist/demo-seed.cjs --reset
 
-pnpm demo:seed --reset   # three years of data, in DEMO_CURRENCY (default EUR)
-pnpm demo:account        # the app-side account, flagged is_demo
-
-# Then run the app with these set, and the sign-in page offers "Try the demo":
-DEMO_EMAIL=me@rezaur.xyz DEMO_PASSWORD=demo1234
+docker compose exec -e FIREFLY_URL=http://firefly:8080 -e FIREFLY_PAT=<token> \
+  app node dist/demo-account.cjs
 ```
 
-`pnpm demo:reset` does both again. `DEMO_CURRENCY` also sets the instance's
-primary currency and scales the amounts, so a BDT demo reads like a BDT
-salary rather than a converted euro one.
+`DATABASE_URL` and `APP_ENCRYPTION_KEY` are already in the container's
+environment, so the account step needs nothing else.
+
+**From a checkout**, when you can reach both Firefly and Postgres:
+
+```bash
+export FIREFLY_URL=http://firefly:8080        # as the APP will reach it
+export FIREFLY_PROBE_URL=http://127.0.0.1:8080 # as YOU reach it, if different
+export FIREFLY_PAT=<token>
+pnpm demo:seed --reset
+pnpm demo:account
+```
+
+Then set `DEMO_EMAIL` and `DEMO_PASSWORD` on the app and the sign-in page
+offers "Try the demo". Without them the demo does not exist.
+
+`DEMO_CURRENCY` also sets the instance's primary currency and scales the
+amounts, so a BDT demo reads like a BDT salary rather than a converted euro
+one — and the dashboard finds its figures, which are keyed by that currency.
 
 </details>
 

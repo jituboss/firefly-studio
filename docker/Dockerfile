@@ -68,7 +68,11 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
 # Migrations must ship with the image so the entrypoint can apply them.
 COPY --from=build --chown=nextjs:nodejs /app/drizzle ./drizzle
-COPY --from=build --chown=nextjs:nodejs /app/dist/migrate.cjs ./dist/migrate.cjs
+# The whole dist/: the migrator the entrypoint runs, and the demo tools an
+# operator runs by hand. They ship prebuilt because this image has no scripts/,
+# no TypeScript, no tsx and no usable package manager — the user it runs as
+# cannot even write to /app, so `pnpm` cannot bootstrap itself here.
+COPY --from=build --chown=nextjs:nodejs /app/dist ./dist
 COPY --chown=nextjs:nodejs docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 

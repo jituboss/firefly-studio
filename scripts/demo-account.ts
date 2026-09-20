@@ -1,29 +1,11 @@
 import 'dotenv/config';
 
-/*
- * `server/connections` and `server/firefly/probe` both import `server-only`,
- * which throws the moment it is loaded outside a React Server Component build.
- * That marker is doing its job — those modules hold the token-sealing key
- * derivation and must never reach a browser — but this is a CLI, and the
- * alternative is reimplementing the sealing here, where it would drift from
- * the real thing the first time either changed.
- *
- * So the marker is satisfied rather than bypassed: an empty module is placed
- * in the require cache before anything can pull the throwing one — and those
- * two modules are imported dynamically inside `main`, because a static import
- * is hoisted above this and would load the real one first.
- */
-require.cache[require.resolve('server-only')] = {
-  id: 'server-only',
-  filename: 'server-only',
-  loaded: true,
-  exports: {},
-} as never;
-
 import { eq } from 'drizzle-orm';
 import { db, pool } from '@/server/db';
 import { users, userPreferences } from '@/server/db/schema';
 import { hashPassword } from '@/server/auth/password';
+import { createConnection, deleteConnection, listConnections } from '@/server/connections';
+import { probeInstance, probePrimaryCurrency, probeUser } from '@/server/firefly/probe';
 
 /**
  * E2-26 — create (or repair) the shared demo account.
@@ -66,10 +48,6 @@ const FIREFLY_PAT = (process.env.FIREFLY_PAT ?? process.env.DEV_FIREFLY_PAT ?? '
 const PROBE_URL = (process.env.FIREFLY_PROBE_URL ?? FIREFLY_URL).trim().replace(/\/+$/, '');
 
 async function main() {
-  const { createConnection, deleteConnection, listConnections } =
-    await import('@/server/connections');
-  const { probeInstance, probePrimaryCurrency, probeUser } = await import('@/server/firefly/probe');
-
   if (!FIREFLY_URL || !FIREFLY_PAT) {
     throw new Error(
       'FIREFLY_URL and FIREFLY_PAT must be set (DEV_FIREFLY_URL/DEV_FIREFLY_PAT also work).',
