@@ -1,25 +1,11 @@
 'use client';
 
-import * as React from 'react';
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { bulkSetCategoryAction, type BulkCategoryState } from '@/server/firefly/category-actions';
-import { Combobox } from '@/components/ui/combobox';
-import { Button } from '@/components/ui/button';
-import { FormMessage } from '@/components/auth/form-shell';
-
-function Submit({ count }: { count: number }) {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" size="sm" disabled={pending || count === 0}>
-      {pending ? 'Applying…' : `Set category on ${count}`}
-    </Button>
-  );
-}
+import { bulkSetCategoryAction } from '@/server/firefly/category-actions';
+import { BulkAssignToolbar } from '@/components/bulk-assign-toolbar';
 
 /**
  * E7-04 — sticky bulk-action bar: pick a category and apply it to every
- * selected transaction group.
+ * selected transaction group. Thin wrapper over the shared BulkAssignToolbar.
  */
 export function BulkToolbar({
   selectedIds,
@@ -28,48 +14,15 @@ export function BulkToolbar({
   selectedIds: string[];
   onSuccess?: () => void;
 }) {
-  const [category, setCategory] = React.useState('');
-  const [state, action] = useActionState<BulkCategoryState, FormData>(bulkSetCategoryAction, {});
-
-  const onSuccessRef = React.useRef(onSuccess);
-  React.useEffect(() => {
-    onSuccessRef.current = onSuccess;
-  });
-
-  React.useEffect(() => {
-    if (state.ok) {
-      setCategory('');
-      onSuccessRef.current?.();
-    }
-  }, [state]);
-
-  const formAction = (formData: FormData) => {
-    formData.set('category_name', category);
-    action(formData);
-  };
-
-  const count = selectedIds.length;
-
   return (
-    <form action={formAction} className="bg-muted/50 sticky top-14 z-10 rounded-lg border p-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-[12rem] flex-1">
-          <Combobox
-            id="bulk-category"
-            endpoint="categories"
-            value={category}
-            onChange={setCategory}
-            placeholder="Pick or type a category…"
-            allowFreeText
-          />
-        </div>
-        <Submit count={count} />
-        {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
-      </div>
-      <input type="hidden" name="category_name" value={category} />
-      {selectedIds.map((id) => (
-        <input key={id} type="hidden" name="ids" value={id} />
-      ))}
-    </form>
+    <BulkAssignToolbar
+      action={bulkSetCategoryAction}
+      endpoint="categories"
+      valueName="category_name"
+      applyLabel="Set category on"
+      placeholder="Pick or type a category…"
+      selectedIds={selectedIds}
+      onSuccess={onSuccess}
+    />
   );
 }

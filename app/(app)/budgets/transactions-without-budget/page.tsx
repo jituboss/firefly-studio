@@ -6,11 +6,10 @@ import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getTransactionsWithoutBudget } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
-import { formatDate } from '@/lib/date';
-import { Amount } from '@/components/ui/amount';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Pagination } from '@/app/(app)/transactions/pagination';
+import { WithoutBudgetClient } from './client';
 
 export const metadata: Metadata = { title: 'Transactions without budget' };
 
@@ -70,43 +69,7 @@ export default async function TransactionsWithoutBudgetPage({
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <ul className="divide-border divide-y">
-              {result.data.map((group) => {
-                const split = group.attributes.transactions[0];
-                if (!split) return null;
-                const outgoing = split.type === 'withdrawal';
-                return (
-                  <li key={group.id}>
-                    <Link
-                      href={`/transactions/${group.id}`}
-                      className="hover:bg-accent/50 flex items-center justify-between gap-3 px-4 py-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{split.description}</p>
-                        <p className="text-muted-foreground truncate text-xs">
-                          {formatDate(split.date.slice(0, 10), {
-                            timezone: session.user.timezone,
-                          })}
-                          {split.budget_name ? ` · ${split.budget_name}` : ''}
-                        </p>
-                      </div>
-                      <Amount
-                        value={outgoing ? `-${split.amount}` : split.amount}
-                        currency={split.currency_code}
-                        decimalPlaces={split.currency_decimal_places}
-                        tone={
-                          outgoing ? 'expense' : split.type === 'deposit' ? 'income' : 'neutral'
-                        }
-                      />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-        </Card>
+        <WithoutBudgetClient transactions={result.data} timezone={session.user.timezone} />
       )}
 
       {pagination && pagination.total_pages > 1 ? (

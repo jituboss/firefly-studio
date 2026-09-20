@@ -10,6 +10,13 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+### Added
+
+- Transactions without budget: select withdrawals and assign a budget to
+  all of them in one action, with the same sticky bulk toolbar as the
+  uncategorised inbox. The toolbar is now a shared component both pages
+  use.
+
 ## [0.5.0] - 2026-09-20
 
 **A licence, a hardening pass, and the app's own preferences.** Firefly Studio

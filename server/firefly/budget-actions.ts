@@ -153,3 +153,38 @@ export async function deleteBudgetLimitAction(formData: FormData): Promise<void>
   await fireflyWrite(`/v1/budgets/${budgetId}/limits/${limitId}`, 'DELETE');
   revalidatePath(`/budgets/${budgetId}`);
 }
+
+export interface BulkBudgetState {
+  error?: string;
+  ok?: boolean;
+}
+
+/** E6-05 — bulk-assign a budget to selected transactions from the without-budget page. */
+export async function bulkSetBudgetAction(
+  _prev: BulkBudgetState,
+  formData: FormData,
+): Promise<BulkBudgetState> {
+  const budgetName = String(formData.get('budget_name') ?? '').trim();
+  const ids = formData.getAll('ids').map(String).filter(Boolean);
+  if (!budgetName) return { error: 'Pick or type a budget.' };
+  if (ids.length === 0) return { error: 'Select at least one transaction.' };
+
+  try {
+    await Promise.all(
+      ids.map((id) =>
+        fireflyWrite(`/v1/transactions/${id}`, 'PUT', {
+          transactions: [{ budget_name: budgetName }],
+        }),
+      ),
+    );
+  } catch (error) {
+    if (error instanceof FireflyRequestError) return { error: error.message };
+    throw error;
+  }
+
+  revalidatePath('/budgets/transactions-without-budget');
+  revalidatePath('/budgets');
+  revalidatePath('/transactions');
+  revalidatePath('/dashboard');
+  return { ok: true };
+}
