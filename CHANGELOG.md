@@ -10,6 +10,74 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-20
+
+**A licence, a hardening pass, and the app's own preferences.** Firefly Studio
+is now AGPL-3.0-or-later — until this release there was no `LICENSE` file at
+all, which legally meant all rights reserved for an image anyone could pull.
+Alongside it: a Content-Security-Policy, CSRF protection on the write
+endpoints, a test suite for the SSRF guard, a preferences page, and an
+accessibility gate the whole app now passes.
+
+Upgrading from `0.4.x` needs no action. The container applies its own
+migrations on boot, and no configuration changed.
+
+### Added
+
+- **A licence.** [AGPL-3.0-or-later](LICENSE), matching Firefly III. The
+  practical consequence: run a modified copy for other people and you owe them
+  its source. Run it unmodified, for yourself or inside your organisation, and
+  you owe nothing. The sidebar now links to the source, which is what §13 of
+  that licence expects a networked app to do.
+- **Preferences** (Settings → Preferences). Theme, regional format, row
+  density, which page signing in opens, whether balances start hidden, and a
+  reduce-motion switch for devices whose system has no such setting. These
+  follow your account rather than the browser, so they apply wherever you sign
+  in.
+- **A Content-Security-Policy** with a per-request nonce, alongside the HSTS,
+  `frame-ancestors 'none'`, COOP/CORP and `nosniff` headers already in place.
+- **CSRF protection** on the endpoints that write, as a second control beside
+  the `SameSite=Lax` session cookie.
+- **[docs/SECURITY.md](docs/SECURITY.md)** — how to report a vulnerability
+  privately, what is in scope, and the hardening that has **not** been done
+  yet, named item by item. Worth reading before you expose this to a network
+  you do not control.
+- **An accessibility gate.** `pnpm check:a11y` runs axe-core over 19 routes in
+  both light and dark, and fails on any WCAG 2.1 A/AA violation. The app
+  currently has none.
+- **Text alternatives for every chart.** Each one now announces a one-line
+  summary and carries the figures it draws as a table for screen readers,
+  instead of being an unlabelled picture.
+
+### Fixed
+
+- **The number format you chose during setup had never done anything.** The
+  wizard stored it in one place and every page that formats a date or a figure
+  read another, which nothing ever wrote. Both are now the same value, and it
+  is editable in Preferences.
+- **The command palette could not be closed with a keyboard.** It showed an
+  "ESC" hint that was connected to nothing, so the only way out was clicking
+  the backdrop — no way out at all if you were not using a mouse. Escape now
+  closes it and returns focus where it was.
+- **A Firefly instance at an IPv6 address reported the wrong error.** The
+  address guard did not recognise a bracketed IPv6 literal, so it fell through
+  to a DNS lookup and told you the host could not be resolved, for an address
+  it had actually decided to refuse.
+- **Colour contrast in two places.** Amounts printed on the busiest cell of a
+  report heat grid, and the coloured badges throughout the app, both fell below
+  the 4.5:1 minimum in one theme or the other.
+- **Balances no longer flash before being hidden.** The hide-balances
+  preference is applied while the page is rendered rather than by the browser a
+  frame later.
+
+### Changed
+
+- **The README** is a project front page rather than a status note. It had
+  described the project as `v0.2.0-alpha.1` with automation "not started",
+  which stopped being true six releases ago.
+- Signing in takes you to your chosen landing page instead of always the
+  dashboard.
+
 ## [0.4.5] - 2026-09-19
 
 ### Fixed
@@ -381,7 +449,11 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.4.2...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.5.0
+[0.4.5]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.5
+[0.4.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.4
+[0.4.3]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.3
 [0.4.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.2
 [0.4.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.1
 [0.4.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.0
