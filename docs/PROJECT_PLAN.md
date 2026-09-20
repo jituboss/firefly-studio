@@ -706,7 +706,7 @@ working, because Firefly fires them, not us.
 - [ ] **E25-05** `P1` `2d` User documentation: install, configure, onboarding walkthrough with screenshots, troubleshooting
 - [ ] **E25-06** `P1` `1d` Release automation: changesets, semantic version, GHCR image, signed tags
 - [ ] **E25-07** `P2` `1d` One-click deploy templates (Vercel + Neon, Railway, Coolify)
-- [ ] **E25-08** `P1` `0.5d` `LICENSE` (AGPL-compatible — note Firefly III is AGPLv3) and attribution
+- [x] **E25-08** `P1` `0.5d` `LICENSE` (AGPL-compatible — note Firefly III is AGPLv3) and attribution — AGPL-3.0-or-later, verbatim from gnu.org; `package.json` carries the SPDX id, and the README states the §13 network-use consequence plainly rather than only naming the licence
 
 ---
 
@@ -748,8 +748,11 @@ working, because Firefly fires them, not us.
 - [ ] **Q3** Is Firefly OAuth2 (E2-12) needed for v1, or is PAT sufficient? PAT is simpler and covers self-hosters.
 - [ ] **Q4** Email delivery provider for verification and scheduled reports — Resend, SES, or bring-your-own SMTP?
 - [ ] **Q5** Do we ship a hosted demo instance for evaluation (E2-26)?
-- [ ] **Q6** Licence — AGPLv3 to match Firefly III, or something more permissive? (We only consume its API, so we are
-      not obliged to match, but it is a community signal.)
+- [x] **Q6** Licence — **answered 2026-09-20: AGPL-3.0-or-later**, matching Firefly III. `LICENSE` is committed and
+      `package.json` declares the SPDX id. We are not obliged to match — this client only consumes Firefly's REST API —
+      but AGPL is the one common licence that binds _network_ use, which is the only way this app is ever used: a
+      modified copy offered to other people over a network has to offer them its source (§13). Copyright stays with the
+      author, so dual-licensing or a commercial hosted offering remains possible. E25-08 is closed by this.
 
 ---
 
