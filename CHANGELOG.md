@@ -10,6 +10,8 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-20
+
 ### Added
 
 - Transactions without budget: select withdrawals and assign a budget to
