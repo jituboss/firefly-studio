@@ -9,6 +9,7 @@ import { getAvailableBudgets } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { formatDate } from '@/lib/date';
 import { Amount } from '@/components/ui/amount';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -332,19 +333,13 @@ function EnvelopeRow({ item, timezone }: { item: AvailableBudget; timezone: stri
         </div>
       </div>
       <div className="mt-2 flex items-center gap-2">
-        <div
-          className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full"
-          role="progressbar"
-          aria-valuenow={Math.min(100, percentUsed)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Envelope usage"
-        >
-          <div
-            className={overBudget ? 'bg-expense h-full' : 'bg-primary h-full'}
-            style={{ width: `${Math.min(100, percentUsed)}%` }}
-          />
-        </div>
+        <ProgressBar
+          value={percentUsed}
+          over={overBudget}
+          size="sm"
+          className="flex-1"
+          label="Envelope usage"
+        />
         <Amount value={amount} currency={currency} size="sm" tone="neutral" showSign={false} />
       </div>
     </li>

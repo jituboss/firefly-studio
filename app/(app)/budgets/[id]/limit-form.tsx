@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import { Plus } from 'lucide-react';
 import { saveBudgetLimitAction, type BudgetFormState } from '@/server/firefly/budget-actions';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
 import { FormMessage } from '@/components/auth/form-shell';
 
@@ -73,10 +74,9 @@ export function LimitForm({
           <Label htmlFor={`amount-${limit?.id ?? 'new'}`} className="text-xs">
             Amount
           </Label>
-          <Input
+          <CurrencyInput
             id={`amount-${limit?.id ?? 'new'}`}
             name="amount"
-            inputMode="decimal"
             required
             defaultValue={limit?.amount}
           />

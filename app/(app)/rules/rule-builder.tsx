@@ -20,6 +20,7 @@ import {
   type Keyword,
 } from '@/lib/rule-vocabulary';
 import { Input, Label } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
@@ -66,7 +67,7 @@ function KeywordSelect({
   onChange: (next: string) => void;
 }) {
   return (
-    <select
+    <Select
       name={name}
       value={value}
       onChange={(event) => onChange(event.target.value)}
@@ -81,7 +82,7 @@ function KeywordSelect({
           ))}
         </optgroup>
       ))}
-    </select>
+    </Select>
   );
 }
 
@@ -121,7 +122,7 @@ function RowEditor({
         <div className="min-w-0 flex-1 basis-48">
           {wantsValue ? (
             keyword?.kind === 'transaction-type' ? (
-              <select
+              <Select
                 name={`${base}[value]`}
                 value={row.value || TRANSACTION_TYPES[0]}
                 onChange={(event) => onChange({ ...row, value: event.target.value })}
@@ -132,7 +133,7 @@ function RowEditor({
                     {type}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : (
               <Input
                 name={`${base}[value]`}
@@ -271,7 +272,7 @@ export function RuleBuilder({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="rule_group_id">Group</Label>
-              <select
+              <Select
                 id="rule_group_id"
                 name="rule_group_id"
                 defaultValue={rule?.attributes.rule_group_id ?? defaultGroupId ?? groups[0]?.id}
@@ -282,12 +283,12 @@ export function RuleBuilder({
                     {group.attributes.title}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="trigger">Run it</Label>
-              <select
+              <Select
                 id="trigger"
                 name="trigger"
                 defaultValue={rule?.attributes.trigger ?? 'store-journal'}
@@ -298,7 +299,7 @@ export function RuleBuilder({
                     {mode.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         </CardContent>

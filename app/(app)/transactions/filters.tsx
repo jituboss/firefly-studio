@@ -4,6 +4,7 @@ import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { SearchBar } from './search-bar';
 
 /** E5-02 / E5-03 — filters, all URL-synced so the view is shareable. */
@@ -44,33 +45,34 @@ export function TransactionFilters({
       <label className="sr-only" htmlFor="type-filter">
         Transaction type
       </label>
-      <select
+      <Select
         id="type-filter"
         value={type}
         disabled={pending}
         onChange={(event) =>
           update({ type: event.target.value === 'all' ? null : event.target.value })
         }
-        className="border-input bg-background h-9 rounded-md border px-2 text-sm disabled:opacity-60"
+        className="disabled:opacity-60"
+        containerClassName="w-auto"
       >
         <option value="all">All types</option>
         <option value="withdrawal">Withdrawals</option>
         <option value="deposit">Deposits</option>
         <option value="transfer">Transfers</option>
-      </select>
+      </Select>
 
       <label className="sr-only" htmlFor="density">
         Row density
       </label>
-      <select
+      <Select
         id="density"
         defaultValue={params.get('density') ?? 'comfortable'}
         onChange={(event) => update({ density: event.target.value })}
-        className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+        containerClassName="w-auto"
       >
         <option value="comfortable">Comfortable</option>
         <option value="compact">Compact</option>
-      </select>
+      </Select>
 
       {scopeLabel ? (
         <span className="bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs">

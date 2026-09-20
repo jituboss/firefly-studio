@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Check, Download, Eye, FileText, Pencil, Search, Trash2, X } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
@@ -167,11 +169,11 @@ export function AttachmentManager({
         <label className="sr-only" htmlFor="model-filter">
           Filter by what it is attached to
         </label>
-        <select
+        <Select
           id="model-filter"
           value={model}
           onChange={(event) => setModel(event.target.value)}
-          className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+          containerClassName="w-auto"
         >
           <option value="all">Everything</option>
           {models.map((entry) => (
@@ -179,7 +181,7 @@ export function AttachmentManager({
               {modelLabel(entry)}
             </option>
           ))}
-        </select>
+        </Select>
 
         <span className="text-muted-foreground text-xs">
           {visible.length} of {total}
@@ -282,20 +284,19 @@ export function AttachmentManager({
                         <Pencil className="size-4" />
                       </Button>
 
-                      <form
-                        action={deleteAction}
-                        onSubmit={(event) => {
-                          if (
-                            !confirm(`Delete ${row.title || row.filename}? This cannot be undone.`)
-                          ) {
-                            event.preventDefault();
-                          }
-                        }}
-                      >
+                      <form action={deleteAction}>
                         <input type="hidden" name="id" value={row.id} />
-                        <SubmitIcon label={`Delete ${row.filename}`} destructive>
+                        <ConfirmButton
+                          message={`Delete ${row.title || row.filename}? This cannot be undone.`}
+                          title="Delete attachment"
+                          confirmLabel="Delete"
+                          variant="ghost"
+                          size="icon"
+                          className="text-expense"
+                          aria-label={`Delete ${row.filename}`}
+                        >
                           <Trash2 className="size-4" />
-                        </SubmitIcon>
+                        </ConfirmButton>
                       </form>
                     </div>
                   )}

@@ -9,6 +9,7 @@ import { formatDate, parseFireflyDate, now, differenceInCalendarDays } from '@/l
 import type { PiggyBank } from '@/server/firefly/types';
 import { isNegative } from '@/lib/money';
 import { Amount } from '@/components/ui/amount';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { PiggyForm } from '../piggy-form';
@@ -102,16 +103,7 @@ export default async function PiggyBankDetailPage({
             />
             <span className="text-muted-foreground tabular text-sm">{percent.toFixed(0)}%</span>
           </div>
-          <div
-            className="bg-muted h-2 overflow-hidden rounded-full"
-            role="progressbar"
-            aria-valuenow={percent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`${a.name} savings progress`}
-          >
-            <div className="bg-income h-full rounded-full" style={{ width: `${percent}%` }} />
-          </div>
+          <ProgressBar value={percent} tone="income" label={`${a.name} savings progress`} />
           <div className="text-muted-foreground flex flex-wrap justify-between gap-2 text-sm">
             <span>
               Target:{' '}

@@ -5,6 +5,7 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/input';
 import { FormMessage } from '@/components/auth/form-shell';
 import {
@@ -15,8 +16,6 @@ import {
   type AppPreferences,
 } from '@/lib/preferences';
 import { savePreferencesAction, type PreferencesState } from '@/server/preferences-actions';
-
-const selectClass = 'border-input bg-background h-9 w-full rounded-md border px-3 text-sm';
 
 function SaveButton() {
   const { pending } = useFormStatus();
@@ -92,67 +91,50 @@ export function PreferencesForm({ preferences }: { preferences: AppPreferences }
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Theme" hint="Applies on every device you sign in on.">
           <Label htmlFor="theme">Theme</Label>
-          <select
-            id="theme"
-            name="theme"
-            defaultValue={preferences.theme}
-            onChange={syncTheme}
-            className={selectClass}
-          >
+          <Select id="theme" name="theme" defaultValue={preferences.theme} onChange={syncTheme}>
             {THEMES.map((theme) => (
               <option key={theme} value={theme}>
                 {theme === 'system' ? 'Match my system' : theme === 'light' ? 'Light' : 'Dark'}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field label="Regional format" hint="How dates and chart labels are written.">
           <Label htmlFor="locale">Regional format</Label>
-          <select
-            id="locale"
-            name="locale"
-            defaultValue={preferences.locale}
-            className={selectClass}
-          >
+          <Select id="locale" name="locale" defaultValue={preferences.locale}>
             {REGIONAL_FORMATS.map((entry) => (
               <option key={entry.value} value={entry.value}>
                 {entry.label}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field label="Row density" hint="How tightly the transaction list packs its rows.">
           <Label htmlFor="density">Row density</Label>
-          <select
-            id="density"
-            name="density"
-            defaultValue={preferences.density}
-            className={selectClass}
-          >
+          <Select id="density" name="density" defaultValue={preferences.density}>
             {DENSITIES.map((density) => (
               <option key={density} value={density}>
                 {density === 'comfortable' ? 'Comfortable' : 'Compact'}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field label="Landing page" hint="Where signing in takes you.">
           <Label htmlFor="defaultLandingPage">Open on sign-in</Label>
-          <select
+          <Select
             id="defaultLandingPage"
             name="defaultLandingPage"
             defaultValue={preferences.defaultLandingPage}
-            className={selectClass}
           >
             {LANDING_PAGES.map((page) => (
               <option key={page.value} value={page.value}>
                 {page.label}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       </div>
 

@@ -1,0 +1,52 @@
+# E23-06 — dependency updates, opened as pull requests so they go through the
+# same gate as anything else: format, lint, typecheck, tests, migrations, build.
+#
+# Weekly rather than daily. This is a single-maintainer project, and a queue of
+# pull requests nobody has time to read is not security, it is noise that
+# teaches you to ignore the thing that matters.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # One pull request for the routine churn, so the interesting ones stand
+    # out. Security updates are never grouped — see below.
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: ['minor', 'patch']
+      production-minor:
+        dependency-type: production
+        update-types: ['minor', 'patch']
+    ignore:
+      # Next.js majors change the App Router's contracts; those are a deliberate
+      # piece of work, not a dependency bump to merge on a Monday.
+      - dependency-name: next
+        update-types: ['version-update:semver-major']
+      - dependency-name: react
+        update-types: ['version-update:semver-major']
+      - dependency-name: react-dom
+        update-types: ['version-update:semver-major']
+    labels: ['dependencies']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: ['dependencies', 'ci']
+
+  # The base image in docker/Dockerfile. Its OS packages are the half of the
+  # dependency surface that `pnpm audit` cannot see.
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: ['dependencies', 'docker']

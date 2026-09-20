@@ -1,19 +1,8 @@
 'use client';
 
-import { useFormStatus } from 'react-dom';
 import { Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import { deleteRuleGroupAction } from '@/server/firefly/rule-actions';
-import { Button } from '@/components/ui/button';
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="destructive" size="sm" disabled={pending}>
-      <Trash2 className="size-4" aria-hidden="true" />
-      {pending ? 'Deleting…' : 'Delete group'}
-    </Button>
-  );
-}
 
 export function DeleteRuleGroupButton({
   id,
@@ -25,18 +14,20 @@ export function DeleteRuleGroupButton({
   count: number;
 }) {
   return (
-    <form
-      action={deleteRuleGroupAction}
-      onSubmit={(event) => {
-        const warning =
+    <form action={deleteRuleGroupAction}>
+      <input type="hidden" name="id" value={id} />
+      <ConfirmButton
+        message={
           count > 0
             ? `Delete "${title}" and the ${count} rule${count === 1 ? '' : 's'} inside it?`
-            : `Delete "${title}"?`;
-        if (!confirm(warning)) event.preventDefault();
-      }}
-    >
-      <input type="hidden" name="id" value={id} />
-      <Submit />
+            : `Delete "${title}"?`
+        }
+        confirmLabel="Delete group"
+        pendingLabel="Deleting…"
+      >
+        <Trash2 className="size-4" aria-hidden="true" />
+        Delete group
+      </ConfirmButton>
     </form>
   );
 }

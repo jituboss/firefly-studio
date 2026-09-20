@@ -284,9 +284,20 @@
       'lnum' 1;
   }
 
-  /* E3-14 — privacy toggle. */
-  [data-hide-balances='true'] [data-slot='amount'],
-  [data-hide-balances='true'] .tabular {
+  /*
+   * E3-14 — privacy toggle. Amounts only.
+   *
+   * `.tabular` used to be in this selector too, which was wrong twice over. It
+   * is a TYPOGRAPHY class (tabular numerals), so it also sits on dates,
+   * percentages, row counts, the bulk-selection badge and the inputs you type
+   * a two-factor code or an amount into — all blurred by a toggle called "hide
+   * balances". The transactions-without-budget list was the worst of it: its
+   * entire date column came out frosted. And it was carrying real weight in
+   * exactly one place, the balance-chart legend, which formatted money by hand
+   * instead of rendering <Amount>; that one now sets `data-slot="amount"`, so
+   * nothing lost cover.
+   */
+  [data-hide-balances='true'] [data-slot='amount'] {
     @apply blur-[6px] select-none;
     transition: filter 150ms ease-out;
   }

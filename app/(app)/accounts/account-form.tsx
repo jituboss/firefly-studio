@@ -8,13 +8,12 @@ import {
   type AccountFormState,
 } from '@/server/firefly/account-actions';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
 import type { Account } from '@/server/firefly/types';
-
-const SELECT =
-  'border-input bg-background h-9 w-full rounded-md border px-3 text-sm disabled:opacity-60';
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -52,19 +51,18 @@ export function AccountForm({ account }: { account?: Account }) {
 
             <div className="space-y-1.5">
               <Label htmlFor="type">Type</Label>
-              <select
+              <Select
                 id="type"
                 name="type"
                 value={type}
                 disabled={editing}
                 onChange={(event) => setType(event.target.value as typeof type)}
-                className={SELECT}
               >
                 <option value="asset">Asset</option>
                 <option value="expense">Expense</option>
                 <option value="revenue">Revenue</option>
                 <option value="liabilities">Liability</option>
-              </select>
+              </Select>
               {editing ? (
                 <p className="text-muted-foreground text-xs">
                   Firefly III does not allow changing an account&apos;s type.
@@ -75,19 +73,18 @@ export function AccountForm({ account }: { account?: Account }) {
             {type === 'asset' ? (
               <div className="space-y-1.5">
                 <Label htmlFor="account_role">Role</Label>
-                <select
+                <Select
                   id="account_role"
                   name="account_role"
                   value={role}
                   onChange={(event) => setRole(event.target.value)}
-                  className={SELECT}
                 >
                   <option value="defaultAsset">Default asset</option>
                   <option value="sharedAsset">Shared asset</option>
                   <option value="savingAsset">Savings</option>
                   <option value="ccAsset">Credit card</option>
                   <option value="cashWalletAsset">Cash wallet</option>
-                </select>
+                </Select>
               </div>
             ) : null}
 
@@ -108,14 +105,9 @@ export function AccountForm({ account }: { account?: Account }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="credit_card_type">Credit card type</Label>
-                <select
-                  id="credit_card_type"
-                  name="credit_card_type"
-                  defaultValue="monthlyFull"
-                  className={SELECT}
-                >
+                <Select id="credit_card_type" name="credit_card_type" defaultValue="monthlyFull">
                   <option value="monthlyFull">Paid in full monthly</option>
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="monthly_payment_date">Monthly payment date</Label>
@@ -131,12 +123,7 @@ export function AccountForm({ account }: { account?: Account }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="opening_balance">Opening balance</Label>
-                <Input
-                  id="opening_balance"
-                  name="opening_balance"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                />
+                <CurrencyInput id="opening_balance" name="opening_balance" placeholder="0.00" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="opening_balance_date">Opening balance date</Label>
@@ -168,28 +155,26 @@ export function AccountForm({ account }: { account?: Account }) {
             <div className="grid gap-4 sm:grid-cols-4">
               <div className="space-y-1.5">
                 <Label htmlFor="liability_type">Liability type</Label>
-                <select
+                <Select
                   id="liability_type"
                   name="liability_type"
                   defaultValue={a?.liability_type ?? 'loan'}
-                  className={SELECT}
                 >
                   <option value="loan">Loan</option>
                   <option value="debt">Debt</option>
                   <option value="mortgage">Mortgage</option>
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="liability_direction">Direction</Label>
-                <select
+                <Select
                   id="liability_direction"
                   name="liability_direction"
                   defaultValue={a?.liability_direction ?? 'credit'}
-                  className={SELECT}
                 >
                   <option value="credit">I owe it</option>
                   <option value="debit">I am owed</option>
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="interest">Interest %</Label>
@@ -202,16 +187,15 @@ export function AccountForm({ account }: { account?: Account }) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="interest_period">Period</Label>
-                <select
+                <Select
                   id="interest_period"
                   name="interest_period"
                   defaultValue={a?.interest_period ?? 'monthly'}
-                  className={SELECT}
                 >
                   <option value="daily">Daily</option>
                   <option value="monthly">Monthly</option>
                   <option value="yearly">Yearly</option>
-                </select>
+                </Select>
               </div>
             </div>
           ) : null}

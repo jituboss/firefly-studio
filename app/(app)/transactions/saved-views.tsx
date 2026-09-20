@@ -9,6 +9,7 @@ import {
   type SavedViewState,
 } from '@/server/saved-views-actions';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { FormMessage } from '@/components/auth/form-shell';
 import type { savedViews } from '@/server/db/schema';
@@ -110,7 +111,7 @@ export function SavedViews({
       )}
 
       {others.length > 0 || pinned.length > 0 ? (
-        <select
+        <Select
           aria-label="Load saved view"
           value=""
           onChange={(e) => {
@@ -125,7 +126,7 @@ export function SavedViews({
               {view.name}
             </option>
           ))}
-        </select>
+        </Select>
       ) : null}
 
       {views.length > 0 ? <DeleteViewMenu views={views} /> : null}
@@ -138,7 +139,7 @@ function DeleteViewMenu({ views }: { views: SavedView[] }) {
 
   return (
     <form action={action} className="flex items-center gap-2">
-      <select
+      <Select
         name="id"
         aria-label="Delete saved view"
         defaultValue=""
@@ -153,7 +154,7 @@ function DeleteViewMenu({ views }: { views: SavedView[] }) {
             {view.name}
           </option>
         ))}
-      </select>
+      </Select>
       <Button type="submit" variant="ghost" size="icon" className="text-expense h-8 w-8">
         <Trash2 className="size-4" aria-hidden="true" />
       </Button>

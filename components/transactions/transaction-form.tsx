@@ -11,6 +11,7 @@ import {
   type TransactionFormState,
 } from '@/server/firefly/transaction-actions';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
@@ -221,11 +222,10 @@ export function TransactionForm({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor={`amount-${index}`}>Amount</Label>
-                <Input
+                <CurrencyInput
                   id={`amount-${index}`}
                   name={`splits[${index}][amount]`}
                   required
-                  inputMode="decimal"
                   placeholder="0.00"
                   value={split.amount}
                   onChange={(event) => patch(index, { amount: event.target.value })}
@@ -333,10 +333,9 @@ export function TransactionForm({
               <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
                 <div className="space-y-1.5">
                   <Label htmlFor={`famount-${index}`}>Foreign amount</Label>
-                  <Input
+                  <CurrencyInput
                     id={`famount-${index}`}
                     name={`splits[${index}][foreign_amount]`}
-                    inputMode="decimal"
                     value={split.foreign_amount}
                     onChange={(event) => patch(index, { foreign_amount: event.target.value })}
                   />

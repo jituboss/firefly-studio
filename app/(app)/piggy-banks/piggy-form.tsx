@@ -8,6 +8,7 @@ import {
   type PiggyFormState,
 } from '@/server/firefly/piggybank-actions';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
@@ -81,11 +82,10 @@ export function PiggyForm({
 
           <div className="space-y-1.5">
             <Label htmlFor="target_amount">Target amount</Label>
-            <Input
+            <CurrencyInput
               id="target_amount"
               name="target_amount"
               required
-              inputMode="decimal"
               defaultValue={a?.target_amount ?? ''}
             />
           </div>

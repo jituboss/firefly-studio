@@ -3,7 +3,8 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { adjustPiggyBankAction, type PiggyFormState } from '@/server/firefly/piggybank-actions';
-import { Input, Label } from '@/components/ui/input';
+import { Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
 import { FormMessage } from '@/components/auth/form-shell';
 
@@ -46,11 +47,10 @@ export function AdjustForm({ piggyId, accountId }: { piggyId: string; accountId:
             <Label htmlFor="add-amount" className="text-xs">
               Amount to add
             </Label>
-            <Input
+            <CurrencyInput
               id="add-amount"
               name="amount"
               required
-              inputMode="decimal"
               placeholder="0.00"
               className="w-32"
             />
@@ -66,11 +66,10 @@ export function AdjustForm({ piggyId, accountId }: { piggyId: string; accountId:
             <Label htmlFor="remove-amount" className="text-xs">
               Amount to remove
             </Label>
-            <Input
+            <CurrencyInput
               id="remove-amount"
               name="amount"
               required
-              inputMode="decimal"
               placeholder="0.00"
               className="w-32"
             />

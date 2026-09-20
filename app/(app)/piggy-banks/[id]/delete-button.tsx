@@ -1,30 +1,21 @@
 'use client';
 
-import { useFormStatus } from 'react-dom';
 import { Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import { deletePiggyBankAction } from '@/server/firefly/piggybank-actions';
-import { Button } from '@/components/ui/button';
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="destructive" size="sm" disabled={pending}>
-      <Trash2 className="size-4" aria-hidden="true" />
-      {pending ? 'Deleting…' : 'Delete piggy bank'}
-    </Button>
-  );
-}
 
 export function DeletePiggyButton({ id, name }: { id: string; name: string }) {
   return (
-    <form
-      action={deletePiggyBankAction}
-      onSubmit={(event) => {
-        if (!confirm(`Delete "${name}"? This cannot be undone.`)) event.preventDefault();
-      }}
-    >
+    <form action={deletePiggyBankAction}>
       <input type="hidden" name="id" value={id} />
-      <Submit />
+      <ConfirmButton
+        message={`Delete "${name}"? This cannot be undone.`}
+        confirmLabel="Delete piggy bank"
+        pendingLabel="Deleting…"
+      >
+        <Trash2 className="size-4" aria-hidden="true" />
+        Delete piggy bank
+      </ConfirmButton>
     </form>
   );
 }

@@ -10,6 +10,81 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-20
+
+**Installable, and considerably more honest.** Firefly Studio can now be
+installed as an app, tells you when it cannot reach your ledger instead of
+pretending there is nothing in it, and asks before it deletes anything in its
+own voice rather than the browser's. Several figures that were quietly wrong
+are now right.
+
+Upgrading from `0.5.x` needs no action. The container applies its own
+migrations on boot, and no configuration changed.
+
+### Added
+
+- **Install it like an app.** A web manifest and a service worker: Firefly
+  Studio can be added to a phone's home screen or installed on a desktop, where
+  it runs without browser chrome. Offline, it shows a proper offline page
+  rather than a browser error.
+- **Nothing of yours is cached.** The offline support deliberately stores only
+  the app's own files — never your balances, transactions or any page that
+  needed a login. A cached dashboard would outlive signing out and be readable
+  by the next person to open the laptop. Signing out clears the cache anyway.
+- **Pages tell you what went wrong, and what to do.** Nine kinds of failure,
+  each with its own explanation and its own next step: an unreachable instance
+  offers a retry, a revoked token offers to reconnect, a rate limit tells you
+  to wait. "Something went wrong. Try again." is the right answer to none of
+  those.
+- **Empty lists explain themselves** and offer the one action that fills them,
+  instead of a bare "No budgets yet."
+- **Faster navigation.** Pages now show their layout immediately on click
+  rather than waiting for the server, and the app prefetches where you are
+  likely to go next — without touching your Firefly instance to do it.
+
+### Fixed
+
+- **The dashboard reported spending backwards.** A period where your spending
+  had fallen showed "Spent ↑ 48.7%" in green: the arrow said one thing, the
+  colour another, and your ledger a third. Every comparison tile now states the
+  direction and the judgement correctly, and spending less is no longer
+  reported as spending more.
+- **"Transactions without budget" was unusable on a phone.** The description
+  ran straight through the amount, and every date in the list was blurred by
+  the hide-balances setting — dates are not balances. Both fixed.
+- **Hide balances stopped hiding the wrong things.** It was blurring dates,
+  percentages, row counts, the number of selected transactions, and the box you
+  type a two-factor code into. It now blurs amounts, which is what it is for.
+- **Confirmation dialogs are part of the app now.** The nineteen "are you
+  sure?" prompts were the browser's own, which in an installed app look like
+  something else entirely is asking. They are dialogs in the app's voice, and
+  they can be dismissed with Escape.
+- **The command palette could not be closed with a keyboard.** It showed an
+  "ESC" hint that had never been connected to anything.
+- **Contrast fixes** in the report heat grid, on coloured badges, and on the
+  warning badge that appears when a connection is unhealthy — all of which
+  failed the 4.5:1 minimum in one theme or the other.
+- **Progress bars no longer paint outside their own track** when a budget is
+  over 100% — one envelope in testing was at 824%.
+- **A Firefly instance at an IPv6 address** reported "could not resolve"
+  instead of the real reason.
+
+### Changed
+
+- Amount fields across the app now share one control: they refuse to be
+  changed by a stray scroll wheel, keep their digits aligned, and never turn a
+  typed comma into a silently empty value.
+- Every chart draws from one shared theme, so tooltips, axes and series colours
+  are identical everywhere and correct in both light and dark.
+- Every dropdown is the same control, which on a phone means the native picker
+  rather than a list pinned to the top of the screen.
+
+### Security
+
+- Dependency and secret scanning now run on every push, and the coverage gate
+  rose from 70% to 80% and grew to cover the proxy allowlist, the cache
+  invalidation, the SSRF guard and the CSRF check.
+
 ## [0.5.1] - 2026-09-20
 
 ### Added
@@ -458,7 +533,9 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.5.0...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.0
+[0.5.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.5.1
 [0.5.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.5.0
 [0.4.5]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.5
 [0.4.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.4.4

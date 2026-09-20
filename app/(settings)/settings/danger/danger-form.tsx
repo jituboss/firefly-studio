@@ -1,11 +1,11 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import { destroyDataAction, type DestroyState } from '@/server/firefly/data-actions';
 import { Input, Label } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
 
@@ -13,15 +13,6 @@ interface Option {
   value: string;
   label: string;
   hint: string;
-}
-
-function Submit({ enabled }: { enabled: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="destructive" disabled={pending || !enabled}>
-      {pending ? 'Deleting…' : 'Delete permanently'}
-    </Button>
-  );
 }
 
 /** E19-03 — pick, type the phrase, confirm. */
@@ -36,15 +27,7 @@ export function DangerForm({ options, elevated }: { options: Option[]; elevated:
   const matches = objects !== '' && confirmation === objects;
 
   return (
-    <form
-      action={action}
-      className="space-y-4"
-      onSubmit={(event) => {
-        if (!confirm(`Permanently delete ${objects} from the connected Firefly III?`)) {
-          event.preventDefault();
-        }
-      }}
-    >
+    <form action={action} className="space-y-4">
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
       {state.ok && state.destroyed ? (
         <FormMessage tone="notice">
@@ -67,7 +50,7 @@ export function DangerForm({ options, elevated }: { options: Option[]; elevated:
 
           <div className="space-y-1.5">
             <Label htmlFor="objects">What to delete</Label>
-            <select
+            <Select
               id="objects"
               name="objects"
               value={objects}
@@ -83,7 +66,7 @@ export function DangerForm({ options, elevated }: { options: Option[]; elevated:
                   {option.label}
                 </option>
               ))}
-            </select>
+            </Select>
             {selected ? <p className="text-muted-foreground text-xs">{selected.hint}</p> : null}
           </div>
 
@@ -109,7 +92,20 @@ export function DangerForm({ options, elevated }: { options: Option[]; elevated:
             </p>
           )}
 
-          <Submit enabled={matches} />
+          {/*
+            This one keeps BOTH gates. The typed phrase proves deliberation;
+            the dialog states the consequence one last time, in a sentence the
+            typed phrase does not contain.
+          */}
+          <ConfirmButton
+            message={`Permanently delete ${objects} from the connected Firefly III? This runs against your ledger and cannot be undone from here.`}
+            title="Delete permanently"
+            confirmLabel="Delete permanently"
+            pendingLabel="Deleting…"
+            disabled={!matches}
+          >
+            Delete permanently
+          </ConfirmButton>
         </CardContent>
       </Card>
     </form>

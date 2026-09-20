@@ -8,6 +8,8 @@ import {
   type BudgetFormState,
 } from '@/server/firefly/budget-actions';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
@@ -21,8 +23,6 @@ function Submit({ label }: { label: string }) {
     </Button>
   );
 }
-
-const SELECT = 'border-input bg-background h-9 w-full rounded-md border px-3 text-sm';
 
 /** E6-02 — one form for create and edit. */
 export function BudgetForm({
@@ -54,43 +54,40 @@ export function BudgetForm({
 
           <div className="space-y-1.5">
             <Label htmlFor="auto_budget_type">Auto-budget</Label>
-            <select
+            <Select
               id="auto_budget_type"
               name="auto_budget_type"
               value={autoType ?? 'none'}
               onChange={(event) => setAutoType(event.target.value)}
-              className={SELECT}
             >
               <option value="none">None — set limits manually</option>
               <option value="reset">Reset each period</option>
               <option value="rollover">Rollover unused amount</option>
-            </select>
+            </Select>
           </div>
 
           {autoType && autoType !== 'none' ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="auto_budget_amount">Amount per period</Label>
-                <Input
+                <CurrencyInput
                   id="auto_budget_amount"
                   name="auto_budget_amount"
-                  inputMode="decimal"
                   defaultValue={a?.auto_budget_amount ?? ''}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="auto_budget_period">Period</Label>
-                <select
+                <Select
                   id="auto_budget_period"
                   name="auto_budget_period"
                   defaultValue={a?.auto_budget_period ?? 'monthly'}
-                  className={SELECT}
                 >
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                   <option value="quarterly">Quarterly</option>
                   <option value="yearly">Yearly</option>
-                </select>
+                </Select>
               </div>
               <input type="hidden" name="auto_budget_currency_code" value={defaultCurrency} />
             </div>

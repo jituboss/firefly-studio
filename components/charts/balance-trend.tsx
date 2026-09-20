@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { AXIS_PROPS, GRID_PROPS, TOOLTIP_CONTENT_STYLE, seriesColor } from './theme';
 import { formatAxisDate } from '@/lib/date';
 import { formatMoney, toDecimal } from '@/lib/money';
 import { cn } from '@/lib/utils';
@@ -31,18 +32,6 @@ import type { BalanceTrend as BalanceTrendData } from '@/lib/balance-trend';
  */
 
 type Mode = 'total' | 'accounts';
-
-const AXIS_TICK = { fontSize: 11, fill: 'var(--muted-foreground)' } as const;
-
-const TOOLTIP_STYLE = {
-  background: 'var(--popover)',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  fontSize: 12,
-  color: 'var(--popover-foreground)',
-} as const;
-
-const accountColor = (index: number) => `var(--chart-${(index % 8) + 1})`;
 
 function useNarrowViewport() {
   const [narrow, setNarrow] = React.useState(false);
@@ -169,17 +158,17 @@ export function BalanceTrend({
 
   const sharedAxes = (
     <>
-      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+      <CartesianGrid {...GRID_PROPS} />
       <XAxis
         dataKey="date"
-        tick={AXIS_TICK}
+        {...AXIS_PROPS}
         tickLine={false}
         axisLine={false}
         minTickGap={narrow ? 32 : 48}
         tickFormatter={formatDate}
       />
       <YAxis
-        tick={AXIS_TICK}
+        {...AXIS_PROPS}
         tickLine={false}
         axisLine={false}
         width={narrow ? 48 : 68}
@@ -254,7 +243,7 @@ export function BalanceTrend({
               </defs>
               {sharedAxes}
               <Tooltip
-                contentStyle={TOOLTIP_STYLE}
+                contentStyle={TOOLTIP_CONTENT_STYLE}
                 labelFormatter={(label) => formatDate(String(label))}
                 formatter={(value) => [
                   formatMoney(value as number, { currency: data.currency }),
@@ -281,7 +270,7 @@ export function BalanceTrend({
             >
               {sharedAxes}
               <Tooltip
-                contentStyle={TOOLTIP_STYLE}
+                contentStyle={TOOLTIP_CONTENT_STYLE}
                 labelFormatter={(label) => formatDate(String(label))}
                 // Largest balance first, so the tooltip reads in the same order
                 // the lines appear on screen.
@@ -304,7 +293,7 @@ export function BalanceTrend({
                   name={account.label}
                   // Stroke only: a dozen translucent fills was the original
                   // problem, and lines stay readable when they overlap.
-                  stroke={accountColor(data.accounts.indexOf(account))}
+                  stroke={seriesColor(data.accounts.indexOf(account))}
                   strokeWidth={2}
                   strokeDasharray={account.aggregated ? '4 3' : undefined}
                   dot={false}
@@ -334,10 +323,10 @@ export function BalanceTrend({
                   <span
                     aria-hidden="true"
                     className="size-2 shrink-0 rounded-full"
-                    style={{ background: accountColor(index) }}
+                    style={{ background: seriesColor(index) }}
                   />
                   <span className="max-w-[12rem] truncate">{account.label}</span>
-                  <span className="text-muted-foreground tabular">
+                  <span className="text-muted-foreground" data-slot="amount">
                     {formatMoney(account.closing, {
                       currency: data.currency,
                       compact: true,

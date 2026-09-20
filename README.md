@@ -43,9 +43,11 @@ and you can keep using Firefly III's own UI alongside it.
 | **Connections** — guided onboarding that probes your instance, several instances per account with a switcher, background health checks, and an optional managed instance users can be provisioned onto | ✅    |
 | **Settings & admin** — Firefly preferences, an About/diagnostics panel, owner-gated user, user-group and instance-configuration management, and a danger zone behind step-up re-auth                   | ✅    |
 | **Operations** — multi-stage non-root image, migrations on boot, health and readiness endpoints, Redis-backed response cache, opt-in Sentry error reporting                                            | ✅    |
-| **Polish & hardening** — accessibility audit, i18n, PWA, CSP/CSRF, load testing, e2e suite                                                                                                             | M7–M8 |
+| **Installable** — web manifest and service worker, an offline page, and a cache that deliberately holds no financial data                                                                              | ✅    |
+| **Accessible** — an axe-core gate over 19 routes in both themes with zero violations, a text alternative for every chart, and a typed error state for every kind of failure                            | ✅    |
+| **Polish & hardening** — i18n, optimistic updates, load testing, e2e suite                                                                                                                             | M7–M8 |
 
-144 of 224 backlog items are complete. The full backlog, with what shipped and what was
+167 of 224 backlog items are complete. The full backlog, with what shipped and what was
 cut, is [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) §8.
 
 ## Quick start
@@ -208,8 +210,8 @@ Two things to get right before exposing this:
 - **Back up `APP_ENCRYPTION_KEY` separately from your database.** It decrypts every stored
   token. Losing it means every user re-enters theirs.
 
-The M8 hardening pass is not finished — CSRF double-submit, key rotation and dependency
-scanning are still open. Treat this as beta software: fine on a private network or behind
+The M8 hardening pass is not finished — key rotation, a load test and an independent
+review are still open, though CSRF, dependency scanning and secret scanning have landed. Treat this as beta software: fine on a private network or behind
 an authenticating proxy, not yet audited for a hostile one.
 [docs/SECURITY.md](docs/SECURITY.md) lists every known gap by name, says what is in scope,
 and explains how to report something privately.
@@ -219,10 +221,10 @@ and explains how to report something privately.
 M0–M6 shipped the product surface. The two remaining milestones are about making it fit
 to hand to someone else:
 
-| Milestone                   | What is left                                                                                                                                                                                                                               |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **M7 — Polish**             | Accessibility audit (axe in CI, ARIA on charts), i18n scaffold and locale-aware formatting, PWA with an offline shell, the remaining design-system primitives, an app-preferences page, ETags/prefetch/optimistic updates, a bundle budget |
-| **M8 — Hardening & launch** | CSP/HSTS and CSRF double-submit, an SSRF test suite over the existing guard, encryption-key rotation, dependency and secret scanning, `SECURITY.md` and a threat model, Playwright e2e and contract tests, backup/restore and user docs    |
+| Milestone                   | What is left                                                                                                                                                                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **M7 — Polish**             | Mostly landed: accessibility audit, PWA, prefetching, bundle budget, preferences page, empty and error states, most primitives. Left: i18n, optimistic updates, the last few primitives, a systematic responsive pass                   |
+| **M8 — Hardening & launch** | CSP/HSTS and CSRF double-submit, an SSRF test suite over the existing guard, encryption-key rotation, dependency and secret scanning, `SECURITY.md` and a threat model, Playwright e2e and contract tests, backup/restore and user docs |
 
 A few things are blocked rather than pending, and the plan records what would unblock
 each: the export centre (all nine `/data/export/*` endpoints return HTTP 500 on Firefly
@@ -250,11 +252,14 @@ second UI could only be a worse copy — see E17 in the plan.
 
 ```bash
 pnpm dev              # dev server
-pnpm test             # unit tests (237)
+pnpm test             # unit tests (350)
 pnpm lint             # includes the four enforced rules
 pnpm typecheck
 pnpm build
+pnpm check:bundle     # per-route gzipped JS against a committed budget
+pnpm check:a11y       # axe-core over 19 routes, light and dark
 pnpm check:responsive # horizontal-overflow check at 4 widths (needs a session cookie)
+pnpm audit            # dependency advisories at moderate and above
 ```
 
 The full gate, which is what CI runs:

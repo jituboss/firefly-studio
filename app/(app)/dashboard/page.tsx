@@ -20,6 +20,7 @@ import { previousPeriod, resolveRangeFromParams } from '@/lib/date-range';
 import { buildBalanceTrend } from '@/lib/balance-trend';
 import { toDecimal } from '@/lib/money';
 import { Card, CardContent } from '@/components/ui/card';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { BalanceTrend } from '@/components/charts/balance-trend';
 import { CategoryBars } from '@/components/charts/category-bars';
@@ -365,19 +366,12 @@ function BudgetProgressWidget({
                 {item!.percent.toFixed(0)}%
               </span>
             </div>
-            <div
-              className="bg-muted h-1.5 overflow-hidden rounded-full"
-              role="progressbar"
-              aria-valuenow={item!.percent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`${item!.name} budget usage`}
-            >
-              <div
-                className={item!.over ? 'bg-expense h-full' : 'bg-primary h-full'}
-                style={{ width: `${item!.percent}%` }}
-              />
-            </div>
+            <ProgressBar
+              value={item!.percent}
+              over={item!.over}
+              size="sm"
+              label={`${item!.name} budget usage`}
+            />
             <div className="text-muted-foreground mt-1 flex justify-between text-xs">
               <Amount value={item!.spent} currency={item!.currency} showSign={false} size="sm" />
               <Amount value={item!.amount} currency={item!.currency} showSign={false} size="sm" />

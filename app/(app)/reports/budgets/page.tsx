@@ -13,6 +13,7 @@ import { eachMonthInRange } from '@/lib/date';
 import { subtract, toDecimal } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { Amount } from '@/components/ui/amount';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { MonthlyGridTable } from '@/components/reports/monthly-grid';
 import { CurrencyNotice, ReportSection, ReportStat } from '@/components/reports/report-ui';
 import { ReportExportButton } from '@/components/reports/report-export';
@@ -163,22 +164,13 @@ export default async function BudgetReportPage({
                       </td>
                       <td className="py-2 pr-3">
                         <div className="flex items-center gap-2">
-                          <div
-                            className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full"
-                            role="progressbar"
-                            aria-valuenow={Math.round(row.usage)}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-label={`${row.name} budget usage`}
-                          >
-                            <div
-                              className={cn(
-                                'h-full rounded-full',
-                                over ? 'bg-expense' : 'bg-primary',
-                              )}
-                              style={{ width: `${Math.min(100, row.usage)}%` }}
-                            />
-                          </div>
+                          <ProgressBar
+                            value={row.usage}
+                            over={over}
+                            size="sm"
+                            className="flex-1"
+                            label={`${row.name} budget usage`}
+                          />
                           <span
                             className={cn(
                               'tabular w-12 text-right text-xs',

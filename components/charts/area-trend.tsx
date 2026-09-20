@@ -10,6 +10,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import {
+  AXIS_PROPS,
+  GRID_PROPS,
+  SEMANTIC_COLORS,
+  TOOLTIP_CONTENT_STYLE,
+  axisWidth,
+  seriesColor as themeSeriesColor,
+} from './theme';
 import { ChartTable } from './chart-table';
 import { formatMoney, toDecimal } from '@/lib/money';
 
@@ -56,10 +64,12 @@ export function AreaTrend({
 
   const seriesColor = (name: string) => {
     const normalized = name.toLowerCase();
-    if (normalized.includes('spent') || normalized.includes('expense')) return 'var(--expense)';
-    if (normalized.includes('earned') || normalized.includes('income')) return 'var(--income)';
-    if (normalized.includes('balance')) return 'var(--primary)';
-    return `var(--chart-${(series.indexOf(name) + 1) % 8 || 8})`;
+    if (normalized.includes('spent') || normalized.includes('expense'))
+      return SEMANTIC_COLORS.expense;
+    if (normalized.includes('earned') || normalized.includes('income'))
+      return SEMANTIC_COLORS.income;
+    if (normalized.includes('balance')) return SEMANTIC_COLORS.net;
+    return themeSeriesColor(series.indexOf(name));
   };
 
   return (
@@ -83,31 +93,17 @@ export function AreaTrend({
                 );
               })}
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              tickLine={false}
-              axisLine={false}
-              minTickGap={24}
-            />
+            <CartesianGrid {...GRID_PROPS} />
+            <XAxis dataKey="date" {...AXIS_PROPS} minTickGap={24} />
             <YAxis
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              tickLine={false}
-              axisLine={false}
-              width={narrow ? 44 : 64}
+              {...AXIS_PROPS}
+              width={axisWidth(narrow)}
               tickFormatter={(value: number) =>
                 formatMoney(value, { currency, compact: true, hideSymbol: narrow })
               }
             />
             <Tooltip
-              contentStyle={{
-                background: 'var(--popover)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                fontSize: 12,
-                color: 'var(--popover-foreground)',
-              }}
+              contentStyle={TOOLTIP_CONTENT_STYLE}
               // The series name is the label. An earlier version swapped in
               // "Earned"/"Spent" based on the sign, which mislabelled balance
               // series: a credit card sitting at -3M is a balance, not spending.

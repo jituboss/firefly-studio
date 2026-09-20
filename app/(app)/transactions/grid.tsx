@@ -4,7 +4,9 @@ import * as React from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { ChevronUp, Download, Pencil, Trash2, X } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
@@ -37,16 +39,6 @@ function ApplyButton({ count }: { count: number }) {
   return (
     <Button type="submit" size="sm" disabled={pending || count === 0}>
       {pending ? 'Applying…' : `Apply to ${count}`}
-    </Button>
-  );
-}
-
-function DeleteButton({ count }: { count: number }) {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" size="sm" variant="destructive" disabled={pending || count === 0}>
-      <Trash2 className="size-4" aria-hidden="true" />
-      {pending ? 'Deleting…' : `Delete ${count}`}
     </Button>
   );
 }
@@ -241,17 +233,16 @@ export function TransactionGrid({
                     for (const id of ids) formData.append('ids', id);
                     deleteAction(formData);
                   }}
-                  onSubmit={(event) => {
-                    if (
-                      !confirm(
-                        `Delete ${count} transaction${count === 1 ? '' : 's'}? This cannot be undone.`,
-                      )
-                    ) {
-                      event.preventDefault();
-                    }
-                  }}
                 >
-                  <DeleteButton count={count} />
+                  <ConfirmButton
+                    message={`Delete ${count} transaction${count === 1 ? '' : 's'}? This cannot be undone.`}
+                    title={`Delete ${count} transaction${count === 1 ? '' : 's'}`}
+                    confirmLabel="Delete"
+                    pendingLabel="Deleting…"
+                  >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                    Delete {count}
+                  </ConfirmButton>
                 </form>
 
                 <Button
@@ -284,21 +275,21 @@ export function TransactionGrid({
                   <label className="sr-only" htmlFor="bulk-field">
                     Field to set
                   </label>
-                  <select
+                  <Select
                     id="bulk-field"
                     value={field}
                     onChange={(event) => {
                       setField(event.target.value);
                       setValue('');
                     }}
-                    className="border-input bg-background h-9 shrink-0 rounded-md border px-2 text-sm sm:w-32"
+                    containerClassName="shrink-0 sm:w-32"
                   >
                     {FIELDS.map((entry) => (
                       <option key={entry.value} value={entry.value}>
                         {entry.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
 
                   <div className="min-w-0 flex-1">
                     {field === 'tags' ? (

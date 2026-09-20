@@ -91,8 +91,15 @@ export function middleware(request: NextRequest) {
 // apple-icon.png) alongside favicon.ico and robots.txt — browsers request
 // these directly on sign-in/marketing pages before any session cookie
 // exists, so redirecting them to /sign-in would just break the favicon.
+//
+// The three PWA files (E22-07) are here for the same reason, and it is not
+// hypothetical: the browser fetches the manifest and the service worker
+// without credentials, and an install prompt that is answered with a redirect
+// to /sign-in produces no error anywhere — the app simply never becomes
+// installable, and /offline.html would be replaced by the sign-in page at
+// exactly the moment there is no network to reach it with.
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|monitoring|favicon.ico|robots.txt|icon.png|icon.svg|apple-icon.png).*)',
+    '/((?!api|_next/static|_next/image|monitoring|favicon.ico|robots.txt|icon.png|icon.svg|apple-icon.png|manifest.webmanifest|sw.js|offline.html).*)',
   ],
 };

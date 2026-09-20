@@ -26,7 +26,7 @@
     "db:studio": "drizzle-kit studio",
     "spec:update": "tsx scripts/spec-update.ts",
     "spec:codegen": "tsx scripts/spec-codegen.ts",
-    "prepare": "node -e \"process.exit(0)\"",
+    "prepare": "node scripts/install-hooks.mjs",
     "lint:fix": "eslint . --fix",
     "build:migrator": "tsx scripts/build-migrator.ts",
     "db:seed": "tsx scripts/seed.ts",
@@ -37,7 +37,9 @@
     "release": "node scripts/release.mjs",
     "docker:build": "docker build -f docker/Dockerfile -t firefly-studio:dev .",
     "lint:workflows": "docker run --rm -v \"$PWD:/repo\" -w /repo rhysd/actionlint:latest -color",
-    "check:a11y": "node scripts/check-a11y.mjs"
+    "check:a11y": "node scripts/check-a11y.mjs",
+    "audit": "pnpm audit --audit-level moderate",
+    "check:bundle": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

@@ -1,19 +1,23 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, Wallet } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { getSession } from '@/server/auth/session';
-import { getActiveConnection } from '@/server/firefly/api';
+import { getActiveConnection, readFailure } from '@/server/firefly/api';
 import { getBudgetLimits, getBudgets } from '@/server/firefly/queries';
 import { createNotification } from '@/server/notifications';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { Amount } from '@/components/ui/amount';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { abs, add, divide, subtract, toDecimal } from '@/lib/money';
 import { now, toApiDate } from '@/lib/date';
+import { classifyError } from '@/lib/error-taxonomy';
 
 export const metadata: Metadata = { title: 'Budgets' };
 
@@ -132,14 +136,16 @@ export default async function BudgetsPage({
       ) : null}
 
       {budgets.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <p className="text-muted-foreground text-sm">No budgets yet.</p>
-            <Button asChild size="sm" className="mt-4">
-              <Link href="/budgets/new">Create your first budget</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        readFailure() ? (
+          <ErrorState kind={classifyError(readFailure())} />
+        ) : (
+          <EmptyState
+            icon={Wallet}
+            title="No budgets yet"
+            description="A budget caps what you plan to spend on something over a period, and this page then shows how much of it is left."
+            action={{ label: 'Create your first budget', href: '/budgets/new' }}
+          />
+        )
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild size="sm" variant="outline">
@@ -211,19 +217,12 @@ export default async function BudgetsPage({
 
                       {limitAmount ? (
                         <>
-                          <div
-                            className="bg-muted h-1.5 overflow-hidden rounded-full"
-                            role="progressbar"
-                            aria-valuenow={percentUsed ?? 0}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-label={`${b.name} budget usage`}
-                          >
-                            <div
-                              className={overBudget ? 'bg-expense h-full' : 'bg-primary h-full'}
-                              style={{ width: `${percentUsed ?? 0}%` }}
-                            />
-                          </div>
+                          <ProgressBar
+                            value={percentUsed ?? 0}
+                            over={overBudget}
+                            size="sm"
+                            label={`${b.name} budget usage`}
+                          />
                           <p className="text-muted-foreground flex items-center gap-1 text-xs">
                             {remaining && !toDecimal(remaining).isNegative() ? (
                               <>

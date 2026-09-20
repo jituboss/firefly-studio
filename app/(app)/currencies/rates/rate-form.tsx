@@ -3,12 +3,15 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import {
   saveExchangeRateAction,
   deleteExchangeRateAction,
   type RateFormState,
 } from '@/server/firefly/currency-actions';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
@@ -21,8 +24,6 @@ function Submit() {
     </Button>
   );
 }
-
-const selectClass = 'border-input bg-background w-full rounded-md border px-2 py-1.5 text-sm';
 
 /** E13-03 / E13-04 — record a rate for a pair on a date. */
 export function RateForm({
@@ -52,27 +53,27 @@ export function RateForm({
         <form action={action} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5">
             <Label htmlFor="from">From</Label>
-            <select id="from" name="from" defaultValue={primary} className={selectClass}>
+            <Select id="from" name="from" defaultValue={primary}>
               {currencies.map((currency) => (
                 <option key={currency.code} value={currency.code}>
                   {currency.code}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="to">To</Label>
-            <select id="to" name="to" className={selectClass}>
+            <Select id="to" name="to">
               {currencies.map((currency) => (
                 <option key={currency.code} value={currency.code}>
                   {currency.code}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="rate">Rate</Label>
-            <Input id="rate" name="rate" inputMode="decimal" placeholder="1.0850" required />
+            <CurrencyInput id="rate" name="rate" placeholder="1.0850" required />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="rate-date">Date</Label>
@@ -89,17 +90,18 @@ export function RateForm({
 
 export function DeleteRateButton({ id, label }: { id: string; label: string }) {
   return (
-    <form
-      action={deleteExchangeRateAction}
-      onSubmit={(event) => {
-        if (!confirm(`Delete the ${label} rate?`)) event.preventDefault();
-      }}
-    >
+    <form action={deleteExchangeRateAction}>
       <input type="hidden" name="id" value={id} />
-      <Button type="submit" variant="ghost" size="sm" title="Delete this rate">
+      <ConfirmButton
+        message={`Delete the ${label} rate?`}
+        title="Delete exchange rate"
+        confirmLabel="Delete rate"
+        variant="ghost"
+        aria-label={`Delete the ${label} rate`}
+      >
         <Trash2 className="size-4" aria-hidden="true" />
         <span className="sr-only">Delete</span>
-      </Button>
+      </ConfirmButton>
     </form>
   );
 }

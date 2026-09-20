@@ -1,23 +1,12 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { Play, Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import { deleteRuleAction, triggerRuleAction, type RunState } from '@/server/firefly/rule-actions';
 import { Input, Label } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
-
-function RunSubmit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" size="sm" disabled={pending}>
-      <Play className="size-4" aria-hidden="true" />
-      {pending ? 'Running…' : 'Run now'}
-    </Button>
-  );
-}
 
 /**
  * E11-05 — run a rule over existing transactions.
@@ -54,15 +43,7 @@ export function RunPanel({
           <FormMessage tone="notice">{state.message}</FormMessage>
         ) : null}
 
-        <form
-          action={action}
-          className="flex flex-wrap items-end gap-3"
-          onSubmit={(event) => {
-            if (!confirm('Apply this rule to every matching transaction in the range?')) {
-              event.preventDefault();
-            }
-          }}
-        >
+        <form action={action} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="id" value={id} />
           <input type="hidden" name="scope" value={scope} />
           <div className="space-y-1.5">
@@ -73,35 +54,34 @@ export function RunPanel({
             <Label htmlFor="run-end">To</Label>
             <Input id="run-end" name="end" type="date" defaultValue={end} />
           </div>
-          <RunSubmit />
+          <ConfirmButton
+            message="Apply this rule to every matching transaction in the range? Transactions it changes keep those changes if you delete the rule later."
+            title="Run this rule"
+            confirmLabel="Run now"
+            pendingLabel="Running…"
+            variant="default"
+          >
+            <Play className="size-4" aria-hidden="true" />
+            Run now
+          </ConfirmButton>
         </form>
       </CardContent>
     </Card>
   );
 }
 
-function DeleteSubmit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="destructive" size="sm" disabled={pending}>
-      <Trash2 className="size-4" aria-hidden="true" />
-      {pending ? 'Deleting…' : 'Delete rule'}
-    </Button>
-  );
-}
-
 export function DeleteRuleButton({ id, title }: { id: string; title: string }) {
   return (
-    <form
-      action={deleteRuleAction}
-      onSubmit={(event) => {
-        if (!confirm(`Delete "${title}"? Transactions it already changed keep those changes.`)) {
-          event.preventDefault();
-        }
-      }}
-    >
+    <form action={deleteRuleAction}>
       <input type="hidden" name="id" value={id} />
-      <DeleteSubmit />
+      <ConfirmButton
+        message={`Delete "${title}"? Transactions it already changed keep those changes.`}
+        confirmLabel="Delete rule"
+        pendingLabel="Deleting…"
+      >
+        <Trash2 className="size-4" aria-hidden="true" />
+        Delete rule
+      </ConfirmButton>
     </form>
   );
 }

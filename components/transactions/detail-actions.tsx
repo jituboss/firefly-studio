@@ -3,6 +3,7 @@
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { Copy, Pencil, Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import {
   deleteTransactionAction,
   duplicateTransactionAction,
@@ -37,18 +38,19 @@ export function TransactionDetailActions({ id, description }: { id: string; desc
         </Pending>
       </form>
 
-      <form
-        action={deleteTransactionAction}
-        onSubmit={(event) => {
-          if (!confirm(`Delete "${description}"? This cannot be undone.`)) event.preventDefault();
-        }}
-        className="ml-auto"
-      >
+      <form action={deleteTransactionAction} className="ml-auto">
         <input type="hidden" name="id" value={id} />
-        <Pending variant="ghost" size="sm" className="text-expense">
+        <ConfirmButton
+          message={`Delete "${description}"? This cannot be undone.`}
+          confirmLabel="Delete transaction"
+          pendingLabel="Deleting…"
+          variant="ghost"
+          size="sm"
+          className="text-expense"
+        >
           <Trash2 className="size-4" aria-hidden="true" />
           Delete
-        </Pending>
+        </ConfirmButton>
       </form>
     </div>
   );

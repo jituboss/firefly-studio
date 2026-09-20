@@ -1,17 +1,21 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, PiggyBank as PiggyBankIcon } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { getSession } from '@/server/auth/session';
-import { getActiveConnection } from '@/server/firefly/api';
+import { getActiveConnection, readFailure } from '@/server/firefly/api';
 import { getPiggyBanks } from '@/server/firefly/queries';
 import type { PiggyBank } from '@/server/firefly/types';
 import { parseFireflyDate, now, differenceInCalendarDays } from '@/lib/date';
 import { add, subtract, toDecimal } from '@/lib/money';
 import { Amount } from '@/components/ui/amount';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { classifyError } from '@/lib/error-taxonomy';
 
 export const metadata: Metadata = { title: 'Piggy banks' };
 
@@ -107,14 +111,16 @@ export default async function PiggyBanksPage() {
       ) : null}
 
       {piggies.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <p className="text-muted-foreground text-sm">No piggy banks yet.</p>
-            <Button asChild size="sm" className="mt-4">
-              <Link href="/piggy-banks/new">Create your first piggy bank</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        readFailure() ? (
+          <ErrorState kind={classifyError(readFailure())} />
+        ) : (
+          <EmptyState
+            icon={PiggyBankIcon}
+            title="No piggy banks yet"
+            description="A piggy bank earmarks part of an account for a goal — a deposit, a holiday, a new boiler — without moving the money anywhere."
+            action={{ label: 'Create your first piggy bank', href: '/piggy-banks/new' }}
+          />
+        )
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">
           {piggies.map((piggy) => {
@@ -137,19 +143,11 @@ export default async function PiggyBanksPage() {
                           </span>
                         </div>
                       </div>
-                      <div
-                        className="bg-muted h-2 overflow-hidden rounded-full"
-                        role="progressbar"
-                        aria-valuenow={percent}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-label={`${p.name} savings progress`}
-                      >
-                        <div
-                          className="bg-income h-full rounded-full"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
+                      <ProgressBar
+                        value={percent}
+                        tone="income"
+                        label={`${p.name} savings progress`}
+                      />
                       <div className="flex items-center justify-between text-sm">
                         <Amount
                           value={p.current_amount}

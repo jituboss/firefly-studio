@@ -20,7 +20,27 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['lib/**/*.ts'],
+      /*
+       * E24-07 — `lib/` plus the server modules that are pure enough to unit
+       * test and consequential enough to be worth it.
+       *
+       * Deliberately a list, not `server/**`. Most of `server/` is Server
+       * Actions and query wrappers whose behaviour lives in the round trip to
+       * Firefly or to Postgres; including them would add a few thousand
+       * uncovered lines, force the threshold down to a number that gates
+       * nothing, and call that progress. These four are the ones where a
+       * silent mistake is expensive: the proxy allowlist decides where a
+       * decrypted token may be pointed, the cache tags decide whether a write
+       * is visible afterwards, the URL guard is the SSRF boundary, and the
+       * CSRF check is the second control on every write endpoint.
+       */
+      include: [
+        'lib/**/*.ts',
+        'server/firefly/api.ts',
+        'server/firefly/cache.ts',
+        'server/firefly/url-guard.ts',
+        'server/auth/csrf.ts',
+      ],
       exclude: [
         '**/*.d.ts',
         // server/db and server/observability are integration-level: they need a
@@ -29,9 +49,10 @@ export default defineConfig({
         'server/db/**',
         'server/observability/**',
       ],
-      // E24-07 — the gate. Rises to 80% as M1/M2 land the crypto and proxy
-      // modules, which are pure logic and must be covered properly.
-      thresholds: { lines: 70, functions: 70, branches: 70, statements: 70 },
+      // E24-07 — the gate, raised from 70% now the modules above are covered.
+      // It is a floor, not a target: `lib/` sits in the mid-90s, and the point
+      // of the number is that a regression has to be deliberate.
+      thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },
 });

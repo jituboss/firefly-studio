@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Pin, PinOff, Save, Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import {
   CHART_TYPES,
   DIMENSIONS,
@@ -14,6 +15,7 @@ import {
 } from '@/lib/custom-report';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Input, Label } from '@/components/ui/input';
 import { FormMessage } from '@/components/auth/form-shell';
 import {
@@ -48,9 +50,8 @@ export function BuilderForm({ config }: { config: CustomReportConfig }) {
       aria-busy={pending || undefined}
     >
       <Field label="Measure" htmlFor="metric">
-        <select
+        <Select
           id="metric"
-          className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
           value={config.metric}
           disabled={pending}
           onChange={(event) => set('metric', event.target.value)}
@@ -60,13 +61,12 @@ export function BuilderForm({ config }: { config: CustomReportConfig }) {
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
 
       <Field label="Grouped by" htmlFor="dimension">
-        <select
+        <Select
           id="dimension"
-          className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
           value={config.dimension}
           disabled={pending}
           onChange={(event) => set('dimension', event.target.value)}
@@ -83,13 +83,12 @@ export function BuilderForm({ config }: { config: CustomReportConfig }) {
               </option>
             );
           })}
-        </select>
+        </Select>
       </Field>
 
       <Field label="Shown as" htmlFor="chart">
-        <select
+        <Select
           id="chart"
-          className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
           value={config.chart}
           disabled={pending}
           onChange={(event) => set('chart', event.target.value)}
@@ -99,13 +98,12 @@ export function BuilderForm({ config }: { config: CustomReportConfig }) {
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
 
       <Field label="Rows" htmlFor="limit">
-        <select
+        <Select
           id="limit"
-          className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
           value={String(config.limit)}
           disabled={pending}
           onChange={(event) => set('limit', event.target.value)}
@@ -115,7 +113,7 @@ export function BuilderForm({ config }: { config: CustomReportConfig }) {
               Top {option}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
     </div>
   );
@@ -247,17 +245,18 @@ export function SavedReportList({ reports }: { reports: SavedReportSummary[] }) 
             </SubmitButton>
           </form>
 
-          <form
-            action={removeAction}
-            data-print="hide"
-            onSubmit={(event) => {
-              if (!confirm(`Delete “${report.name}”?`)) event.preventDefault();
-            }}
-          >
+          <form action={removeAction} data-print="hide">
             <input type="hidden" name="id" value={report.id} />
-            <SubmitButton variant="ghost" size="icon" label={`Delete ${report.name}`}>
+            <ConfirmButton
+              message={`Delete “${report.name}”? The report definition goes; nothing in your ledger changes.`}
+              title="Delete saved report"
+              confirmLabel="Delete report"
+              variant="ghost"
+              size="icon"
+              aria-label={`Delete ${report.name}`}
+            >
               <Trash2 className="text-expense size-4" aria-hidden="true" />
-            </SubmitButton>
+            </ConfirmButton>
           </form>
         </li>
       ))}

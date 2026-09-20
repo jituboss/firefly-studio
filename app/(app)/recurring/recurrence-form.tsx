@@ -8,6 +8,8 @@ import {
   type RecurrenceFormState,
 } from '@/server/firefly/recurrence-actions';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
@@ -53,8 +55,6 @@ function Submit({ label }: { label: string }) {
     </Button>
   );
 }
-
-const selectClass = 'border-input bg-background w-full rounded-md border px-2 py-1.5 text-sm';
 
 /** E10-02 — the most complex form in the app. */
 export function RecurrenceForm({
@@ -119,17 +119,16 @@ export function RecurrenceForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="type">Kind</Label>
-              <select
+              <Select
                 id="type"
                 name="type"
                 value={type}
                 onChange={(event) => setType(event.target.value as typeof type)}
-                className={selectClass}
               >
                 <option value="withdrawal">Money going out</option>
                 <option value="deposit">Money coming in</option>
                 <option value="transfer">Between my accounts</option>
-              </select>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="first_date">First date</Label>
@@ -152,19 +151,18 @@ export function RecurrenceForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="repetition_type">Repeats</Label>
-              <select
+              <Select
                 id="repetition_type"
                 name="repetition_type"
                 value={repetitionType}
                 onChange={(event) => setRepetitionType(event.target.value)}
-                className={selectClass}
               >
                 {REPETITIONS.map((entry) => (
                   <option key={entry.value} value={entry.value}>
                     {entry.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
@@ -180,18 +178,13 @@ export function RecurrenceForm({
                         : 'Nothing to set'}
               </Label>
               {repetitionType === 'weekly' ? (
-                <select
-                  id="moment"
-                  name="moment"
-                  defaultValue={existingRepetition?.moment ?? '1'}
-                  className={selectClass}
-                >
+                <Select id="moment" name="moment" defaultValue={existingRepetition?.moment ?? '1'}>
                   {WEEKDAYS.map((day) => (
                     <option key={day.value} value={day.value}>
                       {day.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               ) : repetitionType === 'daily' ? (
                 <p className="text-muted-foreground px-1 py-2 text-xs">
                   Daily repeats have nothing more to set.
@@ -223,33 +216,31 @@ export function RecurrenceForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="weekend">If it lands on a weekend</Label>
-              <select
+              <Select
                 id="weekend"
                 name="weekend"
                 defaultValue={String(existingRepetition?.weekend ?? '1')}
-                className={selectClass}
               >
                 {WEEKEND.map((entry) => (
                   <option key={entry.value} value={entry.value}>
                     {entry.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="end_mode">Until</Label>
-            <select
+            <Select
               id="end_mode"
               name="end_mode"
               value={endMode}
               onChange={(event) => setEndMode(event.target.value as typeof endMode)}
-              className={selectClass}
             >
               <option value="count">A set number of times</option>
               <option value="date">A date</option>
-            </select>
+            </Select>
             <p className="text-muted-foreground text-xs">
               Firefly needs one or the other — a recurring transaction cannot run forever. Set a
               far-off date if you want it effectively open ended.
@@ -294,22 +285,20 @@ export function RecurrenceForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="amount">Amount</Label>
-              <Input
+              <CurrencyInput
                 id="amount"
                 name="amount"
                 required
-                inputMode="decimal"
                 defaultValue={existingTransaction?.amount ?? ''}
                 placeholder="1200.00"
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="currency_code">Currency</Label>
-              <select
+              <Select
                 id="currency_code"
                 name="currency_code"
                 defaultValue={existingTransaction?.currency_code ?? ''}
-                className={selectClass}
               >
                 <option value="">Default</option>
                 {currencies.map((currency) => (
@@ -317,18 +306,17 @@ export function RecurrenceForm({
                     {currency.code} — {currency.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="source_id">From</Label>
-              <select
+              <Select
                 id="source_id"
                 name="source_id"
                 defaultValue={existingTransaction?.source_id ?? ''}
-                className={selectClass}
               >
                 <option value="">Pick an account</option>
                 {sources.map((account) => (
@@ -336,15 +324,14 @@ export function RecurrenceForm({
                     {account.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="destination_id">To</Label>
-              <select
+              <Select
                 id="destination_id"
                 name="destination_id"
                 defaultValue={existingTransaction?.destination_id ?? ''}
-                className={selectClass}
               >
                 <option value="">Pick an account</option>
                 {destinations.map((account) => (
@@ -352,7 +339,7 @@ export function RecurrenceForm({
                     {account.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 

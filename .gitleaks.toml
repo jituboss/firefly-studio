@@ -1,0 +1,64 @@
+# E23-08 — secret scanning.
+#
+# This project handles three kinds of secret that must never reach the history:
+# the app's own AES key and session secret, a user's Firefly Personal Access
+# Token, and the admin password for a managed Firefly instance. Two of those
+# are base64 blobs with no distinctive prefix, which gitleaks' stock rules do
+# not catch, so they are described here.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "firefly-studio-app-secret"
+description = "APP_ENCRYPTION_KEY or AUTH_SECRET with a real value"
+# 32 bytes base64 is 44 characters ending in '='. The placeholders in
+# .env.example and docker-compose.yml are deliberately shorter or obviously
+# fake, and are allowlisted below.
+regex = '''(?i)(APP_ENCRYPTION_KEY|AUTH_SECRET)\s*[:=]\s*['"]?([A-Za-z0-9+/]{43}=)'''
+tags = ["key", "firefly-studio"]
+
+[[rules]]
+id = "firefly-pat"
+description = "Firefly III Personal Access Token"
+# Laravel Passport issues JWTs; a PAT is a long three-part token.
+regex = '''eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}'''
+tags = ["token", "firefly"]
+
+[[rules]]
+id = "managed-firefly-admin-password"
+description = "MANAGED_FIREFLY_ADMIN_PASSWORD with a real value"
+# No lookaheads: gitleaks compiles with Go's RE2, which has none. Excluding
+# '$' as the first character is what skips a `${VAR}` interpolation, and the
+# 8-character floor is what skips an empty value.
+regex = '''(?i)MANAGED_FIREFLY_ADMIN_PASSWORD\s*[:=]\s*['"]?[^\s'"#$][^\s'"#]{7,}'''
+# Only where a value lives. `lib/env.ts` declares this name in a Zod schema —
+# `MANAGED_FIREFLY_ADMIN_PASSWORD: z.string()...` is an eight-character value
+# to a regex, and flagging the one file whose job is to declare the variable
+# teaches people to ignore the scanner.
+path = '''(\.env.*|.*\.env|docker-compose.*\.ya?ml|.*/docker-compose.*\.ya?ml)$'''
+tags = ["password", "firefly"]
+
+[allowlist]
+description = "Documented placeholders, fixtures and the lockfile"
+paths = [
+  '''pnpm-lock\.yaml''',
+  '''\.env\.example''',
+  '''docs/.*\.md''',
+  '''deploy/truenas/README\.md''',
+]
+# Matched against the whole matched string, not the captured secret. The
+# default target is the secret, and with no capture group in these rules the
+# "secret" is the entire `KEY: value` match — so a pattern written against the
+# value alone silently allowlists nothing. Eight findings' worth of nothing,
+# on the first run.
+regexTarget = "match"
+regexes = [
+  # The dev-only keys committed in docker-compose.yml, which decode to
+  # "dev-only-do-not-use-in-production!" and similar.
+  '''ZGV2LW9ubHkt[A-Za-z0-9+/=]*''',
+  # The throwaway values the CI workflow exports so the app can boot, and the
+  # same pair baked into the Dockerfile's build stage.
+  '''(APP_ENCRYPTION_KEY|AUTH_SECRET)\s*[:=]\s*['"]?A{20,}=''',
+  '''(APP_ENCRYPTION_KEY|AUTH_SECRET)\s*[:=]\s*['"]?B{20,}=''',
+]

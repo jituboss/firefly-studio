@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import { deleteBudgetLimitAction } from '@/server/firefly/budget-actions';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/date';
@@ -70,23 +71,20 @@ export function LimitsPanel({
                   >
                     <Pencil className="size-4" />
                   </Button>
-                  <form
-                    action={deleteBudgetLimitAction}
-                    onSubmit={(event) => {
-                      if (!confirm('Delete this limit?')) event.preventDefault();
-                    }}
-                  >
+                  <form action={deleteBudgetLimitAction}>
                     <input type="hidden" name="budget_id" value={budgetId} />
                     <input type="hidden" name="limit_id" value={limit.id} />
-                    <Button
-                      type="submit"
+                    <ConfirmButton
+                      message="Delete this limit? The budget keeps its transactions; only the cap for this period goes."
+                      title="Delete budget limit"
+                      confirmLabel="Delete limit"
                       variant="ghost"
                       size="icon"
                       className="text-expense"
                       aria-label="Delete limit"
                     >
                       <Trash2 className="size-4" />
-                    </Button>
+                    </ConfirmButton>
                   </form>
                 </div>
               </li>

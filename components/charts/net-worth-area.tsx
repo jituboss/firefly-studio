@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { AXIS_PROPS, GRID_PROPS, TOOLTIP_CONTENT_STYLE, axisWidth } from './theme';
 import { ChartTable } from './chart-table';
 import { formatMoney } from '@/lib/money';
 import { formatAxisDate } from '@/lib/date';
@@ -83,31 +84,17 @@ export function NetWorthArea({
                 <stop offset="100%" stopColor="var(--expense)" stopOpacity={0.03} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              tickLine={false}
-              axisLine={false}
-              minTickGap={24}
-            />
+            <CartesianGrid {...GRID_PROPS} />
+            <XAxis dataKey="label" {...AXIS_PROPS} minTickGap={24} />
             <YAxis
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              tickLine={false}
-              axisLine={false}
-              width={narrow ? 44 : 64}
+              {...AXIS_PROPS}
+              width={axisWidth(narrow)}
               tickFormatter={(value: number) =>
                 formatMoney(value, { currency, compact: true, hideSymbol: narrow })
               }
             />
             <Tooltip
-              contentStyle={{
-                background: 'var(--popover)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                fontSize: 12,
-                color: 'var(--popover-foreground)',
-              }}
+              contentStyle={TOOLTIP_CONTENT_STYLE}
               formatter={(value, name) => [
                 // Undo the drawing-only sign flip so the tooltip reports the debt
                 // as the positive amount the user actually owes.

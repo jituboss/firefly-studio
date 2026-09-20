@@ -1,5 +1,6 @@
 import { formatMoney } from '@/lib/money';
 import { NODE_WIDTH, type SankeyDiagram } from '@/lib/sankey';
+import { seriesColor } from './theme';
 
 /**
  * E14-06 — the cash-flow Sankey, rendered as plain SVG on the server.
@@ -36,7 +37,7 @@ export function SankeyFlow({ diagram }: { diagram: SankeyDiagram }) {
               key={`${link.source}-${link.target}-${index}`}
               d={link.path}
               fill="none"
-              stroke={`var(--chart-${link.colorIndex + 1})`}
+              stroke={seriesColor(link.colorIndex)}
               strokeWidth={link.width}
               strokeOpacity={0.28}
             >

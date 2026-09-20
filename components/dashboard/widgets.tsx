@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { Amount } from '@/components/ui/amount';
+import { Delta } from '@/components/ui/delta';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date';
-import { divide, subtract, toDecimal } from '@/lib/money';
+import { toDecimal } from '@/lib/money';
 import type { Account, Bill, PiggyBank, Transaction } from '@/server/firefly/types';
 
 export function WidgetCard({
@@ -52,11 +54,6 @@ export function KpiTile({
   previous?: string;
   tone?: 'auto' | 'neutral' | 'income' | 'expense';
 }) {
-  const hasDelta = previous !== undefined && !toDecimal(previous).isZero();
-  const change = hasDelta
-    ? divide(subtract(value, previous), toDecimal(previous).abs()).times(100)
-    : null;
-
   return (
     <Card className="min-w-0">
       <CardContent className="min-w-0 p-5">
@@ -74,16 +71,20 @@ export function KpiTile({
             className="block truncate"
           />
         </div>
-        {change ? (
-          <p className="text-muted-foreground mt-1 text-xs">
-            <span className={cn(change.isNegative() ? 'text-expense' : 'text-income')}>
-              {change.isNegative() ? '↓' : '↑'} {change.abs().toFixed(1)}%
-            </span>{' '}
-            vs. previous period
-          </p>
-        ) : (
-          <p className="text-muted-foreground mt-1 text-xs">No comparison available</p>
-        )}
+        {/*
+          The tone says what this figure MEANS, so it also says how to read a
+          change in it: an income or expense tile renders a magnitude (the
+          Amount above has showSign={false}), and spending more is not an
+          improvement. Inferring either from the sign alone is what produced
+          "Spent ↑ 48.7%" in green on a period where spending fell.
+        */}
+        <Delta
+          current={value}
+          previous={previous}
+          compare={tone === 'income' || tone === 'expense' ? 'magnitude' : 'value'}
+          betterWhen={tone === 'expense' ? 'lower' : 'higher'}
+          className="mt-1"
+        />
       </CardContent>
     </Card>
   );
@@ -240,16 +241,12 @@ export function PiggyProgress({
               <span className="truncate font-medium">{piggy.attributes.name}</span>
               <span className="text-muted-foreground tabular text-xs">{percent.toFixed(0)}%</span>
             </div>
-            <div
-              className="bg-muted h-1.5 overflow-hidden rounded-full"
-              role="progressbar"
-              aria-valuenow={percent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`${piggy.attributes.name} savings progress`}
-            >
-              <div className="bg-income h-full rounded-full" style={{ width: `${percent}%` }} />
-            </div>
+            <ProgressBar
+              value={percent}
+              tone="income"
+              size="sm"
+              label={`${piggy.attributes.name} savings progress`}
+            />
             <div className="text-muted-foreground flex justify-between text-xs">
               <Amount
                 value={piggy.attributes.current_amount}

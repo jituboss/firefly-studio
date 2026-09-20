@@ -2,6 +2,7 @@
 
 import { useFormStatus } from 'react-dom';
 import { Star, Check, X } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import { setCurrencyStateAction, deleteCurrencyAction } from '@/server/firefly/currency-actions';
 import { Button } from '@/components/ui/button';
 
@@ -67,18 +68,15 @@ export function CurrencyStateButtons({
 
 export function DeleteCurrencyButton({ code }: { code: string }) {
   return (
-    <form
-      action={deleteCurrencyAction}
-      onSubmit={(event) => {
-        if (!confirm(`Delete ${code}? Anything recorded in it keeps its amounts.`)) {
-          event.preventDefault();
-        }
-      }}
-    >
+    <form action={deleteCurrencyAction}>
       <input type="hidden" name="code" value={code} />
-      <Button type="submit" variant="destructive" size="sm">
+      <ConfirmButton
+        message={`Delete ${code}? Anything recorded in it keeps its amounts.`}
+        confirmLabel="Delete currency"
+        pendingLabel="Deleting…"
+      >
         Delete currency
-      </Button>
+      </ConfirmButton>
     </form>
   );
 }

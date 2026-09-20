@@ -141,11 +141,60 @@ export async function fireflyGet<T>(path: string, options: { noCache?: boolean }
  * failing endpoint degrades to an empty widget instead of blanking the
  * dashboard (E3-13).
  */
+/**
+ * E21-04/E21-05 — per-request memory of a swallowed read failure.
+ *
+ * `fireflyGetSafe` exists so one dead widget does not take a page down with
+ * it, and that is right. What was wrong is that the page could not tell the
+ * difference afterwards: with the instance stopped, `/budgets` rendered "No
+ * budgets yet" and offered to create the first one. An empty state that is
+ * really an error is worse than an error, because it tells somebody their data
+ * is gone.
+ *
+ * `cache()` gives one object per request, so a page can ask whether any read
+ * behind it failed and show the typed error instead of the empty state.
+ */
+const readFailureStore = cache(() => ({ error: undefined as unknown }));
+
+export function recordReadFailure(error: unknown): void {
+  const store = readFailureStore();
+  // The first failure is the interesting one; later ones are usually the same
+  // instance being unreachable several times over.
+  if (store.error === undefined) store.error = error;
+}
+
+/** Whatever the first swallowed failure of this request was, if any. */
+export function readFailure(): unknown {
+  return readFailureStore().error;
+}
+
 export async function fireflyGetSafe<T>(path: string, fallback: T): Promise<T> {
   try {
     return await fireflyGet<T>(path);
-  } catch {
+  } catch (error) {
+    recordReadFailure(error);
     return fallback;
+  }
+}
+
+/**
+ * E21-04/E21-05 — a read whose failure the page can SEE.
+ *
+ * `fireflyGetSafe` swallows everything and hands back the fallback, which on a
+ * list page renders as "No budgets yet." when the truth is that the instance
+ * is unreachable or the token was revoked. An empty state that is really an
+ * error is worse than an error: it tells someone their data is gone.
+ *
+ * Use this wherever the whole page is that one read. Keep `fireflyGetSafe` for
+ * a widget that can reasonably render as absent.
+ */
+export type FireflyResult<T> = { ok: true; data: T } | { ok: false; error: unknown };
+
+export async function fireflyGetResult<T>(path: string): Promise<FireflyResult<T>> {
+  try {
+    return { ok: true, data: await fireflyGet<T>(path) };
+  } catch (error) {
+    return { ok: false, error };
   }
 }
 

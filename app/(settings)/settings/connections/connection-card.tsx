@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { AlertTriangle, CheckCircle2, KeyRound, Star, Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import type { PublicConnection } from '@/server/connections';
 import {
   deleteConnectionAction,
@@ -133,20 +134,20 @@ export function ConnectionCard({
             </form>
           ) : null}
 
-          <form
-            action={deleteConnectionAction}
-            onSubmit={(event) => {
-              if (!confirm(deleteConfirmMessage(connection.label, isOnly))) {
-                event.preventDefault();
-              }
-            }}
-            className="ml-auto"
-          >
+          <form action={deleteConnectionAction} className="ml-auto">
             <input type="hidden" name="connectionId" value={connection.id} />
-            <PendingButton variant="ghost" size="sm" className="text-expense">
+            <ConfirmButton
+              message={deleteConfirmMessage(connection.label, isOnly)}
+              title="Remove this instance"
+              confirmLabel="Remove"
+              pendingLabel="Removing…"
+              variant="ghost"
+              size="sm"
+              className="text-expense"
+            >
               <Trash2 className="size-4" aria-hidden="true" />
               Remove
-            </PendingButton>
+            </ConfirmButton>
           </form>
         </div>
 

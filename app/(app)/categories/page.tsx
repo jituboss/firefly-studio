@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, Shapes } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { getSession } from '@/server/auth/session';
-import { getActiveConnection } from '@/server/firefly/api';
+import { getActiveConnection, readFailure } from '@/server/firefly/api';
 import { getCategories } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { Amount } from '@/components/ui/amount';
@@ -12,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { add, divide, toDecimal } from '@/lib/money';
 import type { Category } from '@/server/firefly/types';
+import { classifyError } from '@/lib/error-taxonomy';
 
 export const metadata: Metadata = { title: 'Categories' };
 
@@ -119,14 +122,16 @@ export default async function CategoriesPage({
       </header>
 
       {rows.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <p className="text-muted-foreground text-sm">No categories yet.</p>
-            <Button asChild size="sm" className="mt-4">
-              <Link href="/categories/new">Create your first category</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        readFailure() ? (
+          <ErrorState kind={classifyError(readFailure())} />
+        ) : (
+          <EmptyState
+            icon={Shapes}
+            title="No categories yet"
+            description="Categories are what a transaction was for — groceries, fuel, rent — and they are what every spending report groups by."
+            action={{ label: 'Create your first category', href: '/categories/new' }}
+          />
+        )
       ) : (
         <>
           <Card className="min-w-0 overflow-hidden">

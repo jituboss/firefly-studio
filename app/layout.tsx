@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { NavigationProgress } from '@/components/navigation-progress';
+import { ServiceWorker } from '@/components/service-worker';
 import { getPreferences } from '@/server/preferences';
 import './globals.css';
 
@@ -75,6 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Suspense fallback={null}>
               <NavigationProgress />
             </Suspense>
+            <ServiceWorker />
             <a
               href="#main"
               className="bg-primary text-primary-foreground sr-only rounded-md px-4 py-2 focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"

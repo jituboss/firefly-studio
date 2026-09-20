@@ -12,6 +12,11 @@ RUN corepack enable && apk add --no-cache libc6-compat
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# `prepare` installs the git pre-commit hook (E23-08). The script is copied in
+# because pnpm runs prepare during install, and this stage has the manifests
+# but not yet the source — without it the build fails on a missing module. The
+# script itself no-ops when there is no .git, which is the case here.
+COPY scripts/install-hooks.mjs ./scripts/install-hooks.mjs
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
 

@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, Receipt } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { getSession } from '@/server/auth/session';
-import { getActiveConnection } from '@/server/firefly/api';
+import { getActiveConnection, readFailure } from '@/server/firefly/api';
 import { getBills } from '@/server/firefly/queries';
 import { createNotification } from '@/server/notifications';
 import { resolveRangeFromParams } from '@/lib/date-range';
@@ -14,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toDecimal, divide, multiply, add } from '@/lib/money';
+import { classifyError } from '@/lib/error-taxonomy';
 
 export const metadata: Metadata = { title: 'Subscriptions' };
 
@@ -123,14 +126,16 @@ export default async function BillsPage({
       </header>
 
       {bills.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <p className="text-muted-foreground text-sm">No subscriptions yet.</p>
-            <Button asChild size="sm" className="mt-4">
-              <Link href="/bills/new">Add your first subscription</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        readFailure() ? (
+          <ErrorState kind={classifyError(readFailure())} />
+        ) : (
+          <EmptyState
+            icon={Receipt}
+            title="No subscriptions yet"
+            description="A subscription is something you expect to pay again — rent, insurance, a streaming service. Firefly matches real transactions to it and tells you what is due."
+            action={{ label: 'Add your first subscription', href: '/bills/new' }}
+          />
+        )
       ) : (
         <>
           {active.length > 0 ? (

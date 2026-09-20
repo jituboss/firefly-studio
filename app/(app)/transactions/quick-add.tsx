@@ -6,7 +6,9 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Combobox } from '@/components/ui/combobox';
 import { FormMessage } from '@/components/auth/form-shell';
 import {
@@ -90,18 +92,13 @@ export function QuickAdd({ today }: { today: string }) {
       <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">
           <Label htmlFor="qa-type">Kind</Label>
-          <select
-            id="qa-type"
-            value={type}
-            onChange={(event) => setType(event.target.value)}
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-          >
+          <Select id="qa-type" value={type} onChange={(event) => setType(event.target.value)}>
             {TYPES.map((entry) => (
               <option key={entry.value} value={entry.value}>
                 {entry.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div className="space-y-1.5">
@@ -111,14 +108,7 @@ export function QuickAdd({ today }: { today: string }) {
 
         <div className="space-y-1.5">
           <Label htmlFor="qa-amount">Amount</Label>
-          <Input
-            id="qa-amount"
-            name="amount"
-            required
-            inputMode="decimal"
-            placeholder="12.50"
-            className="tabular"
-          />
+          <CurrencyInput id="qa-amount" name="amount" required placeholder="12.50" />
         </div>
 
         <div className="space-y-1.5">

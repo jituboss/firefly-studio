@@ -19,3 +19,18 @@ allowBuilds:
 # a minor bump on a stable API; the build and the test suite are the check.
 overrides:
   postcss: ^8.5.28
+
+# E23-06 — the dependency audit runs at `moderate` in CI, so anything we
+# consciously accept has to be written down here rather than hidden behind a
+# laxer threshold.
+#
+# GHSA-67mh-4wv8-2f99 — esbuild <=0.24.2 lets any website send requests to its
+# DEV SERVER and read the response. It reaches us only through
+# drizzle-kit > @esbuild-kit/esm-loader > @esbuild-kit/core-utils, a chain that
+# is deprecated upstream and that we invoke as a CLI (`drizzle-kit generate`),
+# never as a server. No esbuild dev server is started by anything in this
+# repository, in development or in production, so the vector does not exist
+# here. Revisit when drizzle-kit drops @esbuild-kit.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-67mh-4wv8-2f99

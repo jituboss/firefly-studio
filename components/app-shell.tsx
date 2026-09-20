@@ -290,7 +290,19 @@ export function AppShell({
 
           <ThemeToggle />
 
-          <form action={signOutAction}>
+          {/*
+            E22-07 — tell the service worker to empty its cache on the way out.
+            Nothing user-specific is stored in it by design, but "sign out" on a
+            shared machine should not leave that promise resting on whether the
+            reader trusts the worker's fetch handler. Fire-and-forget: the sign
+            out must not wait on it, or fail with it.
+          */}
+          <form
+            action={signOutAction}
+            onSubmit={() => {
+              navigator.serviceWorker?.controller?.postMessage('clear-cache');
+            }}
+          >
             <Button type="submit" variant="ghost" size="icon" aria-label="Sign out">
               <LogOut className="size-4" />
             </Button>

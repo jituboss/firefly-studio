@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Play, Trash2 } from 'lucide-react';
+import { ConfirmButton } from '@/components/ui/confirm';
 import {
   deleteRecurrenceAction,
   triggerRecurrenceAction,
@@ -64,28 +65,18 @@ export function TriggerPanel({ id, today }: { id: string; today: string }) {
   );
 }
 
-function DeleteSubmit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="destructive" size="sm" disabled={pending}>
-      <Trash2 className="size-4" aria-hidden="true" />
-      {pending ? 'Deleting…' : 'Delete'}
-    </Button>
-  );
-}
-
 export function DeleteRecurrenceButton({ id, title }: { id: string; title: string }) {
   return (
-    <form
-      action={deleteRecurrenceAction}
-      onSubmit={(event) => {
-        if (!confirm(`Delete "${title}"? Transactions it already created stay where they are.`)) {
-          event.preventDefault();
-        }
-      }}
-    >
+    <form action={deleteRecurrenceAction}>
       <input type="hidden" name="id" value={id} />
-      <DeleteSubmit />
+      <ConfirmButton
+        message={`Delete "${title}"? Transactions it already created stay where they are.`}
+        confirmLabel="Delete"
+        pendingLabel="Deleting…"
+      >
+        <Trash2 className="size-4" aria-hidden="true" />
+        Delete
+      </ConfirmButton>
     </form>
   );
 }

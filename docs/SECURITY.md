@@ -46,7 +46,6 @@ of them is exploitable in a way this note does not describe certainly is:
   rather than a guarantee.
 - **No key rotation** for `APP_ENCRYPTION_KEY` (`E23-05`). Rotating it today
   means every user re-authorises their connection.
-- **No automated dependency or secret scanning** in CI (`E23-06`, `E23-08`).
 - **No independent security review.** Nothing here has been audited by anyone
   outside the project.
 
@@ -67,6 +66,9 @@ authenticating proxy. It is not yet hardened for a hostile origin.
   `frame-ancestors 'none'`, COOP/CORP and `nosniff`.
 - CSRF double-submit on every route handler that writes, alongside the
   `SameSite=Lax` session cookie.
+- Every push is scanned for committed secrets (gitleaks) and audited for
+  vulnerable dependencies at `moderate` and above; the single advisory we
+  accept is listed in `pnpm-workspace.yaml` with the reasoning.
 - Outbound Firefly URLs are checked against the SSRF guard before any request,
   with private-network access off by default.
 - Logs redact anything token-shaped; Sentry is opt-in and receives an internal

@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
 import { describeAuditAction } from '@/lib/audit-labels';
+import { Select } from '@/components/ui/select';
 
 /** E2-09 — narrow the trail to one event type. URL-synced like every other
  *  filter in the app, so a view of it is linkable. */
@@ -17,7 +18,7 @@ export function AuditFilter({ actions, selected }: { actions: string[]; selected
       <label className="sr-only" htmlFor="audit-action">
         Filter activity by type
       </label>
-      <select
+      <Select
         id="audit-action"
         value={selected ?? ''}
         disabled={pending}
@@ -35,7 +36,7 @@ export function AuditFilter({ actions, selected }: { actions: string[]; selected
             {describeAuditAction(action)}
           </option>
         ))}
-      </select>
+      </Select>
     </>
   );
 }

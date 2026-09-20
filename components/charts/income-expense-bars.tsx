@@ -12,6 +12,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import {
+  AXIS_PROPS,
+  GRID_PROPS,
+  TOOLTIP_CONTENT_STYLE,
+  TOOLTIP_CURSOR_FILL,
+  axisWidth,
+} from './theme';
 import { ChartTable } from './chart-table';
 import { formatMoney } from '@/lib/money';
 import { formatMonthLabel } from '@/lib/date';
@@ -75,20 +82,12 @@ export function IncomeExpenseBars({
       >
         <ResponsiveContainer width="100%" height={height}>
           <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              tickLine={false}
-              axisLine={false}
-              minTickGap={16}
-            />
+            <CartesianGrid {...GRID_PROPS} />
+            <XAxis dataKey="label" {...AXIS_PROPS} minTickGap={16} />
             <YAxis
               yAxisId="left"
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              tickLine={false}
-              axisLine={false}
-              width={narrow ? 44 : 64}
+              {...AXIS_PROPS}
+              width={axisWidth(narrow)}
               tickFormatter={(value: number) =>
                 formatMoney(value, { currency, compact: true, hideSymbol: narrow })
               }
@@ -100,14 +99,8 @@ export function IncomeExpenseBars({
               <YAxis yAxisId="right" orientation="right" hide />
             ) : null}
             <Tooltip
-              cursor={{ fill: 'var(--muted)' }}
-              contentStyle={{
-                background: 'var(--popover)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                fontSize: 12,
-                color: 'var(--popover-foreground)',
-              }}
+              cursor={TOOLTIP_CURSOR_FILL}
+              contentStyle={TOOLTIP_CONTENT_STYLE}
               formatter={(value, name) => [
                 formatMoney(value as number, { currency }),
                 String(name),

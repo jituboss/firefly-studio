@@ -8,6 +8,8 @@ import {
   type BillFormState,
 } from '@/server/firefly/bill-actions';
 import { Input, Label } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
@@ -21,8 +23,6 @@ function Submit({ label }: { label: string }) {
     </Button>
   );
 }
-
-const SELECT = 'border-input bg-background h-9 w-full rounded-md border px-3 text-sm';
 
 /** E8-02 — one form for create and edit. */
 export function BillForm({ bill, defaultCurrency }: { bill?: Bill; defaultCurrency: string }) {
@@ -48,21 +48,19 @@ export function BillForm({ bill, defaultCurrency }: { bill?: Bill; defaultCurren
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="amount_min">Min amount</Label>
-              <Input
+              <CurrencyInput
                 id="amount_min"
                 name="amount_min"
                 required
-                inputMode="decimal"
                 defaultValue={a?.amount_min}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="amount_max">Max amount</Label>
-              <Input
+              <CurrencyInput
                 id="amount_max"
                 name="amount_max"
                 required
-                inputMode="decimal"
                 defaultValue={a?.amount_max}
               />
             </div>
@@ -91,18 +89,17 @@ export function BillForm({ bill, defaultCurrency }: { bill?: Bill; defaultCurren
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="repeat_freq">Repeats</Label>
-              <select
+              <Select
                 id="repeat_freq"
                 name="repeat_freq"
                 defaultValue={a?.repeat_freq ?? 'monthly'}
-                className={SELECT}
               >
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
                 <option value="half-year">Half-yearly</option>
                 <option value="yearly">Yearly</option>
-              </select>
+              </Select>
             </div>
           </div>
 

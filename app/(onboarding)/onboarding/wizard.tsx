@@ -14,6 +14,7 @@ import {
 } from '@/server/onboarding/actions';
 import { signOutAction } from '@/server/auth/actions';
 import { Input, Label } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { FormMessage, SubmitButton } from '@/components/auth/form-shell';
 
 interface AssetAccount {
@@ -300,46 +301,43 @@ export function OnboardingWizard(props: {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="numberFormat">Number format</Label>
-                  <select
+                  <Select
                     id="numberFormat"
                     name="numberFormat"
                     defaultValue={props.defaultNumberFormat ?? 'en-US'}
-                    className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
                   >
                     <option value="en-US">1,234.56</option>
                     <option value="de-DE">1.234,56</option>
                     <option value="fr-FR">1 234,56</option>
                     <option value="en-GB">1,234.56 (UK)</option>
-                  </select>
+                  </Select>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="weekStart">Week starts on</Label>
-                  <select
+                  <Select
                     id="weekStart"
                     name="weekStart"
                     defaultValue={String(props.defaultWeekStart ?? 1)}
-                    className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
                   >
                     <option value="1">Monday</option>
                     <option value="0">Sunday</option>
                     <option value="6">Saturday</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="dateFormat">Date format</Label>
-                <select
+                <Select
                   id="dateFormat"
                   name="dateFormat"
                   defaultValue={props.defaultDateFormat ?? 'medium'}
-                  className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
                 >
                   <option value="short">15/03/2026</option>
                   <option value="medium">15 Mar 2026</option>
                   <option value="long">15 March 2026</option>
-                </select>
+                </Select>
               </div>
 
               {props.accounts.length > 0 ? (

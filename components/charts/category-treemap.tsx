@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { ResponsiveContainer, Tooltip, Treemap } from 'recharts';
+import { TOOLTIP_CONTENT_STYLE, seriesColor } from './theme';
 import { ChartTable } from './chart-table';
 import { formatMoney } from '@/lib/money';
 
@@ -40,7 +41,7 @@ function Tile({ x = 0, y = 0, width = 0, height = 0, index = 0, name = '' }: Til
         height={height}
         rx={4}
         style={{
-          fill: `var(--chart-${(index % 8) + 1})`,
+          fill: seriesColor(index),
           stroke: 'var(--background)',
           strokeWidth: 2,
         }}
@@ -97,13 +98,7 @@ export function CategoryTreemap({
             content={<Tile />}
           >
             <Tooltip
-              contentStyle={{
-                background: 'var(--popover)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                fontSize: 12,
-                color: 'var(--popover-foreground)',
-              }}
+              contentStyle={TOOLTIP_CONTENT_STYLE}
               formatter={(value) => formatMoney(value as number, { currency })}
             />
           </Treemap>
