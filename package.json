@@ -39,7 +39,8 @@
     "lint:workflows": "docker run --rm -v \"$PWD:/repo\" -w /repo rhysd/actionlint:latest -color",
     "check:a11y": "node scripts/check-a11y.mjs",
     "audit": "pnpm audit --audit-level moderate",
-    "check:bundle": "node scripts/check-bundle.mjs"
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "check:bundle:update": "rm -rf .next && pnpm build && node scripts/check-bundle.mjs --update"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

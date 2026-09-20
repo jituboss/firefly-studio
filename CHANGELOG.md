@@ -10,6 +10,32 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-09-20
+
+**Every page got 56 kB lighter.** `0.6.1` was tagged but never published — its
+build failed — so this supersedes it and carries everything that was in it.
+
+Upgrading from `0.6.0` needs no action.
+
+### Fixed
+
+- **The error-reporting SDK was downloaded by every visitor, even with error
+  reporting switched off.** It was imported unconditionally, so roughly 56 kB
+  of compressed JavaScript shipped on every page of every install — and the
+  default install has no Sentry DSN configured and never used a byte of it. It
+  now loads only when reporting is actually turned on, and even then after the
+  page is interactive rather than before.
+- **The release build could not complete.** The size check compares each page
+  against a recorded budget; that budget had been recorded from an incremental
+  local build that happened to omit the SDK above, so a clean build measured
+  every page as over budget. Recording it now requires a from-scratch build.
+
+### Added
+
+- Everything from the unpublished `0.6.1`: the sign-in page doubling as a
+  landing page, and the container image moving back to a supported Node after
+  an automated update had left it on one that could not build.
+
 ## [0.6.1] - 2026-09-20
 
 **A front door, and a base image that builds.** Signing in is now the landing
@@ -568,7 +594,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.1...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.2
 [0.6.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.1
 [0.6.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.0
 [0.5.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.5.1

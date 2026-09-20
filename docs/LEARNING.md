@@ -5,10 +5,10 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-20, at `v0.6.1`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-20, at `v0.6.2`. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous note:** it was written after M6 and said the latest release was
-`v0.3.0`. Seven releases have happened since. `main` is at **`v0.6.1`**, M7 is most of the way done,
+`v0.3.0`. Seven releases have happened since. `main` is at **`v0.6.2`**, M7 is most of the way done,
 and the app is AGPL-3.0 licensed — it had no `LICENSE` file at all until 0.5.0, which legally meant
 all rights reserved while a public image was being published on every tag.
 
@@ -349,6 +349,14 @@ this codebase the code reads correctly and the rendered result is wrong.
   at all and every navigation started cold. Thirteen boundaries took it from 0 to 22 prefetched
   routes. The prefetches are cheap (5–7 kB of skeleton, no ledger data), which was checked rather
   than assumed.
+- **Record the bundle budget from a CLEAN build, never a warm one.** `pnpm check:bundle:update`
+  now forces `rm -rf .next` because the first budget was written from an incremental build that
+  happened to omit a 56 kB chunk, and CI then failed all 94 routes on its first fresh checkout. The
+  shape of the failure is the tell: a **uniform** rise across every route, including API routes and
+  `loading.tsx` files, means something joined the ROOT LAYOUT's graph — not that 94 pages each grew.
+  In this case a top-level `import * as Sentry` in `instrumentation-client.ts`, which shipped the
+  browser SDK to every visitor while the `if` below it only gated `init()`. A static import is not
+  conditional, however conditional the code under it looks.
 - **A green dependency PR is not a safe one, and this repository has the scars.** Eight dependabot
   pull requests were merged in one sitting; three were actively harmful and none looked it:
   `node:20-alpine` → `node:25-alpine` broke the image build outright (25 is the Current line and no

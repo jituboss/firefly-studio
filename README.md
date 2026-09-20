@@ -22,7 +22,7 @@ presentation and workflow layer with its own identity system, so you sign in her
 attach your own Firefly instance with a Personal Access Token. Your ledger never moves,
 and you can keep using Firefly III's own UI alongside it.
 
-> **Status: beta (`v0.6.1`).** Milestones M0–M6 are complete — the whole
+> **Status: beta (`v0.6.2`).** Milestones M0–M6 are complete — the whole
 > money-management, reporting and automation surface runs against your own instance
 > — and M7 is most of the way there: the app is installable, passes an automated
 > accessibility audit in both themes, and ships with a bundle budget and a typed

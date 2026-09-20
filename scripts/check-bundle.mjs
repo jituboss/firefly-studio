@@ -2,7 +2,14 @@
  * E22-05 — the bundle budget.
  *
  *   pnpm check:bundle             fail if any route exceeds its budget
- *   pnpm check:bundle --update    rewrite the budget file from this build
+ *   pnpm check:bundle:update      rebuild from scratch, then rewrite the budget
+ *
+ * Always record the budget from a CLEAN build, which is what
+ * `check:bundle:update` forces. An incremental `.next` can reuse a chunk that a
+ * fresh install would build differently, and a budget recorded from one is
+ * simply wrong: this was written from a warm build that happened to omit the
+ * Sentry SDK, so every route measured 56 kB lighter than any clean build, and
+ * CI failed all 94 routes the first time it ran on a fresh checkout.
  *
  * Measures the gzipped first-load JavaScript per route: every chunk the route
  * needs, plus the shared ones, de-duplicated, as the browser would actually
