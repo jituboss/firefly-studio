@@ -5,6 +5,7 @@ import { callFirefly, FireflyRequestError } from '@/server/firefly/client';
 import { invalidateTags, tagsForPath } from '@/server/firefly/cache';
 import { consumeRateLimit } from '@/server/auth/rate-limit';
 import { recordAudit } from '@/server/audit';
+import { csrfFailure } from '@/server/auth/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,11 @@ export const dynamic = 'force-dynamic';
 async function handle(request: NextRequest, method: 'GET' | 'POST' | 'PUT' | 'DELETE') {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+
+  // E23-03 — after the session check, so an unauthenticated caller still gets
+  // 401 rather than a 403 that tells them a session exists.
+  const csrf = csrfFailure(request);
+  if (csrf) return csrf;
 
   const url = new URL(request.url);
   const suffix = url.pathname.replace(/^\/api\/ff/, '');

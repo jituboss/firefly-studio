@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
+import { getPreferences } from '@/server/preferences';
 import { getActiveConnection } from '@/server/firefly/api';
 import {
   getAccount,
@@ -40,6 +41,8 @@ export default async function AccountDetailPage({
   if (!session) redirect('/sign-in');
   const connection = await getActiveConnection();
   if (!connection) redirect('/onboarding');
+
+  const preferences = await getPreferences();
 
   const { id } = await params;
   const query = await searchParams;
@@ -108,7 +111,7 @@ export default async function AccountDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HideBalancesToggle />
+          <HideBalancesToggle defaultHidden={preferences.hideBalances} />
           <DateRangePicker label={range.label} />
         </div>
       </header>

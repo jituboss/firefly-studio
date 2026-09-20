@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
+import { getPreferences } from '@/server/preferences';
 import { getActiveConnection, fireflyGetSafe } from '@/server/firefly/api';
 import { getAccount, getBudget, getCategory } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
@@ -71,6 +72,8 @@ export default async function TransactionsPage({
   if (!session) redirect('/sign-in');
   const connection = await getActiveConnection();
   if (!connection) redirect('/onboarding');
+
+  const preferences = await getPreferences();
 
   const params = await searchParams;
   const range = resolveRangeFromParams(params, session.user.timezone);
@@ -185,7 +188,7 @@ export default async function TransactionsPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HideBalancesToggle />
+          <HideBalancesToggle defaultHidden={preferences.hideBalances} />
           <DateRangePicker label={range.label} />
           <QuickAdd today={range.end > today ? today : range.end} />
           <Button asChild size="sm">
@@ -243,7 +246,7 @@ export default async function TransactionsPage({
           <TransactionGrid
             transactions={data}
             timezone={session.user.timezone}
-            density={typeof params.density === 'string' ? params.density : 'comfortable'}
+            density={typeof params.density === 'string' ? params.density : preferences.density}
             rangeLabel={search ? `search-${search}` : range.label}
             /* Handed in as a slot so the page totals and the export button share
                one line instead of stacking into two bands — on a phone those two

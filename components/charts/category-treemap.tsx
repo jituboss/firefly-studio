@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { ResponsiveContainer, Tooltip, Treemap } from 'recharts';
+import { ChartTable } from './chart-table';
 import { formatMoney } from '@/lib/money';
 
 /**
@@ -81,27 +82,38 @@ export function CategoryTreemap({
   }
 
   return (
-    <div className="w-full min-w-0 overflow-hidden">
-      <ResponsiveContainer width="100%" height={height}>
-        <Treemap
-          data={data}
-          dataKey="size"
-          nameKey="name"
-          isAnimationActive={false}
-          content={<Tile />}
-        >
-          <Tooltip
-            contentStyle={{
-              background: 'var(--popover)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              fontSize: 12,
-              color: 'var(--popover-foreground)',
-            }}
-            formatter={(value) => formatMoney(value as number, { currency })}
-          />
-        </Treemap>
-      </ResponsiveContainer>
-    </div>
+    <>
+      <div
+        className="w-full min-w-0 overflow-hidden"
+        role="img"
+        aria-label={`Spending by category, in ${currency}`}
+      >
+        <ResponsiveContainer width="100%" height={height}>
+          <Treemap
+            data={data}
+            dataKey="size"
+            nameKey="name"
+            isAnimationActive={false}
+            content={<Tile />}
+          >
+            <Tooltip
+              contentStyle={{
+                background: 'var(--popover)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                fontSize: 12,
+                color: 'var(--popover-foreground)',
+              }}
+              formatter={(value) => formatMoney(value as number, { currency })}
+            />
+          </Treemap>
+        </ResponsiveContainer>
+      </div>
+      <ChartTable
+        caption={`Spending by category, in ${currency}`}
+        columns={['Category', 'Amount']}
+        rows={data.map((datum) => [datum.name, formatMoney(datum.size, { currency })] as const)}
+      />
+    </>
   );
 }

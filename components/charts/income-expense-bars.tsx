@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { ChartTable } from './chart-table';
 import { formatMoney } from '@/lib/money';
 import { formatMonthLabel } from '@/lib/date';
 import type { CashFlowPoint } from '@/lib/reports';
@@ -66,74 +67,96 @@ export function IncomeExpenseBars({
   }));
 
   return (
-    <div className="w-full min-w-0 overflow-hidden">
-      <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-            tickLine={false}
-            axisLine={false}
-            minTickGap={16}
-          />
-          <YAxis
-            yAxisId="left"
-            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-            tickLine={false}
-            axisLine={false}
-            width={narrow ? 44 : 64}
-            tickFormatter={(value: number) =>
-              formatMoney(value, { currency, compact: true, hideSymbol: narrow })
-            }
-          />
-          {showCumulative ? (
-            // A second axis, because a running total over twelve months is an
-            // order of magnitude larger than any single month's bar; sharing
-            // one axis flattens the bars into the baseline.
-            <YAxis yAxisId="right" orientation="right" hide />
-          ) : null}
-          <Tooltip
-            cursor={{ fill: 'var(--muted)' }}
-            contentStyle={{
-              background: 'var(--popover)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              fontSize: 12,
-              color: 'var(--popover-foreground)',
-            }}
-            formatter={(value, name) => [formatMoney(value as number, { currency }), String(name)]}
-          />
-          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
-          <Bar
-            yAxisId="left"
-            dataKey="earned"
-            name="Income"
-            fill="var(--income)"
-            radius={[3, 3, 0, 0]}
-            maxBarSize={38}
-          />
-          <Bar
-            yAxisId="left"
-            dataKey="spent"
-            name="Expenses"
-            fill="var(--expense)"
-            radius={[3, 3, 0, 0]}
-            maxBarSize={38}
-          />
-          {showCumulative ? (
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="cumulative"
-              name="Running net"
-              stroke="var(--primary)"
-              strokeWidth={2}
-              dot={false}
+    <>
+      <div
+        className="w-full min-w-0 overflow-hidden"
+        role="img"
+        aria-label={`Income and expenses by period, in ${currency}`}
+      >
+        <ResponsiveContainer width="100%" height={height}>
+          <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={16}
             />
-          ) : null}
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
+            <YAxis
+              yAxisId="left"
+              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+              tickLine={false}
+              axisLine={false}
+              width={narrow ? 44 : 64}
+              tickFormatter={(value: number) =>
+                formatMoney(value, { currency, compact: true, hideSymbol: narrow })
+              }
+            />
+            {showCumulative ? (
+              // A second axis, because a running total over twelve months is an
+              // order of magnitude larger than any single month's bar; sharing
+              // one axis flattens the bars into the baseline.
+              <YAxis yAxisId="right" orientation="right" hide />
+            ) : null}
+            <Tooltip
+              cursor={{ fill: 'var(--muted)' }}
+              contentStyle={{
+                background: 'var(--popover)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                fontSize: 12,
+                color: 'var(--popover-foreground)',
+              }}
+              formatter={(value, name) => [
+                formatMoney(value as number, { currency }),
+                String(name),
+              ]}
+            />
+            <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+            <Bar
+              yAxisId="left"
+              dataKey="earned"
+              name="Income"
+              fill="var(--income)"
+              radius={[3, 3, 0, 0]}
+              maxBarSize={38}
+            />
+            <Bar
+              yAxisId="left"
+              dataKey="spent"
+              name="Expenses"
+              fill="var(--expense)"
+              radius={[3, 3, 0, 0]}
+              maxBarSize={38}
+            />
+            {showCumulative ? (
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="cumulative"
+                name="Running net"
+                stroke="var(--primary)"
+                strokeWidth={2}
+                dot={false}
+              />
+            ) : null}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <ChartTable
+        caption={`Income and expenses by period, in ${currency}`}
+        columns={['Period', 'Income', 'Expenses', 'Net']}
+        rows={data.map(
+          (point) =>
+            [
+              formatMonthLabel(point.date, timezone, locale),
+              formatMoney(point.earned, { currency }),
+              formatMoney(point.spent, { currency }),
+              formatMoney(point.net, { currency }),
+            ] as const,
+        )}
+      />
+    </>
   );
 }

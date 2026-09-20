@@ -35,13 +35,22 @@ export function CommandPalette() {
     function onKey(event: KeyboardEvent) {
       if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
+        if (!openRef.current) returnFocusTo.current = document.activeElement as HTMLElement | null;
         setOpen((value) => !value);
+      }
+      // E21-06 — the panel has rendered an "ESC" hint since it was built and
+      // nothing ever listened for the key. Clicking the backdrop was the only
+      // way out, which is not a way out for anyone using a keyboard: opened by
+      // keyboard, closable only by mouse, is a trap.
+      if (event.key === 'Escape') {
+        setOpen(false);
       }
       // `/` opens search, but not while typing in a field.
       const target = event.target as HTMLElement | null;
       const typing = target && /^(INPUT|TEXTAREA)$/.test(target.tagName);
       if (event.key === '/' && !typing) {
         event.preventDefault();
+        if (!openRef.current) returnFocusTo.current = document.activeElement as HTMLElement | null;
         setOpen(true);
       }
       if ((event.key === 'n' || event.key === 'N') && !typing && !event.metaKey && !event.ctrlKey) {
@@ -52,6 +61,28 @@ export function CommandPalette() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [router]);
+
+  /**
+   * E21-06 — put focus back where it came from. Without this, closing the
+   * palette drops focus onto <body>, and the next Tab restarts from the top of
+   * the page rather than from whatever the user was working on.
+   *
+   * The element is captured in the key handler, NOT in an effect on `open`.
+   * The input carries `autoFocus`, so by the time an effect runs the active
+   * element is already the palette's own search box — the effect version
+   * dutifully stored that, tried to restore focus to a node that had just been
+   * unmounted, and left focus on <body>. Which is exactly what it was written
+   * to prevent, while looking correct.
+   */
+  const returnFocusTo = React.useRef<HTMLElement | null>(null);
+  const openRef = React.useRef(open);
+  React.useEffect(() => {
+    openRef.current = open;
+    if (!open) {
+      returnFocusTo.current?.focus?.();
+      returnFocusTo.current = null;
+    }
+  }, [open]);
 
   React.useEffect(() => {
     if (query.trim().length < 2) {
@@ -110,7 +141,17 @@ export function CommandPalette() {
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[12vh]"
       onClick={() => setOpen(false)}
     >
+      {/*
+        role/aria-modal go on the panel, not the backdrop: the backdrop is
+        decoration, and naming it as the dialog would put the whole dimmed
+        page inside the dialog's boundary. Without these the panel was an
+        anonymous <div> — nothing announced that it had opened, and the page
+        behind it stayed in the accessibility tree as if still reachable.
+      */}
       <Command
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         label="Command palette"
         shouldFilter={false}
         onClick={(event) => event.stopPropagation()}

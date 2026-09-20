@@ -3,6 +3,7 @@ import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { invalidateTags } from '@/server/firefly/cache';
 import { logger } from '@/lib/logger';
+import { csrfFailure } from '@/server/auth/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,9 @@ const MAX_BYTES = 25 * 1024 * 1024;
 export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+
+  const csrf = csrfFailure(request);
+  if (csrf) return csrf;
 
   const connection = await getActiveConnection();
   if (!connection) return NextResponse.json({ error: 'No Firefly connection' }, { status: 409 });

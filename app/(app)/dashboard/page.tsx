@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
+import { getPreferences } from '@/server/preferences';
 import { getActiveConnection } from '@/server/firefly/api';
 import {
   getAccountsSafe,
@@ -75,6 +76,8 @@ export default async function DashboardPage({
 
   const connection = await getActiveConnection();
   if (!connection) redirect('/onboarding');
+
+  const preferences = await getPreferences();
 
   const params = await searchParams;
   const range = resolveRangeFromParams(params, session.user.timezone);
@@ -162,7 +165,7 @@ export default async function DashboardPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HideBalancesToggle />
+          <HideBalancesToggle defaultHidden={preferences.hideBalances} />
           <DateRangePicker label={range.label} />
         </div>
       </header>

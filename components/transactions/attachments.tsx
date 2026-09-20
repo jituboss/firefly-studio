@@ -6,6 +6,7 @@ import { Camera, Download, Eye, Loader2, Paperclip, Trash2, Upload } from 'lucid
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { compressImage } from '@/lib/image-compress';
+import { csrfHeaders } from '@/lib/csrf';
 import { AttachmentPreview, isPreviewable } from './attachment-preview';
 
 export interface AttachmentRow {
@@ -52,7 +53,11 @@ export function Attachments({
       body.set('attachable_id', journalId);
 
       try {
-        const response = await fetch('/api/attachments/upload', { method: 'POST', body });
+        const response = await fetch('/api/attachments/upload', {
+          method: 'POST',
+          headers: csrfHeaders(),
+          body,
+        });
         const payload = (await response.json()) as { id?: string; error?: string };
         if (!response.ok) {
           setError(payload.error ?? 'Upload failed');
@@ -79,7 +84,7 @@ export function Attachments({
   async function remove(id: string) {
     setBusy(true);
     try {
-      await fetch(`/api/ff/v1/attachments/${id}`, { method: 'DELETE' });
+      await fetch(`/api/ff/v1/attachments/${id}`, { method: 'DELETE', headers: csrfHeaders() });
       setRows((current) => current.filter((row) => row.id !== id));
     } finally {
       setBusy(false);

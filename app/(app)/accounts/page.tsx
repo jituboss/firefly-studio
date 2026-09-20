@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
+import { getPreferences } from '@/server/preferences';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getAccountsSafe } from '@/server/firefly/queries';
 import {
@@ -45,6 +46,8 @@ export default async function AccountsPage({
   if (!session) redirect('/sign-in');
   const connection = await getActiveConnection();
   if (!connection) redirect('/onboarding');
+
+  const preferences = await getPreferences();
 
   const params = await searchParams;
   const rawView = typeof params.view === 'string' ? params.view : 'money';
@@ -98,7 +101,7 @@ export default async function AccountsPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HideBalancesToggle />
+          <HideBalancesToggle defaultHidden={preferences.hideBalances} />
           <Button asChild size="sm">
             <Link href="/accounts/new">
               <Plus className="size-4" aria-hidden="true" />

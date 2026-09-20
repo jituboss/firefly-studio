@@ -2,7 +2,17 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   // Vite resolves the `@/*` aliases from tsconfig.json natively.
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    alias: {
+      // `server-only` throws on import outside a React Server Component build,
+      // which is the entire point of it — and which makes any server module
+      // that imports it untestable. Stubbing it lets the pure logic inside
+      // those modules (the SSRF guard, E23-01) be unit-tested without
+      // weakening the guarantee in the app itself.
+      'server-only': new URL('./tests/stubs/server-only.ts', import.meta.url).pathname,
+    },
+  },
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],

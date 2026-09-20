@@ -12,6 +12,7 @@ import { hashPassword, scorePassword, verifyPassword } from './password';
 import { breachMessage, checkPasswordBreached } from './breach';
 import { createSession, destroyCurrentSession, revokeAllSessions } from './session';
 import { consumeToken, issueToken } from './tokens';
+import { getLandingPage } from '@/server/preferences';
 import { consumeRateLimit, EMAIL_LIMIT, LOGIN_LIMIT } from './rate-limit';
 import { recordAudit } from '@/server/audit';
 import { passwordResetMail, sendMail, verificationMail } from '@/server/mail';
@@ -233,7 +234,9 @@ export async function signInAction(_prev: ActionState, formData: FormData): Prom
   await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
   await recordAudit({ userId: user.id, action: 'auth.login', ...meta });
 
-  redirect('/dashboard');
+  // E18-02 — read by id, not through getSession(): the session cookie was set
+  // moments ago in this same request and is not readable back from it yet.
+  redirect(await getLandingPage(user.id));
 }
 
 export async function signOutAction(): Promise<never> {

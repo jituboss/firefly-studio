@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { ChartTable } from './chart-table';
 import { formatMoney } from '@/lib/money';
 import { formatAxisDate } from '@/lib/date';
 import type { NetWorthPoint } from '@/lib/reports';
@@ -64,82 +65,101 @@ export function NetWorthArea({
   }));
 
   return (
-    <div className="w-full min-w-0 overflow-hidden">
-      <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-          <defs>
-            <linearGradient id="nw-assets" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--income)" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="var(--income)" stopOpacity={0.03} />
-            </linearGradient>
-            <linearGradient id="nw-liabilities" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="var(--expense)" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="var(--expense)" stopOpacity={0.03} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-            tickLine={false}
-            axisLine={false}
-            minTickGap={24}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-            tickLine={false}
-            axisLine={false}
-            width={narrow ? 44 : 64}
-            tickFormatter={(value: number) =>
-              formatMoney(value, { currency, compact: true, hideSymbol: narrow })
-            }
-          />
-          <Tooltip
-            contentStyle={{
-              background: 'var(--popover)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              fontSize: 12,
-              color: 'var(--popover-foreground)',
-            }}
-            formatter={(value, name) => [
-              // Undo the drawing-only sign flip so the tooltip reports the debt
-              // as the positive amount the user actually owes.
-              formatMoney(name === 'Liabilities' ? -(value as number) : (value as number), {
-                currency,
-              }),
-              String(name),
-            ]}
-          />
-          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
-          <Area
-            type="monotone"
-            dataKey="assets"
-            name="Assets"
-            stroke="var(--income)"
-            strokeWidth={1.5}
-            fill="url(#nw-assets)"
-            dot={false}
-          />
-          <Area
-            type="monotone"
-            dataKey="drawnLiabilities"
-            name="Liabilities"
-            stroke="var(--expense)"
-            strokeWidth={1.5}
-            fill="url(#nw-liabilities)"
-            dot={false}
-          />
-          <Line
-            type="monotone"
-            dataKey="net"
-            name="Net worth"
-            stroke="var(--primary)"
-            strokeWidth={2.5}
-            dot={false}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
+    <>
+      <div
+        className="w-full min-w-0 overflow-hidden"
+        role="img"
+        aria-label={`Net worth by date, in ${currency}`}
+      >
+        <ResponsiveContainer width="100%" height={height}>
+          <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+            <defs>
+              <linearGradient id="nw-assets" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--income)" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="var(--income)" stopOpacity={0.03} />
+              </linearGradient>
+              <linearGradient id="nw-liabilities" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor="var(--expense)" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="var(--expense)" stopOpacity={0.03} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={24}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+              tickLine={false}
+              axisLine={false}
+              width={narrow ? 44 : 64}
+              tickFormatter={(value: number) =>
+                formatMoney(value, { currency, compact: true, hideSymbol: narrow })
+              }
+            />
+            <Tooltip
+              contentStyle={{
+                background: 'var(--popover)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                fontSize: 12,
+                color: 'var(--popover-foreground)',
+              }}
+              formatter={(value, name) => [
+                // Undo the drawing-only sign flip so the tooltip reports the debt
+                // as the positive amount the user actually owes.
+                formatMoney(name === 'Liabilities' ? -(value as number) : (value as number), {
+                  currency,
+                }),
+                String(name),
+              ]}
+            />
+            <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+            <Area
+              type="monotone"
+              dataKey="assets"
+              name="Assets"
+              stroke="var(--income)"
+              strokeWidth={1.5}
+              fill="url(#nw-assets)"
+              dot={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="drawnLiabilities"
+              name="Liabilities"
+              stroke="var(--expense)"
+              strokeWidth={1.5}
+              fill="url(#nw-liabilities)"
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="net"
+              name="Net worth"
+              stroke="var(--primary)"
+              strokeWidth={2.5}
+              dot={false}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <ChartTable
+        caption={`Net worth by date, in ${currency}`}
+        columns={['Date', 'Assets', 'Liabilities', 'Net worth']}
+        rows={data.map(
+          (point) =>
+            [
+              formatAxisDate(point.date, timezone, locale),
+              formatMoney(point.assets, { currency }),
+              formatMoney(point.liabilities, { currency }),
+              formatMoney(point.net, { currency }),
+            ] as const,
+        )}
+      />
+    </>
   );
 }

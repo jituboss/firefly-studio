@@ -3,19 +3,20 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Settings, Flame, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Settings, Flame, ShieldCheck, AlertTriangle, SlidersHorizontal } from 'lucide-react';
 
 const TABS = [
   { href: '/settings/connections', label: 'Connections', icon: Settings },
+  { href: '/settings/preferences', label: 'Preferences', icon: SlidersHorizontal },
   { href: '/settings/firefly', label: 'Firefly instance', icon: Flame },
   { href: '/settings/security', label: 'Security', icon: ShieldCheck },
   { href: '/settings/danger', label: 'Danger zone', icon: AlertTriangle },
 ] as const;
 
 /**
- * One tab bar for all four settings pages.
+ * One tab bar for all five settings pages.
  *
- * It scrolls rather than wraps on a narrow screen: four tabs plus icons do not
+ * It scrolls rather than wraps on a narrow screen: five tabs plus icons do not
  * fit at 390px, and a wrapped second row reads as a separate control.
  */
 export function SettingsTabs() {

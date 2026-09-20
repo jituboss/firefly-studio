@@ -33,6 +33,8 @@ it.
   never reaches the browser, and
   [ADR-0004](adr/0004-hand-rolled-sessions-instead-of-authjs.md) on why Auth.js
   was rejected rather than never considered.
+- **[SECURITY.md](SECURITY.md)** — how to report a vulnerability, what is in
+  scope, and the hardening that has not been done yet, named item by item.
 - **[RELEASING.md](RELEASING.md)** — versioning, image tags, and the steps to
   cut a release.
 - **[../CONTRIBUTING.md](../CONTRIBUTING.md)** — setup, and the four rules that

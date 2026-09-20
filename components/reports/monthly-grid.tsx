@@ -70,11 +70,18 @@ export function MonthlyGridTable({
                       <div
                         className="flex h-7 min-w-[3.5rem] items-center justify-center rounded text-[0.6875rem]"
                         style={{
-                          // A floor of 0.06 keeps a non-zero month visible
-                          // rather than fading into the page background.
+                          // A floor of 6% keeps a non-zero month visible rather
+                          // than fading into the page background. The ceiling is
+                          // the accessibility half of the same problem: at full
+                          // strength the cell is saturated --chart-1, and the
+                          // amount printed on it drops below the 4.5:1 contrast
+                          // minimum — axe caught exactly one node in the whole
+                          // app, and it was the busiest month in this grid. The
+                          // ramp still reads at 62%; the top of it was spent on
+                          // making text unreadable.
                           background: empty
                             ? 'var(--muted)'
-                            : `color-mix(in oklch, var(--chart-1) ${Math.max(6, cell.ratio ?? 0)}%, transparent)`,
+                            : `color-mix(in oklch, var(--chart-1) ${Math.min(62, Math.max(6, cell.ratio ?? 0))}%, transparent)`,
                         }}
                       >
                         <span className="sr-only">

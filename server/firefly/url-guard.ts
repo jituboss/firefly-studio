@@ -126,9 +126,16 @@ export async function resolveAndCheck(baseUrl: string): Promise<ResolvedTarget> 
   let address: string;
   let family: number;
 
-  const literal = isIP(host);
+  // URL.hostname keeps the brackets on an IPv6 literal ("[::1]"), and isIP()
+  // does not accept them — so without this every IPv6 literal fell past the
+  // literal check into a DNS lookup that could only fail, and the guard
+  // reported "could not resolve" for an address it should have refused by
+  // rule. It failed closed, but for the wrong reason and with a message that
+  // sent the user looking at their DNS. Found by the E23-01 suite.
+  const literalHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+  const literal = isIP(literalHost);
   if (literal) {
-    address = host;
+    address = literalHost;
     family = literal;
   } else {
     try {

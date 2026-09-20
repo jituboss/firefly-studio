@@ -67,18 +67,29 @@
      `-foreground` to sit on top, and a `-muted` tint for soft badges.
      The previous values were tuned as fills and failed as text: income
      measured 4.01, transfer 4.24 and warning 2.54.
+
+     E21-06: the `-muted` tints were then tuned a second time, because
+     clearing 4.5:1 on the CARD does not clear it on the TINT — a badge
+     is `text-income` on `bg-income-muted`, and that pair measured 4.30
+     for income, with expense, transfer and warning at 4.54, 4.51 and
+     4.58, i.e. passing by a rounding error. axe found the income badge
+     on two pages; the other three were one palette tweak from failing
+     silently. All four now sit near 4.8. Measured by painting each
+     token into a canvas and reading the pixel back — getComputedStyle
+     returns `oklch()` verbatim, so a naive rgb() parse reports 1.0 for
+     everything and every pair looks broken.
      ------------------------------------------------------------------ */
   --income: oklch(0.513 0.139 156);
   --income-foreground: oklch(0.99 0.002 247);
-  --income-muted: oklch(0.928 0.052 156);
+  --income-muted: oklch(0.963 0.038 156);
 
   --expense: oklch(0.539 0.205 24);
   --expense-foreground: oklch(0.99 0.002 247);
-  --expense-muted: oklch(0.936 0.045 24);
+  --expense-muted: oklch(0.955 0.038 24);
 
   --transfer: oklch(0.518 0.136 249);
   --transfer-foreground: oklch(0.99 0.002 247);
-  --transfer-muted: oklch(0.928 0.046 249);
+  --transfer-muted: oklch(0.952 0.038 249);
 
   /* Amber cannot be both readable as text on white and light enough to
      take dark text on top, so it is dark here and its foreground is
@@ -86,7 +97,7 @@
      lands the other way up. */
   --warning: oklch(0.53 0.125 72);
   --warning-foreground: oklch(0.99 0.002 247);
-  --warning-muted: oklch(0.944 0.06 85);
+  --warning-muted: oklch(0.958 0.05 85);
 
   --over-budget: oklch(0.505 0.215 17);
   --over-budget-foreground: oklch(0.99 0.002 247);
@@ -344,6 +355,18 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* E18-02 — the same, for someone whose device has no such setting to turn on.
+ * Written out rather than folded into the media query above, because a media
+ * query and an attribute selector cannot share one rule block. */
+[data-reduced-motion='true'] *,
+[data-reduced-motion='true'] *::before,
+[data-reduced-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* ---------------------------------------------------------------------------

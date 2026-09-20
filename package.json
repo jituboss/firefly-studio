@@ -36,7 +36,8 @@
     "check:responsive": "node scripts/check-responsive.mjs",
     "release": "node scripts/release.mjs",
     "docker:build": "docker build -f docker/Dockerfile -t firefly-studio:dev .",
-    "lint:workflows": "docker run --rm -v \"$PWD:/repo\" -w /repo rhysd/actionlint:latest -color"
+    "lint:workflows": "docker run --rm -v \"$PWD:/repo\" -w /repo rhysd/actionlint:latest -color",
+    "check:a11y": "node scripts/check-a11y.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
@@ -71,6 +72,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/eslintrc": "^3.3.7",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.20.2",
@@ -81,6 +83,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^5.0.1",
+    "axe-core": "^4.13.0",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "esbuild": "^0.28.2",

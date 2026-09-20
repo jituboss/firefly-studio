@@ -208,10 +208,11 @@ Two things to get right before exposing this:
 - **Back up `APP_ENCRYPTION_KEY` separately from your database.** It decrypts every stored
   token. Losing it means every user re-enters theirs.
 
-The M8 hardening pass (CSP, CSRF double-submit, key rotation, dependency scanning, a
-published threat model) has not run yet. Treat this as beta software: fine on a private
-network or behind an authenticating proxy, not yet audited for a hostile one. There is no
-`SECURITY.md` yet — report anything sensitive through a private GitHub security advisory.
+The M8 hardening pass is not finished — CSRF double-submit, key rotation and dependency
+scanning are still open. Treat this as beta software: fine on a private network or behind
+an authenticating proxy, not yet audited for a hostile one.
+[docs/SECURITY.md](docs/SECURITY.md) lists every known gap by name, says what is in scope,
+and explains how to report something privately.
 
 ## Roadmap
 
@@ -238,6 +239,7 @@ second UI could only be a worse copy — see E17 in the plan.
 | [docs/LEARNING.md](docs/LEARNING.md)         | Start here if you are picking this project up — the "why" and the gotchas |
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | Plan, architecture, API coverage inventory, backlog, verification logs    |
 | [docs/adr/](docs/adr/)                       | Architecture decision records                                             |
+| [docs/SECURITY.md](docs/SECURITY.md)         | Reporting a vulnerability, what is in scope, and the known gaps           |
 | [docs/RELEASING.md](docs/RELEASING.md)       | Cutting and publishing a release                                          |
 | [deploy/truenas/](deploy/truenas/)           | A worked single-file deployment, and the traps in it                      |
 | [CONTRIBUTING.md](CONTRIBUTING.md)           | Setup and the four lint-enforced rules                                    |

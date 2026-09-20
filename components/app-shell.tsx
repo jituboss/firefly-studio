@@ -82,6 +82,12 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
   },
 ];
 
+/**
+ * Where this app's source lives, for the AGPL §13 offer rendered in the nav.
+ * A fork that changes the code has to change this to point at itself.
+ */
+const SOURCE_URL = 'https://github.com/jituboss/firefly-studio';
+
 function SidebarNav({ onNavigate, version }: { onNavigate?: () => void; version?: string }) {
   const pathname = usePathname();
 
@@ -134,11 +140,22 @@ function SidebarNav({ onNavigate, version }: { onNavigate?: () => void; version?
         nav to be a flex column that grows, which is why it is `flex-1`.
       */}
       {version ? (
-        <p
-          className="text-muted-foreground mt-auto px-3 pt-4 text-[0.6875rem] tabular-nums"
-          title={`Firefly Studio ${version}`}
-        >
-          v{version}
+        <p className="text-muted-foreground mt-auto px-3 pt-4 text-[0.6875rem] tabular-nums">
+          {/*
+            The link is not decoration. Firefly Studio is AGPL-3.0, and §13
+            requires anyone running a modified copy for other people over a
+            network to offer those users its source — an offer nobody can act
+            on unless the running app itself points at it.
+          */}
+          <a
+            href={SOURCE_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="hover:text-foreground focus-visible:ring-ring rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+            title={`Firefly Studio ${version} — source (AGPL-3.0)`}
+          >
+            v{version} · source
+          </a>
         </p>
       ) : null}
     </nav>
