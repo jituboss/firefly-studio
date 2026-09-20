@@ -10,6 +10,35 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-09-20
+
+**The demo seed works on instances that do not ship your currency.**
+
+### Fixed
+
+- **Seeding a demo in a currency the Firefly instance lacks built nothing.**
+  Firefly ships a fixed currency list and it is not identical on every
+  instance — BDT is present on some and absent on others. Where it is absent,
+  `POST /v1/currencies/{code}/enable` answers `404`, because the route binder
+  cannot resolve a code that has no row. The seed warned about that, printed
+  `currency: BDT (enabled, primary)` regardless, and then failed hundreds of
+  lines later with `The selected currency code is invalid` on the first
+  account, so the reported cause and the real one were nowhere near each
+  other. The seed now creates the currency when the instance does not have it,
+  and a failure to enable or make it primary stops the run instead of being
+  warned about — a demo seeded in the wrong currency renders a dashboard of
+  zeroes, with every figure present and none of them found.
+
+- **No demo had any piggy banks.** They were posted with
+  `accounts: [{ id }]`, a spelling Firefly's schema accepts and its validator
+  rejects with `accounts.0.account_id field is required`. All three failed on
+  every run while the seed reported `piggy banks: 3`. The field is
+  `account_id`, and the count is now counted rather than assumed.
+
+  Verified against Firefly III 6.5.5 by removing BDT from
+  `transaction_currencies` and seeding a freshly registered user: the currency
+  is created, 682 transactions post, and three piggy banks read back in BDT.
+
 ## [0.6.4] - 2026-09-20
 
 **The demo tools now work where you actually need them: inside the container.**
