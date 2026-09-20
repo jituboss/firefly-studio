@@ -77,7 +77,7 @@
     "@axe-core/playwright": "^4.13.0",
     "@eslint/eslintrc": "^3.3.7",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^22.20.2",
+    "@types/node": "^26.6.1",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.6",
