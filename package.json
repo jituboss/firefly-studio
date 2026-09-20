@@ -40,7 +40,10 @@
     "check:a11y": "node scripts/check-a11y.mjs",
     "audit": "pnpm audit --audit-level moderate",
     "check:bundle": "node scripts/check-bundle.mjs",
-    "check:bundle:update": "rm -rf .next && pnpm build && node scripts/check-bundle.mjs --update"
+    "check:bundle:update": "rm -rf .next && pnpm build && node scripts/check-bundle.mjs --update",
+    "demo:seed": "tsx scripts/demo-seed.ts",
+    "demo:account": "tsx scripts/demo-account.ts",
+    "demo:reset": "tsx scripts/demo-seed.ts --reset && tsx scripts/demo-account.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

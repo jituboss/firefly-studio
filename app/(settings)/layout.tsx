@@ -39,6 +39,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
       }))}
       notifications={notifications}
       version={appVersion()}
+      isDemo={session.user.isDemo}
     >
       {/* The tab bar belongs to the whole section, so it lives here rather than
           being repeated on each page. Its container matches the `max-w-3xl`

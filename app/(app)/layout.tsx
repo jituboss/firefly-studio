@@ -44,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       }))}
       notifications={notifications}
       version={appVersion()}
+      isDemo={session.user.isDemo}
     >
       {children}
     </AppShell>

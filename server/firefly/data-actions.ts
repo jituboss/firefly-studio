@@ -6,6 +6,7 @@ import { fireflyWrite, FireflyRequestError } from './api';
 import { requireSession } from '@/server/auth/session';
 import { recordAudit } from '@/server/audit';
 import { DESTROYABLE_VALUES, type DestroyableObject } from '@/lib/firefly-data';
+import { demoRefusal } from '@/server/auth/demo';
 
 /**
  * E19-03 — the danger zone.
@@ -31,6 +32,8 @@ export async function destroyDataAction(
   _prev: DestroyState,
   formData: FormData,
 ): Promise<DestroyState> {
+  const refusal = await demoRefusal('dangerZone');
+  if (refusal) return { error: refusal };
   const session = await requireSession();
   const objects = String(formData.get('objects') ?? '').trim();
   const confirmation = String(formData.get('confirmation') ?? '').trim();

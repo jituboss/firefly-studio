@@ -10,6 +10,40 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-09-20
+
+**There is a demo now.** A shared account with three years of invented data, so
+anyone can look around before installing anything.
+
+Upgrading from `0.6.x` needs no action — the demo is off unless you configure
+it.
+
+### Added
+
+- **A demo account.** Set `DEMO_EMAIL` and `DEMO_PASSWORD` and the sign-in page
+  offers "Try the demo", signing in to a shared account with 682 transactions
+  across 36 months: current, savings, credit-card and mortgage accounts,
+  budgets with monthly limits, subscriptions, piggy banks and tagged holidays.
+  Enough history for the reports, the net-worth chart and budget pacing to
+  actually show something.
+- **Two commands to build it.** `pnpm demo:seed` fills a throwaway Firefly III
+  instance; `pnpm demo:account` creates the app-side account that reads it.
+  `DEMO_CURRENCY` picks the currency, sets it as the instance's primary, and
+  scales the amounts so the figures read as plausible in it.
+- **The demo can do everything except break itself.** It can add and edit
+  transactions, budgets and rules — that is the point of it — but it cannot
+  change the Firefly connection, use the danger zone, alter its own
+  credentials, delete itself or unlock destructive operations. Those are the
+  five things a published password would otherwise put at risk. Visitors get a
+  banner saying the figures are invented and the account is shared.
+
+### Notes
+
+- The demo ledger is rebuilt by running `pnpm demo:reset`; there is no
+  scheduled reset yet.
+- **`demo:seed --reset` destroys the target ledger.** Point it only at an
+  instance you are happy to lose.
+
 ## [0.6.2] - 2026-09-20
 
 **Every page got 56 kB lighter.** `0.6.1` was tagged but never published — its
@@ -594,7 +628,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.2...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.3
 [0.6.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.2
 [0.6.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.1
 [0.6.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.0

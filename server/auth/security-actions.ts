@@ -18,6 +18,7 @@ import { purgeConnectionNamespace } from '@/server/firefly/cache';
 import { recordAudit } from '@/server/audit';
 import { requestMeta } from '@/server/auth/request-meta';
 import { consumeRateLimit } from '@/server/auth/rate-limit';
+import { demoRefusal } from '@/server/auth/demo';
 
 export interface SecurityState {
   error?: string;
@@ -96,6 +97,8 @@ export async function deleteAccountAction(
   _prev: SecurityState,
   formData: FormData,
 ): Promise<SecurityState> {
+  const deleteAccountActionRefusal = await demoRefusal('deleteAccount');
+  if (deleteAccountActionRefusal) return { error: deleteAccountActionRefusal };
   const session = await requireSession();
 
   const password = String(formData.get('password') ?? '');
@@ -165,6 +168,8 @@ export async function elevateSessionAction(
   _prev: ElevateState,
   formData: FormData,
 ): Promise<ElevateState> {
+  const elevateSessionActionRefusal = await demoRefusal('elevateSession');
+  if (elevateSessionActionRefusal) return { error: elevateSessionActionRefusal };
   const session = await requireSession();
   const password = String(formData.get('password') ?? '');
   if (!password) return { error: 'Enter your password.' };

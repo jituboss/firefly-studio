@@ -18,6 +18,7 @@ import {
 import { recordAudit } from '@/server/audit';
 import { requestMeta } from '@/server/auth/request-meta';
 import { consumeRateLimit } from '@/server/auth/rate-limit';
+import { demoRefusal } from '@/server/auth/demo';
 
 export interface MfaState {
   error?: string;
@@ -30,6 +31,8 @@ export interface MfaState {
 }
 
 export async function beginMfaAction(_prev: MfaState, _formData: FormData): Promise<MfaState> {
+  const beginMfaActionRefusal = await demoRefusal('changeCredentials');
+  if (beginMfaActionRefusal) return { error: beginMfaActionRefusal };
   const session = await requireSession();
   const result = await beginTotpEnrolment(session.user.id, session.user.email);
   if ('error' in result) return { error: result.error };
@@ -37,6 +40,8 @@ export async function beginMfaAction(_prev: MfaState, _formData: FormData): Prom
 }
 
 export async function confirmMfaAction(_prev: MfaState, formData: FormData): Promise<MfaState> {
+  const confirmMfaActionRefusal = await demoRefusal('changeCredentials');
+  if (confirmMfaActionRefusal) return { error: confirmMfaActionRefusal };
   const session = await requireSession();
   const code = String(formData.get('code') ?? '');
 
@@ -60,6 +65,8 @@ export async function confirmMfaAction(_prev: MfaState, formData: FormData): Pro
 
 /** Turning MFA off is a downgrade of account security, so it re-authenticates. */
 export async function disableMfaAction(_prev: MfaState, formData: FormData): Promise<MfaState> {
+  const disableMfaActionRefusal = await demoRefusal('changeCredentials');
+  if (disableMfaActionRefusal) return { error: disableMfaActionRefusal };
   const session = await requireSession();
   const password = String(formData.get('password') ?? '');
 

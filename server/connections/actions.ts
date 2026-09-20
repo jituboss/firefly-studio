@@ -18,6 +18,7 @@ import {
 import { probeInstance, probeUser } from '@/server/firefly/probe';
 import { FireflyRequestError } from '@/server/firefly/client';
 import { UrlGuardError } from '@/server/firefly/url-guard';
+import { assertDemoAllowed, demoRefusal } from '@/server/auth/demo';
 
 /** E2-22 — connections manager actions. */
 
@@ -35,6 +36,8 @@ export async function testConnectionAction(
   _prev: ConnectionActionState,
   formData: FormData,
 ): Promise<ConnectionActionState> {
+  const refusal = await demoRefusal('manageConnections');
+  if (refusal) return { error: refusal };
   const session = await requireSession();
   const connectionId = String(formData.get('connectionId') ?? '');
 
@@ -63,6 +66,8 @@ export async function rotateTokenAction(
   _prev: ConnectionActionState,
   formData: FormData,
 ): Promise<ConnectionActionState> {
+  const refusal = await demoRefusal('manageConnections');
+  if (refusal) return { error: refusal };
   const session = await requireSession();
   const connectionId = String(formData.get('connectionId') ?? '');
   const token = String(formData.get('token') ?? '').trim();
@@ -89,6 +94,7 @@ export async function rotateTokenAction(
 }
 
 export async function renameConnectionAction(formData: FormData): Promise<void> {
+  await assertDemoAllowed('manageConnections');
   const session = await requireSession();
   const connectionId = String(formData.get('connectionId') ?? '');
   const label = String(formData.get('label') ?? '').trim();
@@ -99,12 +105,14 @@ export async function renameConnectionAction(formData: FormData): Promise<void> 
 }
 
 export async function setDefaultConnectionAction(formData: FormData): Promise<void> {
+  await assertDemoAllowed('manageConnections');
   const session = await requireSession();
   await setDefaultConnection(session.user.id, String(formData.get('connectionId') ?? ''));
   revalidatePath('/settings/connections');
 }
 
 export async function deleteConnectionAction(formData: FormData): Promise<void> {
+  await assertDemoAllowed('manageConnections');
   const session = await requireSession();
   const connectionId = String(formData.get('connectionId') ?? '');
   await deleteConnection(session.user.id, connectionId);

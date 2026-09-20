@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { DESTROYABLE } from '@/lib/firefly-data';
+import { DEMO_REFUSAL } from '@/lib/demo';
 import { Card, CardContent } from '@/components/ui/card';
 import { DangerForm } from './danger-form';
 import { ElevateForm } from './elevate-form';
@@ -47,9 +48,25 @@ export default async function DangerZonePage() {
         </CardContent>
       </Card>
 
-      <ElevateForm elevated={session.isElevated} />
+      {/*
+        The demo is refused this server-side either way, but showing it the
+        form and only saying no on submit is a worse way to be told. It gets
+        the reason where the button would have been.
+      */}
+      {session.user.isDemo ? (
+        <Card className="border-warning/40">
+          <CardContent className="space-y-2 p-5">
+            <p className="text-sm font-medium">Not available in the demo</p>
+            <p className="text-muted-foreground text-sm">{DEMO_REFUSAL.dangerZone}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <ElevateForm elevated={session.isElevated} />
 
-      <DangerForm options={[...DESTROYABLE]} elevated={session.isElevated} />
+          <DangerForm options={[...DESTROYABLE]} elevated={session.isElevated} />
+        </>
+      )}
     </div>
   );
 }

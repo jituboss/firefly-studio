@@ -22,12 +22,58 @@ presentation and workflow layer with its own identity system, so you sign in her
 attach your own Firefly instance with a Personal Access Token. Your ledger never moves,
 and you can keep using Firefly III's own UI alongside it.
 
-> **Status: beta (`v0.6.2`).** Milestones M0–M6 are complete — the whole
+> **Status: beta (`v0.6.3`).** Milestones M0–M6 are complete — the whole
 > money-management, reporting and automation surface runs against your own instance
 > — and M7 is most of the way there: the app is installable, passes an automated
 > accessibility audit in both themes, and ships with a bundle budget and a typed
 > error taxonomy. What remains is i18n, optimistic updates and the M8 security
 > pass. See the [roadmap](#roadmap).
+
+## Try it
+
+**[fs.rezaur.xyz](https://fs.rezaur.xyz)** — sign in with:
+
+|          |                 |
+| -------- | --------------- |
+| Email    | `me@rezaur.xyz` |
+| Password | `demo1234`      |
+
+Three years of invented transactions across current, savings, credit-card and
+mortgage accounts, with budgets, subscriptions, piggy banks and tagged
+holidays — enough for the reports and the net-worth chart to have something to
+say. **Change whatever you like**: the account is shared, everything in it is
+fictional, and it is rebuilt on a schedule.
+
+A demo account cannot manage connections, use the danger zone, change its own
+credentials or delete itself — `lib/demo.ts` lists exactly what it refuses and
+why, which is what makes publishing that password safe. Everything else,
+including creating and editing transactions, works normally.
+
+<details>
+<summary>Running your own demo</summary>
+
+Point it at a **throwaway** Firefly III instance — the seed destroys and
+rebuilds that ledger.
+
+```bash
+# The URL must be the one the APP will use. When they differ — as in compose,
+# where the app reaches Firefly by service name — verify via the other.
+export FIREFLY_URL=http://firefly:8080
+export FIREFLY_PROBE_URL=http://127.0.0.1:8080
+export FIREFLY_PAT=<a personal access token on that instance>
+
+pnpm demo:seed --reset   # three years of data, in DEMO_CURRENCY (default EUR)
+pnpm demo:account        # the app-side account, flagged is_demo
+
+# Then run the app with these set, and the sign-in page offers "Try the demo":
+DEMO_EMAIL=me@rezaur.xyz DEMO_PASSWORD=demo1234
+```
+
+`pnpm demo:reset` does both again. `DEMO_CURRENCY` also sets the instance's
+primary currency and scales the amounts, so a BDT demo reads like a BDT
+salary rather than a converted euro one.
+
+</details>
 
 ## Features
 

@@ -19,6 +19,7 @@ import {
   type AssetAccount,
 } from '@/server/firefly/probe';
 import { checkVersion } from '@/server/firefly/version';
+import { demoRefusal } from '@/server/auth/demo';
 import {
   createConnection,
   getConnectionToken,
@@ -60,6 +61,8 @@ export async function probeBaseUrlAction(
   _prev: ProbeState,
   formData: FormData,
 ): Promise<ProbeState> {
+  const probeBaseUrlActionRefusal = await demoRefusal('manageConnections');
+  if (probeBaseUrlActionRefusal) return { error: probeBaseUrlActionRefusal };
   const session = await requireSession();
   const raw = String(formData.get('baseUrl') ?? '');
 
@@ -113,6 +116,8 @@ export async function connectTokenAction(
   _prev: TokenState,
   formData: FormData,
 ): Promise<TokenState> {
+  const connectTokenActionRefusal = await demoRefusal('manageConnections');
+  if (connectTokenActionRefusal) return { error: connectTokenActionRefusal };
   const session = await requireSession();
   const token = String(formData.get('token') ?? '').trim();
   const label = String(formData.get('label') ?? '').trim() || 'My Firefly III';
@@ -204,6 +209,8 @@ export async function connectManagedAction(
   _prev: ManagedState,
   _formData: FormData,
 ): Promise<ManagedState> {
+  const connectManagedActionRefusal = await demoRefusal('manageConnections');
+  if (connectManagedActionRefusal) return { error: connectManagedActionRefusal };
   const session = await requireSession();
   const config = managedConfig();
   if (!config) return { error: 'This deployment has no managed Firefly instance.' };

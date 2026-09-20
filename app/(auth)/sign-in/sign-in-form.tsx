@@ -12,7 +12,14 @@ function Submit() {
   return <SubmitButton pending={pending}>Sign in</SubmitButton>;
 }
 
-export function SignInForm() {
+export function SignInForm({
+  defaultEmail,
+  defaultPassword,
+}: {
+  /** Prefilled by the "Try the demo" link, which publishes these anyway. */
+  defaultEmail?: string;
+  defaultPassword?: string;
+}) {
   const [state, action] = useActionState<ActionState, FormData>(signInAction, {});
 
   return (
@@ -21,7 +28,14 @@ export function SignInForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" required autoComplete="email" />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          defaultValue={defaultEmail}
+        />
       </div>
 
       <div className="space-y-1.5">
@@ -37,6 +51,7 @@ export function SignInForm() {
         <Input
           id="password"
           name="password"
+          defaultValue={defaultPassword}
           type="password"
           required
           autoComplete="current-password"

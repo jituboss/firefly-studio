@@ -83,6 +83,13 @@ services:
       # MANAGED_FIREFLY_URL to offer it during onboarding; the instance must
       # have "single user mode" turned OFF so accounts can be provisioned.
       # Inside this compose network the bundled instance is reachable by name.
+      # E2-26 — the shared demo account. Set both to offer "Try the demo" on
+      # the sign-in page; leave them unset and the demo does not exist. What
+      # makes publishing the password safe is lib/demo.ts, which refuses
+      # connection changes, the danger zone, credential changes and account
+      # deletion for any account flagged `is_demo`.
+      DEMO_EMAIL: ${DEMO_EMAIL:-}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
       MANAGED_FIREFLY_URL: ${MANAGED_FIREFLY_URL:-}
       MANAGED_FIREFLY_ADMIN_EMAIL: ${MANAGED_FIREFLY_ADMIN_EMAIL:-}
       MANAGED_FIREFLY_ADMIN_PASSWORD: ${MANAGED_FIREFLY_ADMIN_PASSWORD:-}

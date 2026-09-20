@@ -93,6 +93,15 @@ export const users = pgTable(
       baseUrl?: string;
       detectedVersion?: string;
     }>(),
+    /**
+     * E2-26 — a shared, published account for evaluating the app.
+     *
+     * A column rather than an email convention, because the guards read it on
+     * every account-level action and "does this address start with demo@" is
+     * the kind of check that is one typo from letting a stranger delete the
+     * connection. `lib/demo.ts` lists what it refuses.
+     */
+    isDemo: boolean('is_demo').notNull().default(false),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     failedLoginCount: integer('failed_login_count').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),

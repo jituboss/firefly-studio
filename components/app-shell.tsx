@@ -9,11 +9,12 @@ import {
   ChartPie,
   Coins,
   Flame,
+  FlaskConical,
   LayoutDashboard,
   LogOut,
   Menu,
-  PiggyBank,
   Paperclip,
+  PiggyBank,
   Receipt,
   Repeat,
   Settings,
@@ -30,6 +31,7 @@ import { NotificationInbox } from '@/components/notifications/inbox';
 import { ConnectionSwitcher, type SwitchableConnection } from '@/components/connection-switcher';
 import { ConnectionBanner } from '@/components/connection-banner';
 import { signOutAction } from '@/server/auth/actions';
+import { DEMO_BANNER } from '@/lib/demo';
 import type { notifications as notificationsSchema } from '@/server/db/schema';
 
 type NotificationRow = typeof notificationsSchema.$inferSelect;
@@ -168,9 +170,12 @@ export function AppShell({
   connections = [],
   notifications,
   version,
+  isDemo = false,
 }: {
   children: React.ReactNode;
   userName?: string;
+  /** E2-26 — shows the banner, so nobody mistakes invented figures for theirs. */
+  isDemo?: boolean;
   /** E2-23 — every Firefly instance this user has attached. */
   connections?: SwitchableConnection[];
   notifications?: NotificationRow[];
@@ -317,6 +322,15 @@ export function AppShell({
         ) : null}
 
         <main id="main" className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+          {isDemo ? (
+            <div
+              role="status"
+              className="border-warning/40 bg-warning-muted text-warning mb-5 flex items-start gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm"
+            >
+              <FlaskConical className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <p className="min-w-0">{DEMO_BANNER}</p>
+            </div>
+          ) : null}
           {children}
         </main>
       </div>

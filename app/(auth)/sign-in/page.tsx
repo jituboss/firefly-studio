@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PlayCircle } from 'lucide-react';
 import { SignInForm } from './sign-in-form';
+import { Button } from '@/components/ui/button';
+import { demoCredentials } from '@/server/auth/demo';
 import { FormMessage } from '@/components/auth/form-shell';
 import {
   LandingFormCard,
@@ -33,9 +36,11 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reset?: string }>;
+  searchParams: Promise<{ reset?: string; demo?: string }>;
 }) {
   const params = await searchParams;
+  const demo = demoCredentials();
+  const prefill = demo && params.demo ? demo : null;
 
   return (
     <LandingShell>
@@ -43,8 +48,12 @@ export default async function SignInPage({
         <LandingMark className="w-fit lg:hidden" />
 
         <LandingFormCard
-          title="Sign in"
-          description="Welcome back."
+          title={prefill ? 'Try the demo' : 'Sign in'}
+          description={
+            prefill
+              ? 'Signed in as a shared demo account with three years of invented data.'
+              : 'Welcome back.'
+          }
           footer={
             <>
               No account?{' '}
@@ -61,7 +70,21 @@ export default async function SignInPage({
               </FormMessage>
             </div>
           ) : null}
-          <SignInForm />
+          <SignInForm defaultEmail={prefill?.email} defaultPassword={prefill?.password} />
+
+          {demo && !prefill ? (
+            <div className="mt-5 border-t pt-5">
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link href="/sign-in?demo=1">
+                  <PlayCircle className="size-4" aria-hidden="true" />
+                  Try the demo — no sign-up
+                </Link>
+              </Button>
+              <p className="text-muted-foreground mt-2 text-center text-xs">
+                A shared account with three years of example data.
+              </p>
+            </div>
+          ) : null}
         </LandingFormCard>
       </div>
 
