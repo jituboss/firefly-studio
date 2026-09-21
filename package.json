@@ -1,6 +1,6 @@
 {
   "name": "firefly-studio",
-  "version": "0.6.5",
+  "version": "0.7.0",
   "private": true,
   "description": "A modern front-end client for Firefly III",
   "license": "AGPL-3.0-or-later",
