@@ -115,7 +115,7 @@ export default async function BudgetReportPage({
             No budgets with activity in this period. Set a budget limit to see it here.
           </p>
         ) : (
-          <Table label="Budget performance">
+          <Table label="Budget performance" cards>
             <THead>
               <TR head>
                 <TH>Budget</TH>
@@ -135,7 +135,7 @@ export default async function BudgetReportPage({
                     <TD className="max-w-[14rem]">
                       <span className="block truncate">{row.name}</span>
                     </TD>
-                    <TD align="right" hideBelow="sm">
+                    <TD label="Budgeted" align="right" hideBelow="sm">
                       <Amount
                         value={row.budgeted}
                         currency={report.currency}
@@ -143,7 +143,7 @@ export default async function BudgetReportPage({
                         tone="neutral"
                       />
                     </TD>
-                    <TD align="right">
+                    <TD label="Spent" align="right">
                       <Amount
                         value={row.spent}
                         currency={report.currency}
@@ -151,7 +151,7 @@ export default async function BudgetReportPage({
                         tone="neutral"
                       />
                     </TD>
-                    <TD>
+                    <TD label="Usage">
                       <div className="flex items-center gap-2">
                         <ProgressBar
                           value={row.usage}
@@ -170,7 +170,7 @@ export default async function BudgetReportPage({
                         </span>
                       </div>
                     </TD>
-                    <TD align="right">
+                    <TD label="Variance" align="right">
                       <Amount value={row.variance} currency={report.currency} tone="auto" />
                     </TD>
                   </TR>
@@ -180,7 +180,7 @@ export default async function BudgetReportPage({
             <TFoot>
               <TR>
                 <TD>Total</TD>
-                <TD align="right" hideBelow="sm">
+                <TD label="Budgeted" align="right" hideBelow="sm">
                   <Amount
                     value={report.totalBudgeted}
                     currency={report.currency}
@@ -188,7 +188,7 @@ export default async function BudgetReportPage({
                     tone="neutral"
                   />
                 </TD>
-                <TD align="right">
+                <TD label="Spent" align="right">
                   <Amount
                     value={report.totalSpent}
                     currency={report.currency}
@@ -196,8 +196,8 @@ export default async function BudgetReportPage({
                     tone="neutral"
                   />
                 </TD>
-                <TD />
-                <TD align="right">
+                <TD label="Usage" />
+                <TD label="Variance" align="right">
                   <Amount value={remaining} currency={report.currency} tone="auto" />
                 </TD>
               </TR>

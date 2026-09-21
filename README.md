@@ -22,12 +22,13 @@ presentation and workflow layer with its own identity system, so you sign in her
 attach your own Firefly instance with a Personal Access Token. Your ledger never moves,
 and you can keep using Firefly III's own UI alongside it.
 
-> **Status: beta (`v0.7.0`).** Milestones M0–M6 are complete — the whole
+> **Status: beta (`v0.9.0`).** Milestones M0–M6 are complete — the whole
 > money-management, reporting and automation surface runs against your own instance
 > — and M7 is nearly there: the design system is complete, the app is installable,
 > it passes an automated accessibility audit in both themes, and it ships with a
-> bundle budget and a typed error taxonomy. What remains is i18n, optimistic
-> updates and the M8 security pass. See the [roadmap](#roadmap).
+> bundle budget and a typed error taxonomy. What remains is i18n, the rest of the
+> optimistic-update pass, and the M8 security and testing work. See the
+> [roadmap](#roadmap).
 
 ## Try it
 

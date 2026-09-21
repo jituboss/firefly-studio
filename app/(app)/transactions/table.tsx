@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ArrowRight, Paperclip } from 'lucide-react';
 import { Amount } from '@/components/ui/amount';
+import { InlineCategory } from '@/components/transactions/inline-category';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDate } from '@/lib/date';
@@ -444,14 +445,10 @@ export function TransactionTable({
                       </span>
                     </span>
 
+                    {/* E5-12 — the category cell IS the editor. Filing a month
+                        of transactions previously meant four navigations a row. */}
                     <span className="hidden min-w-0 md:block">
-                      {split.category_name ? (
-                        <span className="bg-muted/70 text-muted-foreground inline-block max-w-full truncate rounded px-2 py-0.5 text-[0.6875rem]">
-                          {split.category_name}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/50 text-xs">—</span>
-                      )}
+                      <InlineCategory groupId={groupId} category={split.category_name ?? null} />
                     </span>
 
                     <span className="text-right">

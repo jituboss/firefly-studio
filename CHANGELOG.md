@@ -10,6 +10,57 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-21
+
+**Two things the app was saying that were not true, and four it could not do
+at all.**
+
+### Fixed
+
+- **A dashboard that could not reach your Firefly III showed zeros.** "Net
+  worth €0", "Spent €0", "No transactions yet" — your money reported as gone,
+  in the typography of a real figure. Every tile on that page comes from one
+  connection, so a single failed read means none of them can be trusted. It
+  says it cannot reach the instance now.
+
+- **Bulk-editing a category did nothing to split transactions.** Firefly
+  accepts the change for a transaction with one part and quietly ignores it for
+  one with several, so a bulk edit over a mixed selection reported "Updated 12"
+  and changed fewer, with nothing to show which. Every part of a split is sent
+  now.
+
+- **The Add panel could sit on "Adding…" for ever** over a transaction that had
+  in fact been saved. It confirms in under half a second on both pages.
+
+### Added
+
+- **Merge one category into another.** Duplicate categories are the commonest
+  mess in an imported ledger, and until now the app could not fix one: you
+  could rename or delete, and deleting left every transaction uncategorised.
+  Merging moves them across and then removes the empty category.
+
+- **Change a category from the list.** The category cell is the editor, and it
+  updates the moment you pick — reverting, with the reason, if Firefly refuses
+  it. Filing a month of transactions used to mean four page visits per row.
+
+- **One comparable total for a multi-currency page.** A page holding EUR and
+  GBP printed the EUR figures and a footnote saying "GBP not included" —
+  honest, and no use to anyone who wanted a total. It can convert them now,
+  using the exchange rates your Firefly III already holds. Native figures stay
+  the default and the converted view says it is an estimate, the date of the
+  rates behind it, and anything it still could not include — a counted figure
+  and an estimated one should never swap places without you asking.
+
+- **Report tables read as cards on a phone.** The four widest — subscriptions,
+  budgets, income vs expense and net worth — stack into labelled cards instead
+  of truncating. The month-by-month grid keeps its side-scroll, because
+  comparing across months is the entire point of it.
+
+### Changed
+
+- dotenv 18 and prettier 3.9.8, each tested against this repository before
+  being taken rather than merged on a green tick.
+
 ## [0.8.0] - 2026-09-21
 
 **The transaction list, rebuilt: nothing truncated, one way to add, and a
@@ -823,7 +874,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.8.0...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.0
 [0.8.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.8.0
 [0.7.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.7.0
 [0.6.5]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.5

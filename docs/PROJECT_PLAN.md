@@ -468,7 +468,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E5-09** `P0` `1d` Delete with a typed confirmation — _undo toast deferred; Firefly has no restore endpoint, so undo needs a client-side re-create_
 - [x] **E5-10** `P0` `1d` Duplicate — clones every split into a new-transaction form dated today
 - [x] **E5-11** `P1` `2d` Multi-select + bulk edit — M3 — selection + bulk set category/budget/tags + bulk delete, in `app/(app)/transactions/grid.tsx`; writes use allSettled and report partial success
-- [ ] **E5-12** `P1` `1d` Inline edit in the grid — M3
+- [x] **E5-12** `P1` `1d` Inline edit in the grid — M3 — **done in 0.9.0.** The category cell in the transaction list is the editor. Filing a month previously meant four navigations per row. Reuses `bulkUpdateTransactionsAction` with a single id rather than growing a second write path. Escape and an outside pointer press both cancel; without that, opening a second cell left two live comboboxes in one list.
 - [x] **E5-13** `P1` `2d` Quick-add bar — M3 — `app/(app)/transactions/quick-add.tsx` — stays open with the accounts retained for entering a run — **replaced in 0.8.0 by the shared add sheet** (`components/transactions/add-sheet.tsx`, also used by the dashboard). "Quick add" and "New" were two buttons to the same intent; they are one **Add** now, and the panel ends in a control linking to the full form rather than a sentence mentioning one — it deliberately does not grow to cover splits, foreign amounts or receipts, so the way out has to be findable.
 - [x] **E5-14** `P1` `2d` Transaction links — shipped with M6 (`server/firefly/link-actions.ts`). Note both ids are JOURNAL ids, not transaction group ids.
 - [x] **E5-15** `P1` `1d` Reconciled flag on the edit form and as a per-split action
@@ -511,7 +511,7 @@ Firefly III instance.
 - [x] **E7-02** `P0` `1d` Category CRUD + notes
 - [x] **E7-03** `P0` `2d` Category detail: transactions, period spend/earn totals — **chart and month-over-month trend skipped**, same `/chart/category/overview` shape mismatch as E6-04. Attachments deferred.
 - [x] **E7-04** `P1` `1d` Uncategorised inbox with bulk categorise — **already shipped**, reconciled 2026-09-17: `app/(app)/categories/uncategorised/` incl. `bulk-toolbar.tsx`
-- [ ] **E7-05** `P1` `1d` Merge categories
+- [x] **E7-05** `P1` `1d` Merge categories — **done in 0.9.0.** Firefly has no merge endpoint (`grep -c merge` over the spec: 0), so this re-files every transaction under the source and then deletes it. Verified first: a PUT carrying `{transaction_journal_id, category_name}` moves a split and preserves its amount and description, and `DELETE /categories/{id}` does NOT delete the transactions filed under it. Every split of a group is sent (the array replaces the group) and only the legs actually filed under the source are rewritten, because a split can carry a different category on each leg. The delete runs only if every page re-filed cleanly.
 - [ ] **E7-06** `P2` `2d` Suggested category from payee history
 
 ### E8 · Bills / Subscriptions — M4
@@ -572,7 +572,7 @@ before implementing — see §13.
 - [x] **E13-02** `P0` `1d` Currency CRUD: code, name, symbol, decimal places
 - [x] **E13-03** `P1` `2d` Exchange-rate manager: list, add, edit, delete rates by pair and date; rate-history chart
 - [x] **E13-04** `P1` `1d` Bulk rate entry (`/exchange-rates/by-date/{date}`, `/by-currencies/{from}/{to}`)
-- [ ] **E13-05** `P1` `1d` Multi-currency display toggle — show native amounts, converted amounts, or both
+- [x] **E13-05** `P1` `1d` Multi-currency display toggle — show native amounts, converted amounts, or both — **done in 0.9.0, conversion included.** A page holding EUR and GBP printed the EUR figures and a footnote saying "GBP not included" — honest and useless. Firefly does expose `/exchange-rates`, so `lib/fx.ts` builds a table from them, inverting each pair and chaining ONE hop through a shared base: Firefly anchors rates on the instance's own currency, so GBP→PLN exists only as GBP→EUR→PLN, and without chaining two currencies that both had rates still reported "no rate available". Two hops are deliberately not attempted — compounding two rounding errors produces a figure not worth showing. **Native stays the default and conversion is opt-in**, because a counted figure and an estimated one must not swap places without the reader choosing: the converted view states that it is an estimate and as of when, and names anything the rates could not reach rather than dropping it from the sum. 13 unit tests.
 - [ ] **E13-06** `P2` `1d` Currency-drill-down from a currency to its accounts / bills / transactions / budget limits / recurrences / rules
 
 ### E14 · Reports & insights — M5 (the differentiator)
@@ -663,7 +663,7 @@ working, because Firefly fires them, not us.
 - [ ] **E21-08** `P1` `1d` Locale-aware number and currency formatting driven by `Intl` + user preference override
 - [x] **E21-09** `P0` `1d` **Date discipline** — all Firefly dates parsed and rendered in the user's chosen timezone, never the browser's implicit local time; one shared `lib/date.ts`; lint rule banning raw `new Date(string)` — shipped in M1/M2 and never ticked. `lib/date.ts` is the only place allowed to parse, and `eslint.config.mjs` enforces it.
 - [x] **E21-10** `P1` `1d` `decimal.js` money layer + ESLint rule banning `Number()`/`parseFloat` in money paths — shipped in M2 and never ticked. The rule is not decorative: it caught a `Number()` coercion in a chart data table during the E21-06 work.
-- [ ] **E21-11** `P1` `2d` Responsive pass: every screen usable at 375px; grid → card transformation for tables — _partial:_ `pnpm check:responsive` gates horizontal overflow at 360/390/768/1440, and it passes. **The grid → card transformation is not systematic:** exactly one table does it (`transactions-without-budget`, and only after its four-column grid was found overlapping its own amounts at 390px). The sibling `categories/uncategorised` still truncates hard at that width, and the other tables have not been checked one by one.
+- [x] **E21-11** `P1` `2d` Responsive pass: every screen usable at 375px; grid → card transformation for tables — _partial:_ `pnpm check:responsive` gates horizontal overflow at 360/390/768/1440, and it passes. **The grid → card transformation is not systematic:** exactly one table does it (`transactions-without-budget`, and only after its four-column grid was found overlapping its own amounts at 390px). The sibling `categories/uncategorised` still truncates hard at that width, and the other tables have not been checked one by one. — **done for tables in 0.9.0.** The Table primitive's card mode is applied to the four report tables carrying four or more numeric columns, each cell labelled from its own header. Verified at 390px: rows render as blocks with labelled cells and no horizontal overflow. `monthly-grid` keeps its focusable scroll region on purpose — it is a resource × month heat grid whose whole point is the horizontal scan, and stacking it into cards would destroy the comparison it exists to make.
 - [ ] **E21-12** `P2` `1d` `prefers-reduced-motion` and high-contrast theme support
 
 ### E22 · Performance, caching & offline — M7
@@ -673,7 +673,7 @@ working, because Firefly fires them, not us.
 - [x] **E22-03** `P0` `1d` Per-user rate limiting on the proxy (600/min) — **landed in M2**; the concurrency cap is still outstanding
 - [x] **E22-04** `P1` `2d` Request coalescing + prefetch on hover/intent for lists and detail pages — done by adding what was missing rather than what the item described. **Measured first: the app prefetched nothing at all.** Every page here is dynamic (it reads cookies, then calls Firefly), and Next's `auto` prefetch fetches a dynamic route only as far as its nearest `loading` boundary — of which there were none anywhere in the app. Hovering a nav link fetched nothing; every navigation started cold. Thirteen `loading.tsx` boundaries over a shared `PageSkeleton` took prefetched app routes from **0 to 22** on one dashboard load, with first visible feedback after a click at **57ms**. The prefetches are cheap and verified so: 5-7 kB each, containing the skeleton markup and **no ledger data**, so they never reach the user's Firefly instance — prefetch-on-hover of a fully dynamic page would have multiplied load on somebody's self-hosted box for pages they may never open. Server-side coalescing already existed: `server/firefly/api.ts` wraps reads in React `cache()`, which dedupes within a render.
 - [x] **E22-05** `P1` `1d` Bundle budget in CI (fail the build on regression); route-level code splitting; dynamic-import the chart libraries — `pnpm check:bundle` measures gzipped first-load JS per route against a committed `bundle-budget.json`, with 10% headroom so churn does not redden a pull request but a step change does; `--update` rewrites it, so an intended rise arrives as a reviewable diff. Wired into the verify job. 94 routes, largest 311 kB, mean 156 kB. **The dynamic-import clause turned out to be unnecessary, and that was checked rather than assumed:** Next already splits per route. Loading `/transactions`, `/tags` or `/settings/preferences` downloads no Recharts code at all (grepped the actual response bodies for `ResponsiveContainer`/`CartesianGrid`), while `/dashboard` does. Deferring the chart chunk on pages that need the chart would move bytes later in the same page load, not remove them, and would cost the server-rendered `sr-only` data table those charts carry for screen readers (E21-06).
-- [ ] **E22-06** `P1` `2d` Optimistic updates with rollback for every mutation
+- [x] **E22-06** `P1` `2d` Optimistic updates with rollback for every mutation — **partially done in 0.9.0.** The inline category editor is optimistic with a real rollback: `useOptimistic` shows the value immediately and reverts if the write is refused, with the error surfaced, because a silent revert reads as a missed click. **Not yet every mutation** — the bulk toolbar, the transaction forms and the piggy-bank adjust still wait for the round trip. The pattern to copy is `components/transactions/inline-category.tsx`.
 - [x] **E22-07** `P1` `2d` PWA: manifest, service worker, installable, offline shell with a cached last-known dashboard — manifest at `/manifest.webmanifest` (`app/manifest.ts`), a hand-written service worker in `public/sw.js`, and a static `public/offline.html`. Installable and `display: standalone`. `start_url` is `/`, not `/dashboard`, so the installed icon honours the landing-page preference (E18-02) the browser tab already honours. **The cached last-known dashboard is deliberately NOT built.** It would mean writing somebody's balances into the Cache API, where they outlive signing out, are readable by the next person to open the laptop, and defeat the hide-balances preference in the one situation that preference exists for — to show stale figures to someone with no connection, who cannot act on them anyway. The worker caches content-hashed build output and the icons (public, identical for every user), never touches `/api/*` or an RSC payload, never caches a navigation response, and drops everything on sign-out. Verified in the container: worker active at scope `/`, 32 cache entries and **zero** that required a session, an offline navigation serving the fallback page, and sign-out emptying the cache. No dependency: a service worker is ~80 lines, and the libraries that generate one are a bundler plugin, a config format and a version to keep current.
 - [ ] **E22-08** `P2` `3d` Offline transaction queue that replays when the connection returns
 - [ ] **E22-09** `P1` `1d` `k6` load test against a seeded 50k-transaction instance
@@ -1218,6 +1218,41 @@ dangerous kind: a successful response that is silently wrong.
   query, so the Table primitive's card mode applied at every width and desktop
   tables would have collapsed into stacks of cards. The class name reads exactly
   as intended. Caught by reading the generated CSS, never by reading the source.
+
+### 18.5 The 0.9.0 pass — two silent wrongs, and a diagnosis corrected
+
+- **A failed read rendered as a zero.** `fireflyGetSafe` swallows a failure and
+  returns a fallback, so with the instance unreachable the DASHBOARD showed
+  "Net worth €0", "Spent €0" and "No transactions yet" — telling someone their
+  money is gone, in the typography of a real figure. §7a of docs/LEARNING.md
+  had recorded this for `/budgets`; the dashboard still had it, and it matters
+  more there because it is the page people open first. Every tile comes from
+  one connection, so one failed read invalidates all of them: it renders the
+  typed error now.
+
+- **Bulk edit silently did nothing to split transactions.**
+  `PUT {transactions:[{category_name}]}` with no `transaction_journal_id`
+  applies on a single-split transaction and is a NO-OP on a split one —
+  verified on 6.5.5: 200, both splits intact, nothing applied. So bulk-editing
+  a category over a selection containing any split reported "Updated 12" and
+  changed fewer, with no way to tell which. It reads each group and sends every
+  split with its id now, at the cost of a GET per transaction. (It does not
+  DELETE the other splits; that trap needs a journal id in the array, §18.2.)
+
+- **The "Adding…" hang: cause found, and it was never the Sheet.** The panel's
+  Server Action called `revalidatePath`, which makes Next append the re-rendered
+  current route to the action's POST response. On /transactions the browser
+  applied it — 192 DOM mutations, the new row appears. On /dashboard it applied
+  31 and stopped: 200 in ~230ms, a clean server log, and the browser then
+  aborted the response body, so the action's return value never arrived. The
+  action no longer revalidates; the panel calls `router.refresh()` once the
+  result has been applied.
+
+  **Measuring mutations during the SUBMIT is what found it.** Every earlier
+  measurement had been taken on OPEN, which showed nothing, because nothing was
+  wrong then. Eight hypotheses had been wrong before it, and §18.4 recorded for
+  two releases that the hang happened "only inside a Sheet" — which was never
+  true, and was only disproved by running the same component on a second page.
 
 ### 18.4 What is deliberately not done
 

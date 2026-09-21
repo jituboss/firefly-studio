@@ -339,8 +339,35 @@ export async function bulkUpdateTransactionsAction(
       return { error: 'Unknown field.' };
   }
 
+  /*
+   * Every split, with its journal id — not one bare entry.
+   *
+   * `PUT {transactions:[{category_name}]}` with no `transaction_journal_id`
+   * works on a single-split transaction and is a SILENT NO-OP on a split one:
+   * verified on 6.5.5, a two-split group answers 200, keeps both splits, and
+   * applies nothing. So bulk-editing a category over a selection containing
+   * any split transaction reported "Updated 12" and changed fewer, with no way
+   * to tell which. (It does not DELETE the other splits — that trap needs the
+   * array to contain a journal id, see PROJECT_PLAN §18.2 — but silently
+   * doing nothing is its own failure.)
+   *
+   * Reading each group first costs a GET per transaction. That is the price of
+   * the edit actually happening.
+   */
   const results = await Promise.allSettled(
-    ids.map((id) => fireflyWrite(`/v1/transactions/${id}`, 'PUT', { transactions: [payload] })),
+    ids.map(async (id) => {
+      const group = (await getTransaction(id)).data;
+      const splits = group.attributes.transactions;
+      return fireflyWrite(`/v1/transactions/${id}`, 'PUT', {
+        ...(splits.length > 1
+          ? { group_title: group.attributes.group_title ?? 'Split transaction' }
+          : {}),
+        transactions: splits.map((split) => ({
+          transaction_journal_id: split.transaction_journal_id,
+          ...payload,
+        })),
+      });
+    }),
   );
 
   const failed = results.filter((result) => result.status === 'rejected');
@@ -455,8 +482,21 @@ export async function quickAddTransactionAction(
     throw error;
   }
 
-  revalidatePath('/transactions');
-  revalidatePath('/dashboard');
-  revalidatePath('/reports');
+  /*
+   * NO revalidatePath here, and that is the fix for a hang, not an oversight.
+   *
+   * Revalidating from inside the action makes Next append the re-rendered
+   * current route to the action's response. On /transactions the client
+   * applied it happily (192 DOM mutations, the new row appears). On
+   * /dashboard it applied 31 and stopped: the POST answered 200 in ~230ms
+   * with a clean server log, and the browser then aborted the response body,
+   * so the action's return value never arrived and the button sat on
+   * "Adding…" for ever while the transaction had in fact been written.
+   *
+   * The caller refreshes instead — `router.refresh()` once the action has
+   * returned. That is a separate, ordinary navigation request rather than a
+   * payload bolted onto a POST, it keeps the figures just as fresh, and it
+   * cannot take the action's own result down with it.
+   */
   return { ok: true, notice: `Added “${description}”.` };
 }

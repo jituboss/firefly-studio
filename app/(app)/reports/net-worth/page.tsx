@@ -166,7 +166,7 @@ export default async function NetWorthReportPage({
         description="Opening and closing balance for every account inside the total."
         breakBefore
       >
-        <Table label="Net worth by month">
+        <Table label="Net worth by month" cards>
           <THead>
             <TR head>
               <TH>Account</TH>
@@ -194,7 +194,7 @@ export default async function NetWorthReportPage({
                     </span>
                   </div>
                 </TD>
-                <TD align="right" hideBelow="sm">
+                <TD label="Opening" align="right" hideBelow="sm">
                   <Amount
                     value={row.opening}
                     currency={report.currency}
@@ -202,7 +202,7 @@ export default async function NetWorthReportPage({
                     tone="neutral"
                   />
                 </TD>
-                <TD align="right">
+                <TD label="Closing" align="right">
                   <Amount
                     value={row.closing}
                     currency={report.currency}
@@ -210,7 +210,7 @@ export default async function NetWorthReportPage({
                     tone="neutral"
                   />
                 </TD>
-                <TD align="right">
+                <TD label="Change" align="right">
                   <Amount value={row.change} currency={report.currency} tone="auto" />
                 </TD>
               </TR>

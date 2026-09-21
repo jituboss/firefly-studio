@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { CategoryForm } from '../category-form';
 import { DeleteCategoryButton } from './delete-button';
+import { MergeCategoryForm } from './merge-form';
 import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Category' };
@@ -155,6 +156,24 @@ export default async function CategoryDetailPage({
       ) : (
         <div className="space-y-6">
           <CategoryForm category={category} />
+          {/* E7-05 — merging sits above deleting because it is what people
+              actually want when they find a duplicate: deleting strips the
+              category off every transaction, merging keeps the history. */}
+          <Card>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+              <div>
+                <p className="text-sm font-medium">Merge into another category</p>
+                <p className="text-muted-foreground text-sm">
+                  Moves every transaction across, then removes this one.
+                </p>
+              </div>
+              <MergeCategoryForm
+                id={id}
+                name={a.name}
+                transactionCount={transactions.data.length}
+              />
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div>

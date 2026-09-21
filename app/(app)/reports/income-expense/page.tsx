@@ -161,7 +161,7 @@ export default async function IncomeExpenseReportPage({
       </div>
 
       <ReportSection title="Monthly detail" description="The figures behind the chart." breakBefore>
-        <Table label="Monthly detail">
+        <Table label="Monthly detail" cards>
           <THead>
             <TR head>
               <TH>Month</TH>
@@ -179,7 +179,7 @@ export default async function IncomeExpenseReportPage({
                 <TD className="whitespace-nowrap">
                   {formatMonthLabel(point.date, session.user.timezone, session.user.locale)}
                 </TD>
-                <TD align="right">
+                <TD label="Income" align="right">
                   <Amount
                     value={point.earned}
                     currency={cashFlow.currency}
@@ -187,7 +187,7 @@ export default async function IncomeExpenseReportPage({
                     showSign={false}
                   />
                 </TD>
-                <TD align="right">
+                <TD label="Expenses" align="right">
                   <Amount
                     value={point.spent}
                     currency={cashFlow.currency}
@@ -195,10 +195,10 @@ export default async function IncomeExpenseReportPage({
                     showSign={false}
                   />
                 </TD>
-                <TD align="right">
+                <TD label="Net" align="right">
                   <Amount value={point.net} currency={cashFlow.currency} tone="auto" />
                 </TD>
-                <TD align="right" hideBelow="sm">
+                <TD label="Running" align="right" hideBelow="sm">
                   <Amount
                     value={point.cumulative}
                     currency={cashFlow.currency}

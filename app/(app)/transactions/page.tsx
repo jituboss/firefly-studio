@@ -3,12 +3,20 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getPreferences } from '@/server/preferences';
 import { getActiveConnection, fireflyGetSafe } from '@/server/firefly/api';
-import { getAccount, getAccountsSafe, getBudget, getCategory } from '@/server/firefly/queries';
+import {
+  getAccount,
+  getAccountsSafe,
+  getBudget,
+  getCategory,
+  getExchangeRates,
+} from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { now, toApiDate } from '@/lib/date';
 import { add, toDecimal } from '@/lib/money';
+import { buildRates, convertTotal, type RateTable } from '@/lib/fx';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { HideBalancesToggle } from '@/components/hide-balances';
+import { CurrencyTotals } from '@/components/transactions/currency-totals';
 import { TransactionFilters } from './filters';
 import { TransactionGrid } from './grid';
 import { AddTransactionSheet } from '@/components/transactions/add-sheet';
@@ -32,7 +40,7 @@ export const metadata: Metadata = { title: 'Transactions' };
  * labelling it "this period" would state a number that is simply wrong. One
  * currency at a time, as everywhere else.
  */
-function pageTotals(transactions: Transaction[], preferred: string) {
+function pageTotals(transactions: Transaction[], preferred: string, rates?: RateTable) {
   const splits = transactions.flatMap((group) => group.attributes.transactions);
   const currencies = new Map<string, TransactionSplit[]>();
   for (const split of splits) {
@@ -54,12 +62,57 @@ function pageTotals(transactions: Transaction[], preferred: string) {
     else if (split.type === 'withdrawal') outflow = add(outflow, split.amount);
   }
 
+  const otherCurrencies = [...currencies.keys()].filter((code) => code !== currency).sort();
+
+  /*
+   * E13-05 — the converted view.
+   *
+   * Without rates the honest answer is the one above: one currency's figures,
+   * and a note naming what was left out. With rates we can answer the question
+   * people were actually asking — "what did I spend, in total?" — provided the
+   * answer says it is converted and as of when. It is computed here and shown
+   * only when the reader asks for it; the native figures stay the default,
+   * because a counted number and an estimated one should never swap places
+   * without the reader choosing.
+   */
+  let convertedTotals: {
+    currency: string;
+    inflow: string;
+    outflow: string;
+    net: string;
+    converted: string[];
+    unconvertible: string[];
+  } | null = null;
+
+  if (rates && otherCurrencies.length > 0) {
+    const bucketsFor = (type: 'deposit' | 'withdrawal') =>
+      [...currencies.entries()].map(([code, list]) => ({
+        currency: code,
+        amount: list
+          .filter((split) => split.type === type)
+          .reduce((sum, split) => add(sum, split.amount), toDecimal(0))
+          .toString(),
+      }));
+
+    const inTotal = convertTotal(bucketsFor('deposit'), currency, rates);
+    const outTotal = convertTotal(bucketsFor('withdrawal'), currency, rates);
+    convertedTotals = {
+      currency,
+      inflow: inTotal.total,
+      outflow: outTotal.total,
+      net: toDecimal(inTotal.total).minus(toDecimal(outTotal.total)).toString(),
+      converted: [...new Set([...inTotal.converted, ...outTotal.converted])].sort(),
+      unconvertible: [...new Set([...inTotal.unconvertible, ...outTotal.unconvertible])].sort(),
+    };
+  }
+
   return {
     currency,
     inflow: inflow.toString(),
     outflow: outflow.toString(),
     net: inflow.minus(outflow).toString(),
-    otherCurrencies: [...currencies.keys()].filter((code) => code !== currency).sort(),
+    otherCurrencies,
+    converted: convertedTotals,
   };
 }
 
@@ -169,7 +222,20 @@ export default async function TransactionsPage({
       : result.data;
 
   const pagination = result.meta.pagination;
-  const totals = pageTotals(data, connection.primaryCurrency);
+  const mixedCurrency =
+    new Set(data.flatMap((g) => g.attributes.transactions.map((t) => t.currency_code))).size > 1;
+  const rateRows = mixedCurrency ? await getExchangeRates() : null;
+  const rates = rateRows
+    ? buildRates(
+        rateRows.data.map((row) => ({
+          from: row.attributes.from_currency_code,
+          to: row.attributes.to_currency_code,
+          rate: row.attributes.rate,
+          date: row.attributes.date,
+        })),
+      )
+    : undefined;
+  const totals = pageTotals(data, connection.primaryCurrency, rates);
   const savedViewsList = await listSavedViews(session.user.id, 'transactions');
 
   const filtered = Boolean(search) || Boolean(accountId) || Boolean(scopeName) || type !== 'all';
@@ -316,7 +382,14 @@ export default async function TransactionsPage({
                 </span>
                 <span className="hidden sm:inline">transfers excluded</span>
                 {totals.otherCurrencies.length > 0 ? (
-                  <span>{totals.otherCurrencies.join(', ')} not included</span>
+                  <CurrencyTotals
+                    native={{
+                      currency: totals.currency,
+                      otherCurrencies: totals.otherCurrencies,
+                    }}
+                    converted={totals.converted}
+                    asOf={rates?.asOf ?? null}
+                  />
                 ) : null}
               </div>
             }

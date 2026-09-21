@@ -5,7 +5,7 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-21, at `v0.8.0`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-21, at `v0.9.0`. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous note:** 0.7.0 closed E21-01 (the last five primitives) and E8-07,
 and added transaction type conversion, a dashboard quick-add, reachable date ranges and an HTTP
@@ -429,6 +429,13 @@ cost someone else a day.
   every test ran on the dashboard. Putting the same component on
   /transactions in 0.8.0 resolved in ~450ms and disproved it. Before writing
   down a cause, change the one variable you have not varied.
+
+- **Measure the moment that is going wrong, not the one next to it.** The add
+  panel's submit hung for three releases. Mutations were measured on OPEN and
+  showed nothing, which was read as "no render loop" — true, and irrelevant.
+  Measured during the SUBMIT, the dashboard applied 31 DOM mutations and
+  stopped where the transactions page applied 192, and the cause was obvious
+  within minutes.
 
 - **A 200 from Firefly is not evidence the write happened.** Converting a
   transaction by sending `type` alone returns 200 with the record unchanged, and

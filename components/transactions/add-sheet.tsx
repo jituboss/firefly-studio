@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useActionState } from 'react';
 import { ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Plus } from 'lucide-react';
 import {
@@ -32,33 +33,24 @@ import { FormMessage } from '@/components/auth/form-shell';
  * it is, and on a phone it arrives from the bottom, next to the thumb that
  * opened it.
  *
- * KNOWN ISSUE, and it is narrower than it was thought to be.
+ * WHY THE ACTION DOES NOT REVALIDATE — this panel's one hard-won detail.
  *
- * On the DASHBOARD only, the submit button can stay on "Adding…". The
- * transaction is written correctly — the POST answers 200 in ~230ms and the row
- * is right in Firefly — but the action's returned state never reaches the
- * client, so the success notice does not show and the fields do not clear.
+ * `quickAddTransactionAction` deliberately calls no `revalidatePath`; this
+ * component calls `router.refresh()` once the result has been applied instead.
  *
- * This component was previously documented as "it reproduces only inside a
- * Sheet". **That was wrong.** The identical sheet, with the identical action,
- * resolves in ~450ms on /transactions at both 1400px and 390px, and still hangs
- * on /dashboard. So the Sheet is not the cause; something about the dashboard's
- * own re-render is, and the Sheet is only a condition — swapping it for a plain
- * div on the dashboard also made the hang go away.
+ * Revalidating from inside the action makes Next append the re-rendered
+ * current route to the action's POST response. On /transactions the browser
+ * applied that happily. On /dashboard it applied 31 DOM mutations and stopped:
+ * the POST answered 200 in ~230ms with a clean server log, the browser then
+ * aborted the response body, the action's return value never arrived, and the
+ * button sat on "Adding…" indefinitely over a transaction that HAD been
+ * written. Refreshing afterwards is an ordinary navigation request that cannot
+ * take the action's own result down with it.
  *
- * Ruled out by experiment, each deployed and measured against the container:
- * the inline action wrapper; `revalidatePath('/dashboard')` firing while on
- * /dashboard; the focus trap re-stealing focus each render (a real bug, fixed
- * separately, hang unchanged); the service worker (returns early on non-GET);
- * the `fetch` patch in NavigationProgress (the POST targets the current route,
- * so `isCurrentRoute` short-circuits it); a server-side error (the log is
- * clean); and a ResizeObserver render loop from the dashboard's charts — no
- * layout shift on open (0px, overlay scrollbars) and mutations stop after 11.
- *
- * Do NOT "fix" this by clearing the form optimistically on submit. That reports
- * success without knowing, which is the failure this codebase has been bitten by
- * twice — see `conversionApplied` in lib/transaction-convert.ts and the delta
- * arithmetic in lib/delta.ts.
+ * That took a long time to find because it looked like a component bug. It was
+ * documented here for two releases as "only happens inside a Sheet", which was
+ * wrong — every test run at the time happened to be on the dashboard. Putting
+ * the identical sheet on /transactions is what disproved it.
  *
  * It deliberately does NOT grow to cover splits, foreign amounts, attachments
  * or piggy-bank links. A quick-add that accretes fields until it matches the
@@ -202,6 +194,7 @@ function AddSheet({
   const [category, setCategory] = React.useState('');
   const [saved, setSaved] = React.useState(0);
 
+  const router = useRouter();
   const formRef = React.useRef<HTMLFormElement>(null);
   const amountRef = React.useRef<HTMLInputElement>(null);
 
@@ -220,7 +213,14 @@ function AddSheet({
     // Back to the amount, not the description: the next entry starts with a
     // number, and this is the field a second entry begins in.
     amountRef.current?.focus();
-  }, [state]);
+    /*
+     * The refresh the action deliberately no longer does — see the comment on
+     * `quickAddTransactionAction`. It runs AFTER the result has been applied,
+     * so a slow or aborted page re-render can no longer swallow the
+     * confirmation of a write that already succeeded.
+     */
+    router.refresh();
+  }, [state, router]);
 
   return (
     <Sheet

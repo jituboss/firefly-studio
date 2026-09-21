@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getPreferences } from '@/server/preferences';
-import { getActiveConnection } from '@/server/firefly/api';
+import { getActiveConnection, readFailure } from '@/server/firefly/api';
 import {
   getAccountsSafe,
   getAccountOverviewChart,
@@ -34,6 +34,8 @@ import {
   WidgetCard,
 } from '@/components/dashboard/widgets';
 import { HideBalancesToggle } from '@/components/hide-balances';
+import { ErrorState } from '@/components/error-state';
+import { classifyError } from '@/lib/error-taxonomy';
 import { AddTransactionSheet } from '@/components/transactions/add-sheet';
 import { listSavedReports } from '@/server/reports';
 import { describeConfig, parseConfig } from '@/lib/custom-report';
@@ -195,138 +197,157 @@ export default async function DashboardPage({
         </div>
       </header>
 
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiTile
-          label="Net worth"
-          value={netWorth.value}
-          currency={netWorth.currency || currency}
-          previous={summaryValue(previousSummary, 'net-worth-in-', currency).value}
-          tone="neutral"
-        />
-        <KpiTile
-          label="Earned"
-          value={earned.value}
-          currency={earned.currency || currency}
-          previous={summaryValue(previousSummary, 'earned-in-', currency).value}
-          tone="income"
-        />
-        <KpiTile
-          label="Spent"
-          value={spent.value}
-          currency={spent.currency || currency}
-          previous={summaryValue(previousSummary, 'spent-in-', currency).value}
-          tone="expense"
-        />
-        <KpiTile
-          label="Balance"
-          value={balance.value}
-          currency={balance.currency || currency}
-          previous={summaryValue(previousSummary, 'balance-in-', currency).value}
-        />
-      </div>
+      {/*
+        A failed read is not a zero.
+        `fireflyGetSafe` swallows a failure and returns a fallback, so with the
+        instance unreachable this page rendered "Net worth €0", "Spent €0" and
+        "No transactions yet" — telling someone their money is gone, in the
+        confident typography of a real figure. Exactly the bug docs/LEARNING.md
+        §7a records for /budgets; the dashboard still had it, and it is worse
+        here because this is the page people open first.
 
-      <Card className="min-w-0 overflow-hidden">
-        <CardContent className="min-w-0 space-y-4 p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-            <div className="min-w-0">
-              <h2 className="text-sm font-medium">Net worth over time</h2>
-              <p className="text-muted-foreground text-xs">{range.label}</p>
-            </div>
-
-            {trend.points.length > 0 ? (
-              <div className="min-w-0 text-right">
-                <Amount
-                  value={trend.closing}
-                  currency={trend.currency}
-                  size="lg"
-                  showSign={false}
-                  tone="neutral"
-                  compact
-                />
-                <p className="text-muted-foreground mt-0.5 flex items-center justify-end gap-1 text-xs">
-                  <Amount
-                    value={trend.change}
-                    currency={trend.currency}
-                    size="sm"
-                    compact
-                    tone="auto"
-                  />
-                  {trend.changePercent === null ? null : (
-                    <span className={trend.change >= 0 ? 'text-income' : 'text-expense'}>
-                      ({trend.changePercent >= 0 ? '+' : ''}
-                      {trend.changePercent.toFixed(1)}%)
-                    </span>
-                  )}
-                  <span>this period</span>
-                </p>
-              </div>
-            ) : null}
+        Every tile on this page comes from the same connection, so one failed
+        read means none of the figures below can be trusted. The page reports
+        the error instead of inventing twelve zeroes.
+      */}
+      {readFailure() ? (
+        <ErrorState kind={classifyError(readFailure())} />
+      ) : (
+        <>
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <KpiTile
+              label="Net worth"
+              value={netWorth.value}
+              currency={netWorth.currency || currency}
+              previous={summaryValue(previousSummary, 'net-worth-in-', currency).value}
+              tone="neutral"
+            />
+            <KpiTile
+              label="Earned"
+              value={earned.value}
+              currency={earned.currency || currency}
+              previous={summaryValue(previousSummary, 'earned-in-', currency).value}
+              tone="income"
+            />
+            <KpiTile
+              label="Spent"
+              value={spent.value}
+              currency={spent.currency || currency}
+              previous={summaryValue(previousSummary, 'spent-in-', currency).value}
+              tone="expense"
+            />
+            <KpiTile
+              label="Balance"
+              value={balance.value}
+              currency={balance.currency || currency}
+              previous={summaryValue(previousSummary, 'balance-in-', currency).value}
+            />
           </div>
 
-          <BalanceTrend
-            data={trend}
-            timezone={session.user.timezone}
-            locale={session.user.locale}
-          />
-        </CardContent>
-      </Card>
+          <Card className="min-w-0 overflow-hidden">
+            <CardContent className="min-w-0 space-y-4 p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-medium">Net worth over time</h2>
+                  <p className="text-muted-foreground text-xs">{range.label}</p>
+                </div>
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
-        <WidgetCard title="Accounts" href="/accounts">
-          <AccountBalanceList accounts={accounts.data.slice(0, 6)} />
-        </WidgetCard>
+                {trend.points.length > 0 ? (
+                  <div className="min-w-0 text-right">
+                    <Amount
+                      value={trend.closing}
+                      currency={trend.currency}
+                      size="lg"
+                      showSign={false}
+                      tone="neutral"
+                      compact
+                    />
+                    <p className="text-muted-foreground mt-0.5 flex items-center justify-end gap-1 text-xs">
+                      <Amount
+                        value={trend.change}
+                        currency={trend.currency}
+                        size="sm"
+                        compact
+                        tone="auto"
+                      />
+                      {trend.changePercent === null ? null : (
+                        <span className={trend.change >= 0 ? 'text-income' : 'text-expense'}>
+                          ({trend.changePercent >= 0 ? '+' : ''}
+                          {trend.changePercent.toFixed(1)}%)
+                        </span>
+                      )}
+                      <span>this period</span>
+                    </p>
+                  </div>
+                ) : null}
+              </div>
 
-        <WidgetCard title="Recent transactions" href="/transactions">
-          <RecentTransactions transactions={recent.data} timezone={session.user.timezone} />
-        </WidgetCard>
+              <BalanceTrend
+                data={trend}
+                timezone={session.user.timezone}
+                locale={session.user.locale}
+              />
+            </CardContent>
+          </Card>
 
-        <WidgetCard title="Top spending categories">
-          <CategoryBars data={topCategories} currency={currency} height={220} />
-        </WidgetCard>
+          <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+            <WidgetCard title="Accounts" href="/accounts">
+              <AccountBalanceList accounts={accounts.data.slice(0, 6)} />
+            </WidgetCard>
 
-        <WidgetCard title="Upcoming bills">
-          <UpcomingBills
-            bills={bills.data}
-            timezone={session.user.timezone}
-            defaultCurrency={currency}
-          />
-        </WidgetCard>
+            <WidgetCard title="Recent transactions" href="/transactions">
+              <RecentTransactions transactions={recent.data} timezone={session.user.timezone} />
+            </WidgetCard>
 
-        <WidgetCard title="Savings goals">
-          <PiggyProgress piggies={piggies.data} defaultCurrency={currency} />
-        </WidgetCard>
+            <WidgetCard title="Top spending categories">
+              <CategoryBars data={topCategories} currency={currency} height={220} />
+            </WidgetCard>
 
-        <WidgetCard title="Budget progress" href="/budgets">
-          <BudgetProgressWidget
-            budgets={budgetsResult.data}
-            limits={limitsResult.data}
-            defaultCurrency={currency}
-          />
-        </WidgetCard>
+            <WidgetCard title="Upcoming bills">
+              <UpcomingBills
+                bills={bills.data}
+                timezone={session.user.timezone}
+                defaultCurrency={currency}
+              />
+            </WidgetCard>
 
-        {pinnedReports.length > 0 ? (
-          <WidgetCard title="Pinned reports" href="/reports">
-            <ul className="space-y-2">
-              {pinnedReports.map((report) => {
-                const config = parseConfig(report.config);
-                return (
-                  <li key={report.id}>
-                    <a
-                      href={`/reports/custom?range=${range.preset}&metric=${config.metric}&dimension=${config.dimension}&chart=${config.chart}&limit=${config.limit}`}
-                      className="hover:bg-accent -mx-2 block rounded-md px-2 py-1.5"
-                    >
-                      <p className="truncate text-sm font-medium">{report.name}</p>
-                      <p className="text-muted-foreground truncate text-xs">
-                        {describeConfig(config)}
-                      </p>
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </WidgetCard>
-        ) : null}
-      </div>
+            <WidgetCard title="Savings goals">
+              <PiggyProgress piggies={piggies.data} defaultCurrency={currency} />
+            </WidgetCard>
+
+            <WidgetCard title="Budget progress" href="/budgets">
+              <BudgetProgressWidget
+                budgets={budgetsResult.data}
+                limits={limitsResult.data}
+                defaultCurrency={currency}
+              />
+            </WidgetCard>
+
+            {pinnedReports.length > 0 ? (
+              <WidgetCard title="Pinned reports" href="/reports">
+                <ul className="space-y-2">
+                  {pinnedReports.map((report) => {
+                    const config = parseConfig(report.config);
+                    return (
+                      <li key={report.id}>
+                        <a
+                          href={`/reports/custom?range=${range.preset}&metric=${config.metric}&dimension=${config.dimension}&chart=${config.chart}&limit=${config.limit}`}
+                          className="hover:bg-accent -mx-2 block rounded-md px-2 py-1.5"
+                        >
+                          <p className="truncate text-sm font-medium">{report.name}</p>
+                          <p className="text-muted-foreground truncate text-xs">
+                            {describeConfig(config)}
+                          </p>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </WidgetCard>
+            ) : null}
+          </div>
+        </>
+      )}
     </div>
   );
 }

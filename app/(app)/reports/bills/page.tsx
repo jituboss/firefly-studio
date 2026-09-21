@@ -114,7 +114,7 @@ export default async function BillReportPage({
             </Link>
           </p>
         ) : (
-          <Table label="Subscriptions">
+          <Table label="Subscriptions" cards>
             <THead>
               <TR head>
                 <TH>Subscription</TH>
@@ -147,7 +147,7 @@ export default async function BillReportPage({
                       </p>
                     ) : null}
                   </TD>
-                  <TD align="right">
+                  <TD label="Expected" align="right">
                     <Amount
                       value={row.expected}
                       currency={report.currency}
@@ -155,10 +155,10 @@ export default async function BillReportPage({
                       tone="neutral"
                     />
                   </TD>
-                  <TD hideBelow="sm" className="text-muted-foreground">
+                  <TD label="Every" hideBelow="sm" className="text-muted-foreground">
                     {row.repeatFreq}
                   </TD>
-                  <TD align="right">
+                  <TD label="Per year" align="right">
                     {toDecimal(row.annualised).isZero() ? (
                       <span className="text-muted-foreground text-xs">—</span>
                     ) : (
@@ -170,7 +170,7 @@ export default async function BillReportPage({
                       />
                     )}
                   </TD>
-                  <TD align="right">
+                  <TD label="Paid" align="right">
                     <Amount
                       value={row.actual}
                       currency={report.currency}
@@ -184,9 +184,9 @@ export default async function BillReportPage({
             <TFoot>
               <TR>
                 <TD>Total</TD>
-                <TD />
-                <TD hideBelow="sm" />
-                <TD align="right">
+                <TD label="Expected" />
+                <TD label="Every" hideBelow="sm" />
+                <TD label="Per year" align="right">
                   <Amount
                     value={report.totalAnnualised}
                     currency={report.currency}
@@ -194,7 +194,7 @@ export default async function BillReportPage({
                     tone="expense"
                   />
                 </TD>
-                <TD align="right">
+                <TD label="Paid" align="right">
                   <Amount
                     value={report.totalActual}
                     currency={report.currency}
