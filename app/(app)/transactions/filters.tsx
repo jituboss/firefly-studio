@@ -13,12 +13,21 @@ export function TransactionFilters({
   search,
   accountId,
   scopeLabel,
+  trailing,
 }: {
   type: string;
   search: string;
   accountId?: string;
   /** E14-12 — set when a report drilled through to a category/budget/tag. */
   scopeLabel?: string | null;
+  /**
+   * Controls that belong on the same row as the type filter — saved views.
+   * A slot rather than a sibling in the page, because the search box is
+   * `w-full` on a phone and forces a line break: anything rendered after this
+   * component landed on a third row of its own, so the page spent two bands on
+   * two small controls.
+   */
+  trailing?: React.ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -61,18 +70,7 @@ export function TransactionFilters({
         <option value="transfer">Transfers</option>
       </Select>
 
-      <label className="sr-only" htmlFor="density">
-        Row density
-      </label>
-      <Select
-        id="density"
-        defaultValue={params.get('density') ?? 'comfortable'}
-        onChange={(event) => update({ density: event.target.value })}
-        containerClassName="w-auto"
-      >
-        <option value="comfortable">Comfortable</option>
-        <option value="compact">Compact</option>
-      </Select>
+      {trailing}
 
       {scopeLabel ? (
         <span className="bg-muted text-muted-foreground rounded-md px-2 py-1 text-xs">

@@ -8,13 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/input';
 import { FormMessage } from '@/components/auth/form-shell';
-import {
-  DENSITIES,
-  LANDING_PAGES,
-  REGIONAL_FORMATS,
-  THEMES,
-  type AppPreferences,
-} from '@/lib/preferences';
+import { LANDING_PAGES, REGIONAL_FORMATS, THEMES, type AppPreferences } from '@/lib/preferences';
 import { savePreferencesAction, type PreferencesState } from '@/server/preferences-actions';
 
 function SaveButton() {
@@ -106,17 +100,6 @@ export function PreferencesForm({ preferences }: { preferences: AppPreferences }
             {REGIONAL_FORMATS.map((entry) => (
               <option key={entry.value} value={entry.value}>
                 {entry.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field label="Row density" hint="How tightly the transaction list packs its rows.">
-          <Label htmlFor="density">Row density</Label>
-          <Select id="density" name="density" defaultValue={preferences.density}>
-            {DENSITIES.map((density) => (
-              <option key={density} value={density}>
-                {density === 'comfortable' ? 'Comfortable' : 'Compact'}
               </option>
             ))}
           </Select>

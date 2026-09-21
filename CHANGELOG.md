@@ -10,6 +10,66 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-21
+
+**The transaction list, rebuilt: nothing truncated, one way to add, and a
+phone screen that starts with transactions instead of controls.**
+
+### Changed
+
+- **Account names no longer clip.** The account column was a fixed 176px, so
+  two account names and an arrow never fitted and every row truncated both
+  ends — "Everyday C… → Home Mort…" — on a wide screen with hundreds of spare
+  pixels sitting unused in the description column beside it. The text columns
+  share the available width now, and nothing truncates at 1400px.
+
+- **The amount looks like the point of the row**, because it is. It was the
+  smallest thing on a line whose description was larger and whose colour it
+  was carrying. Categories became chips so they read as labels rather than as
+  more of the same sentence, the space between columns grows with the window,
+  and each row carries a small coloured dot for its type — previously the only
+  way to tell a transfer from a spend was the colour of a figure at the far
+  right of the row.
+
+- **"Quick add" and "New" are one button: Add.** They were two doors to the
+  same intent. It opens the same panel the dashboard uses, and the panel ends
+  in a link to the full form for splits, foreign amounts and receipts — a
+  control you can find rather than a sentence you have to finish reading.
+
+- **A narrow row names the account you wanted.** A transfer showed its source,
+  which is the account you are already looking at; it shows the destination.
+
+- **The phone layout starts with data sooner.** The header stopped dumping its
+  controls onto a line of their own beneath a two-line heading; the subtitle
+  gets the page width instead of the ~190px the buttons left it, so it no
+  longer wraps to report "page 1 of 1"; the type filter and Save view share a
+  row; the page totals stay on one line; and Export is its icon. 328px of
+  chrome before the first transaction, down from 388.
+
+### Removed
+
+- **The Comfortable/Compact row-density setting**, from the transaction list
+  and from Settings → Preferences. It did work — 56px against 40px, measured —
+  but the content inside the row did not change with it, so the difference was
+  imperceptible, and a control nobody can perceive is chrome above a list
+  people came to read. The stored column is left in place rather than taking a
+  destructive migration for a cosmetic change.
+
+### Fixed
+
+- **An overlay no longer discards what you typed** if you dismiss it by
+  accident: sheets keep their contents rather than rebuilding them each time
+  they open.
+
+### Known issues
+
+- **The dashboard's Add button can stay on "Adding…".** Unchanged from 0.7.0,
+  and now better understood: 0.7.0 recorded this as happening "only inside a
+  Sheet", which was wrong. The same panel on the transactions page confirms and
+  clears in under half a second, so the panel is not the cause — something
+  about the dashboard page itself is. The transaction is written correctly
+  either way.
+
 ## [0.7.0] - 2026-09-21
 
 **The design system is complete, transactions can be retyped, and a stale
@@ -763,7 +823,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.7.0...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.8.0
 [0.7.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.7.0
 [0.6.5]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.5
 [0.6.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.4

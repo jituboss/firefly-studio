@@ -71,10 +71,33 @@ export function Sheet({
   useFocusTrap(open, panelRef, onClose);
   useScrollLock(open);
 
-  if (!open) return null;
+  /*
+   * Kept MOUNTED and hidden, rather than unmounted.
+   *
+   * `hidden` removes the subtree from the accessibility tree, from the tab
+   * order and from layout exactly as `return null` did, so nothing about the
+   * closed state is weaker. What it buys is that the children keep their
+   * state: a half-typed entry survives an accidental backdrop click, and — the
+   * reason this changed — a form inside the sheet is not torn down and rebuilt
+   * around every open, which is the last remaining difference between this
+   * component and a plain div that a form submitted from correctly.
+   *
+   * The children are still only rendered once `open` has been true at least
+   * once, so a sheet nobody opens costs nothing.
+   */
+  const [everOpened, setEverOpened] = React.useState(open);
+  React.useEffect(() => {
+    if (open) setEverOpened(true);
+  }, [open]);
+
+  if (!everOpened) return null;
 
   return (
-    <div className={cn('fixed inset-0 z-50', className)}>
+    /* Both the attribute and the class: the attribute is what takes the
+       subtree out of the accessibility tree and the tab order, the class is
+       what guarantees `display: none` regardless of what preflight does to
+       `[hidden]`. */
+    <div hidden={!open} className={cn('fixed inset-0 z-50', !open && 'hidden', className)}>
       {/*
         A div with a click handler, not a <button>. The backdrop is decoration:
         as a button it appears in the tab order and in the accessibility tree as

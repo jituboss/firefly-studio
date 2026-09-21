@@ -457,7 +457,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 
 **M2 read scope and M3 write scope complete** (2026-09-17). The full transaction lifecycle — create, split, edit, duplicate, delete, attach — works without touching Firefly's own UI.
 
-- [x] **E5-01** `P0` `3d` Virtualised transaction grid — one row per split, sticky header, density toggle, server-rendered first screen
+- [x] **E5-01** `P0` `3d` Virtualised transaction grid — one row per split, sticky header, density toggle, server-rendered first screen — **rebuilt in 0.8.0.** The account column was a flat `11rem`, so two account names and an arrow were crushed into 176px and every row truncated both ends while hundreds of pixels sat unused in the description column; the text columns are fractions now and share the width that exists. Amount is semibold and a size up — it was the smallest thing on a line whose description was larger and whose colour it was carrying. Category is a chip, the column gap grows with the breakpoint (at `gap-3` the account flow and the category read as one run-on string), and each row carries a type dot because the three types were otherwise distinguishable only by the colour of a figure at the far right. **The density toggle is gone:** it worked — 56px against 40px, measured — but the row CONTENT did not change with it, so the difference was imperceptible and it cost two words of chrome above a list people came to read.
 - [x] **E5-02** `P0` `3d` Filter rail — _date range, type and free-text search ship; amount/category/budget/tag/attachment facets land with M3's filter rail_
 - [x] **E5-03** `P0` `1d` URL-synced filter state + pagination over `meta.pagination`
 - [x] **E5-04** `P0` `1d` Saved views (`saved_views` table) with sidebar pinning — **already shipped**, reconciled 2026-09-17: `server/saved-views.ts` + `app/(app)/transactions/saved-views.tsx`
@@ -469,7 +469,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E5-10** `P0` `1d` Duplicate — clones every split into a new-transaction form dated today
 - [x] **E5-11** `P1` `2d` Multi-select + bulk edit — M3 — selection + bulk set category/budget/tags + bulk delete, in `app/(app)/transactions/grid.tsx`; writes use allSettled and report partial success
 - [ ] **E5-12** `P1` `1d` Inline edit in the grid — M3
-- [x] **E5-13** `P1` `2d` Quick-add bar — M3 — `app/(app)/transactions/quick-add.tsx` — stays open with the accounts retained for entering a run
+- [x] **E5-13** `P1` `2d` Quick-add bar — M3 — `app/(app)/transactions/quick-add.tsx` — stays open with the accounts retained for entering a run — **replaced in 0.8.0 by the shared add sheet** (`components/transactions/add-sheet.tsx`, also used by the dashboard). "Quick add" and "New" were two buttons to the same intent; they are one **Add** now, and the panel ends in a control linking to the full form rather than a sentence mentioning one — it deliberately does not grow to cover splits, foreign amounts or receipts, so the way out has to be findable.
 - [x] **E5-14** `P1` `2d` Transaction links — shipped with M6 (`server/firefly/link-actions.ts`). Note both ids are JOURNAL ids, not transaction group ids.
 - [x] **E5-15** `P1` `1d` Reconciled flag on the edit form and as a per-split action
 - [x] **E5-16** `P1` `1d` Export the filtered view to CSV/XLSX — CSV from the rendered rows, one line per split, in the same grid. **Cut: XLSX**, same reasoning as E14-11.
@@ -1221,14 +1221,20 @@ dangerous kind: a successful response that is silently wrong.
 
 ### 18.4 What is deliberately not done
 
-- **The dashboard quick-add's pending state can stick.** The write is correct;
-  the action's returned state does not reach the client, and only inside a
-  Sheet. Six hypotheses were deployed and measured — the action wrapper,
-  revalidating the current route, the focus trap, the service worker, the fetch
-  patch in NavigationProgress, and a server-side error — and all were negative.
-  They are listed in `components/dashboard/quick-entry.tsx` so the next attempt
-  does not repeat them. The untested lead: the plain-div control kept the form
-  permanently mounted, while Sheet does `if (!open) return null`.
+- **The dashboard quick-add's pending state can stick** — and the diagnosis
+  recorded here in 0.7.0 was WRONG. It said the hang reproduces "only inside a
+  Sheet". 0.8.0 put the identical sheet, with the identical action, on
+  /transactions, where it resolves in ~450ms at both 1400px and 390px while
+  still hanging on /dashboard. So the Sheet is not the cause; something about
+  the dashboard's own re-render is, and the Sheet is only a condition.
+
+  Eight hypotheses have now been deployed and measured against the container,
+  all negative: the action wrapper; revalidating the current route; the focus
+  trap re-stealing focus (a real bug, fixed separately, hang unchanged); the
+  service worker; the fetch patch in NavigationProgress; a server-side error; a
+  scroll-lock layout shift (0px — this machine has overlay scrollbars); and a
+  ResizeObserver render loop from the dashboard's charts (mutations stop after
+  11). The list lives in `components/transactions/add-sheet.tsx`.
 
 - **Two `sr-only` chart tables were left as raw markup.** A visually-hidden
   focusable scroll region is a tab stop that goes nowhere.

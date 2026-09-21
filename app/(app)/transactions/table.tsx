@@ -25,6 +25,14 @@ type Row =
     }
   | { kind: 'split'; groupId: string; split: TransactionSplit; splitCount: number };
 
+/** The row's type dot, matching the amount's tone. */
+const DOT_TONE = {
+  expense: 'bg-expense',
+  income: 'bg-income',
+  transfer: 'bg-transfer',
+  neutral: 'bg-muted-foreground/40',
+} as const;
+
 const TYPE_TONE = {
   withdrawal: 'expense',
   deposit: 'income',
@@ -38,6 +46,13 @@ const TYPE_TONE = {
  * inconsistency that makes a list feel unfinished on a phone.
  */
 const DAY_HEIGHT = 38;
+
+/**
+ * Row height. 64 rather than 56 because the mobile row carries two lines —
+ * description, then the counterparty and category beneath it — and 56 left the
+ * second line crowded against the row border.
+ */
+const ROW_HEIGHT = 64;
 
 /** A withdrawal leaves the account, so it counts against the day's net. */
 const signedAmount = (split: TransactionSplit) =>
@@ -65,7 +80,6 @@ const signedAmount = (split: TransactionSplit) =>
 export function TransactionTable({
   transactions,
   timezone,
-  density = 'comfortable',
   selected,
   onToggle,
   onToggleDay,
@@ -73,7 +87,6 @@ export function TransactionTable({
 }: {
   transactions: Transaction[];
   timezone: string;
-  density?: string;
   /** E5-11 — selected GROUP ids. Selection is per group, not per split:
    *  Firefly's PUT operates on the group, so selecting one leg of a split and
    *  not the others is not a thing the API can express. */
@@ -84,7 +97,13 @@ export function TransactionTable({
   onToggleAll?: (select: boolean) => void;
 }) {
   const selecting = Boolean(onToggle);
-  const rowHeight = density === 'compact' ? 40 : 56;
+  /*
+   * One row height. There used to be a comfortable/compact selector; it worked
+   * — 56px against 40px, measured — but the content inside the row did not
+   * change with it, so the difference read as nothing and the control was two
+   * more words of chrome above a list people came to read.
+   */
+  const rowHeight = ROW_HEIGHT;
 
   const rows = React.useMemo<Row[]>(() => {
     const splits = transactions.flatMap((group) =>
@@ -181,8 +200,24 @@ export function TransactionTable({
   // The content columns. The checkbox, when selecting, sits in its own track
   // OUTSIDE this grid rather than as a first column — see the row below for
   // why the link cannot simply contain it.
+  /*
+   * Column widths, and the reason they are fractions rather than fixed rem.
+   *
+   * The account column was a flat `11rem`. Two account names and an arrow do
+   * not fit in 176px, so EVERY row truncated both ends of the flow —
+   * "Everyday C… → Home Mort…" — on a 1400px screen with hundreds of spare
+   * pixels sitting in the description column. Fractions let the two text
+   * columns share the space that is actually available, so the flow only
+   * truncates when the window is genuinely narrow.
+   *
+   * The gap grows with the breakpoint too. At `gap-3` the account flow ran
+   * within 12px of the category beside it and the two read as one run-on
+   * string; the columns need to look like columns.
+   */
   const contentColumns =
-    'grid-cols-[1fr_auto] md:grid-cols-[minmax(0,1fr)_11rem_8rem_8rem] items-center gap-3';
+    'grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ' +
+    'md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_9rem_9.5rem] md:gap-5 ' +
+    'lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.1fr)_10rem_11rem] lg:gap-8';
   /**
    * ONE grid template for the column header, the day headers and the rows.
    *
@@ -288,12 +323,17 @@ export function TransactionTable({
                       <span className="truncate text-xs font-semibold tracking-wide">
                         {formatDate(row.date, { timezone, style: 'relative' })}
                       </span>
-                      <span className="text-muted-foreground flex shrink-0 items-center gap-2.5 text-xs">
+                      <span className="text-muted-foreground flex shrink-0 items-center gap-3 text-xs">
                         <span className="hidden sm:inline">
                           {row.count} {row.count === 1 ? 'entry' : 'entries'}
                         </span>
                         {row.net === null ? null : (
-                          <Amount value={row.net} currency={row.currency} size="sm" tone="auto" />
+                          <Amount
+                            value={row.net}
+                            currency={row.currency}
+                            tone="auto"
+                            className="text-xs font-semibold"
+                          />
                         )}
                       </span>
                     </span>
@@ -304,6 +344,17 @@ export function TransactionTable({
 
             const { split, groupId, splitCount } = row;
             const outgoing = split.type === 'withdrawal';
+            /*
+             * Which account the narrow row names.
+             *
+             * A withdrawal and a transfer both LEAVE an account you own, so the
+             * informative half is where the money went; a deposit arrives, so it
+             * is where it came from. Keying this off `outgoing` alone showed a
+             * transfer's source — "Everyday Current" — which is the account you
+             * were already looking at and never the thing you wanted to know.
+             */
+            const counterparty =
+              split.type === 'deposit' ? split.source_name : split.destination_name;
             const tone = TYPE_TONE[split.type as keyof typeof TYPE_TONE] ?? 'neutral';
 
             const isSelected = selected?.has(groupId) ?? false;
@@ -336,6 +387,18 @@ export function TransactionTable({
                   >
                     <span className="min-w-0">
                       <span className="flex items-center gap-1.5">
+                        {/*
+                          A type dot. Three transaction types were distinguishable
+                          only by the colour of the amount, which is at the far
+                          right of a 1400px row — so telling a transfer from a
+                          spend meant reading across the whole row. Colour is not
+                          the only signal: the flow arrow and the amount's sign
+                          both still say it.
+                        */}
+                        <span
+                          aria-hidden="true"
+                          className={cn('size-1.5 shrink-0 rounded-full', DOT_TONE[tone])}
+                        />
                         <span className="truncate text-sm font-medium">{split.description}</span>
                         {splitCount > 1 ? (
                           <Badge variant="secondary" className="shrink-0">
@@ -349,20 +412,46 @@ export function TransactionTable({
                           />
                         ) : null}
                       </span>
-                      <span className="text-muted-foreground block truncate text-xs md:hidden">
-                        {outgoing ? split.destination_name : split.source_name}
-                        {split.category_name ? ` · ${split.category_name}` : ''}
+                      {/*
+                        The mobile second line. Counterparty first, because on a
+                        phone "who" is the question — the asset account is almost
+                        always the same one — and the category as a chip so it
+                        reads as a label rather than more of the same sentence.
+                      */}
+                      <span className="mt-0.5 flex items-center gap-1.5 md:hidden">
+                        <span className="text-muted-foreground min-w-0 truncate text-xs">
+                          {counterparty}
+                        </span>
+                        {split.category_name ? (
+                          <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-px text-[0.6875rem]">
+                            {split.category_name}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
 
-                    <span className="text-muted-foreground hidden min-w-0 items-center gap-1 text-xs md:flex">
-                      <span className="truncate">{split.source_name}</span>
-                      <ArrowRight className="size-3 shrink-0 opacity-50" aria-hidden="true" />
-                      <span className="truncate">{split.destination_name}</span>
+                    {/*
+                      The account flow. `min-w-0` on both names so each truncates
+                      independently instead of one shoving the other out, and the
+                      counterparty carries the weight because it is the end of the
+                      flow anyone is actually scanning for.
+                    */}
+                    <span className="text-muted-foreground hidden min-w-0 items-center gap-1.5 text-xs md:flex">
+                      <span className="min-w-0 truncate">{split.source_name}</span>
+                      <ArrowRight className="size-3 shrink-0 opacity-40" aria-hidden="true" />
+                      <span className="text-foreground/75 min-w-0 truncate">
+                        {split.destination_name}
+                      </span>
                     </span>
 
-                    <span className="text-muted-foreground hidden truncate text-xs md:block">
-                      {split.category_name ?? '—'}
+                    <span className="hidden min-w-0 md:block">
+                      {split.category_name ? (
+                        <span className="bg-muted/70 text-muted-foreground inline-block max-w-full truncate rounded px-2 py-0.5 text-[0.6875rem]">
+                          {split.category_name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/50 text-xs">—</span>
+                      )}
                     </span>
 
                     <span className="text-right">
@@ -371,7 +460,10 @@ export function TransactionTable({
                         currency={split.currency_code}
                         decimalPlaces={split.currency_decimal_places}
                         tone={tone}
-                        size="sm"
+                        /* The figure is what the row is about. At `text-xs` it
+                           was the smallest thing on a line whose description
+                           was larger and whose colour it was carrying. */
+                        className="text-sm font-semibold md:text-[0.9375rem]"
                       />
                     </span>
                   </Link>

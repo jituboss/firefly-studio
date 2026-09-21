@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useActionState } from 'react';
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Plus } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Plus } from 'lucide-react';
 import {
   quickAddTransactionAction,
   type QuickAddState,
@@ -18,64 +18,52 @@ import { Select } from '@/components/ui/select';
 import { FormMessage } from '@/components/auth/form-shell';
 
 /**
- * E3-16 — record a transaction from the dashboard.
+ * E3-16 / E5-13 — record a transaction without leaving the page you are on.
  *
- * The dashboard was read-only: every number on it came from transactions, and
- * there was no way to add one without navigating to another section first. The
- * single most common thing a person opens a finance app to do had the longest
- * path in it.
+ * Used by the dashboard, which was read-only (every number on it comes from
+ * transactions and there was no way to add one without navigating away), and by
+ * the transactions list, where it replaced an inline quick-add bar that pushed
+ * the whole list down whenever it opened.
  *
- * Two entry points, one panel:
+ * A Sheet rather than an inline form, because on both pages the content behind
+ * it is the thing the reader came for: an inline form shoves the KPI tiles — or
+ * the first four rows of the list — down the moment it opens, so what you were
+ * looking at moves while you are looking at it. A sheet leaves the page where
+ * it is, and on a phone it arrives from the bottom, next to the thumb that
+ * opened it.
  *
- *   - a button in the header on desktop, beside the controls that were already
- *     there;
- *   - a floating button bottom-right on mobile, because the header is at the
- *     top of a long scrolling page and a thumb is at the bottom.
+ * KNOWN ISSUE, and it is narrower than it was thought to be.
  *
- * The panel is a Sheet rather than an inline form, for a reason that only shows
- * up on the dashboard: an inline form pushes the KPI tiles down the moment it
- * opens, so the figures a person came to read move while they are reading them.
- * A sheet leaves the page where it is — and on mobile it arrives from the
- * bottom, next to the thumb that opened it.
+ * On the DASHBOARD only, the submit button can stay on "Adding…". The
+ * transaction is written correctly — the POST answers 200 in ~230ms and the row
+ * is right in Firefly — but the action's returned state never reaches the
+ * client, so the success notice does not show and the fields do not clear.
  *
- * KNOWN ISSUE — the submit button can stay on "Adding…".
+ * This component was previously documented as "it reproduces only inside a
+ * Sheet". **That was wrong.** The identical sheet, with the identical action,
+ * resolves in ~450ms on /transactions at both 1400px and 390px, and still hangs
+ * on /dashboard. So the Sheet is not the cause; something about the dashboard's
+ * own re-render is, and the Sheet is only a condition — swapping it for a plain
+ * div on the dashboard also made the hang go away.
  *
- * The transaction IS written: the POST answers 200 in ~230ms and the row is
- * correct in Firefly. What does not happen is the action's returned state
- * reaching this component, so the success notice never shows and the fields
- * never clear. Chrome reports `net::ERR_ABORTED` on the response the server
- * already answered.
+ * Ruled out by experiment, each deployed and measured against the container:
+ * the inline action wrapper; `revalidatePath('/dashboard')` firing while on
+ * /dashboard; the focus trap re-stealing focus each render (a real bug, fixed
+ * separately, hang unchanged); the service worker (returns early on non-GET);
+ * the `fetch` patch in NavigationProgress (the POST targets the current route,
+ * so `isCurrentRoute` short-circuits it); a server-side error (the log is
+ * clean); and a ResizeObserver render loop from the dashboard's charts — no
+ * layout shift on open (0px, overlay scrollbars) and mutations stop after 11.
  *
- * It reproduces only for a form INSIDE this Sheet: the same action, submitted
- * from the inline quick-add on /transactions, resolves in ~570ms, and this
- * very form resolves in ~550ms when the Sheet is swapped for a plain div.
+ * Do NOT "fix" this by clearing the form optimistically on submit. That reports
+ * success without knowing, which is the failure this codebase has been bitten by
+ * twice — see `conversionApplied` in lib/transaction-convert.ts and the delta
+ * arithmetic in lib/delta.ts.
  *
- * Ruled out by experiment, each one deployed and measured in the container:
- *   - the inline action wrapper (replaced with hidden inputs + the dispatcher
- *     passed straight to `action`; no change);
- *   - `revalidatePath('/dashboard')` firing while on /dashboard (removed; no
- *     change, and revalidating the current route from a failing action is fine);
- *   - the focus trap re-stealing focus every render (a real bug, fixed in its
- *     own commit — focus now lands on BODY rather than the close button, and
- *     the hang is unchanged);
- *   - the service worker (returns early on non-GET);
- *   - the `fetch` patch in NavigationProgress (the action POST targets the
- *     current route, so `isCurrentRoute` short-circuits it);
- *   - a server-side error (the log is clean).
- *
- * Do NOT "fix" this by clearing the form optimistically on submit. That
- * reports success without knowing, which is the failure this codebase has
- * already been bitten by twice — see `conversionApplied` in
- * lib/transaction-convert.ts and the delta arithmetic in lib/delta.ts.
- *
- * Next thing to try: bisect what remains of Sheet against the plain-div
- * control — scroll lock, the returned focus, the backdrop, and `if (!open)
- * return null` (the control kept the form mounted and merely hidden, which is
- * the one difference not yet eliminated).
- *
- * The transactions page keeps its own inline quick-add (E5-13). That one is
- * built for typing a run of entries into a list you are already looking at;
- * this one is built for one entry from anywhere.
+ * It deliberately does NOT grow to cover splits, foreign amounts, attachments
+ * or piggy-bank links. A quick-add that accretes fields until it matches the
+ * full form is a worse copy of the full form, so the panel ends in a link to
+ * the real one — a control, not a footnote at the end of a sentence.
  */
 
 const TYPES = [
@@ -105,28 +93,39 @@ const TYPES = [
   },
 ] as const;
 
-export interface QuickEntryAccount {
+export interface AddSheetAccount {
   id: string;
   name: string;
 }
 
-export function DashboardQuickEntry({
+export function AddTransactionSheet({
   today,
   currency,
   assetAccounts,
+  label = 'Add transaction',
+  floating = true,
 }: {
   today: string;
   currency: string;
   /** The user's own accounts, so the common case needs no lookup at all. */
-  assetAccounts: QuickEntryAccount[];
+  assetAccounts: AddSheetAccount[];
+  /** The desktop button's text. "Add" where the heading already says what of. */
+  label?: string;
+  /**
+   * Render the mobile floating button. On the dashboard it is the only way in;
+   * on the transactions page the toolbar button is always on screen, and a
+   * second trigger floating over the list would cover rows to duplicate a
+   * control three centimetres away.
+   */
+  floating?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)} className="max-sm:hidden">
+      <Button size="sm" onClick={() => setOpen(true)} className={cn(floating && 'max-sm:hidden')}>
         <Plus className="size-4" aria-hidden="true" />
-        Add transaction
+        {label}
       </Button>
 
       {/*
@@ -137,22 +136,24 @@ export function DashboardQuickEntry({
         on a notched phone, and `data-print="hide"` because a floating button
         printed onto a statement is nonsense.
       */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Add transaction"
-        data-print="hide"
-        className={cn(
-          'bg-primary text-primary-foreground fixed right-4 z-40 flex size-14 items-center justify-center',
-          'rounded-full shadow-lg transition-transform active:scale-95 sm:hidden',
-          'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
-        )}
-        style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
-      >
-        <Plus className="size-6" aria-hidden="true" />
-      </button>
+      {floating ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Add transaction"
+          data-print="hide"
+          className={cn(
+            'bg-primary text-primary-foreground fixed right-4 z-40 flex size-14 items-center justify-center',
+            'rounded-full shadow-lg transition-transform active:scale-95 sm:hidden',
+            'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
+          )}
+          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        >
+          <Plus className="size-6" aria-hidden="true" />
+        </button>
+      ) : null}
 
-      <QuickEntrySheet
+      <AddSheet
         open={open}
         onClose={() => setOpen(false)}
         today={today}
@@ -163,7 +164,7 @@ export function DashboardQuickEntry({
   );
 }
 
-function QuickEntrySheet({
+function AddSheet({
   open,
   onClose,
   today,
@@ -174,7 +175,7 @@ function QuickEntrySheet({
   onClose: () => void;
   today: string;
   currency: string;
-  assetAccounts: QuickEntryAccount[];
+  assetAccounts: AddSheetAccount[];
 }) {
   /*
    * The third element. `useFormStatus` in a child reads the enclosing form's
@@ -381,16 +382,28 @@ function QuickEntrySheet({
           </Button>
         </div>
 
-        <p className="text-muted-foreground text-xs">
-          The panel stays open so you can add another. Splits, foreign amounts and receipts need the{' '}
+        {/*
+          The way out, not a footnote. This panel deliberately does not grow to
+          cover splits, foreign amounts, attachments or a piggy-bank link — a
+          quick-add that accretes fields until it matches the full form is just
+          a worse copy of it — so the escape hatch has to be a control someone
+          can find, not a sentence they read to the end of.
+        */}
+        <div className="space-y-3 border-t pt-3">
+          <p className="text-muted-foreground text-xs">
+            The panel stays open, so you can add another straight away.
+          </p>
           <Link
             href="/transactions/new"
-            className="hover:text-primary underline underline-offset-2"
+            className="hover:border-border hover:bg-accent/40 flex items-center justify-between gap-3 rounded-lg border border-transparent px-2.5 py-2 transition-colors"
           >
-            full form
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">Need splits or a receipt?</span>
+              <span className="text-muted-foreground text-xs">Open the full form instead</span>
+            </span>
+            <ArrowRight className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
           </Link>
-          .
-        </p>
+        </div>
       </form>
     </Sheet>
   );

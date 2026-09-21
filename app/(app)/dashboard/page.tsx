@@ -34,7 +34,7 @@ import {
   WidgetCard,
 } from '@/components/dashboard/widgets';
 import { HideBalancesToggle } from '@/components/hide-balances';
-import { DashboardQuickEntry } from '@/components/dashboard/quick-entry';
+import { AddTransactionSheet } from '@/components/transactions/add-sheet';
 import { listSavedReports } from '@/server/reports';
 import { describeConfig, parseConfig } from '@/lib/custom-report';
 import { Amount } from '@/components/ui/amount';
@@ -184,7 +184,7 @@ export default async function DashboardPage({
             the page has already loaded them, so the common case opens with the
             right account already chosen and needs no lookup at all.
           */}
-          <DashboardQuickEntry
+          <AddTransactionSheet
             today={toApiDate(now(session.user.timezone), session.user.timezone)}
             currency={currency}
             assetAccounts={accounts.data.map((account) => ({

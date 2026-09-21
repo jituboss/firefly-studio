@@ -5,7 +5,7 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-21, at `v0.7.0`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-21, at `v0.8.0`. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous note:** 0.7.0 closed E21-01 (the last five primitives) and E8-07,
 and added transaction type conversion, a dashboard quick-add, reachable date ranges and an HTTP
@@ -422,6 +422,13 @@ cost someone else a day.
   cookie outliving its row produced an infinite redirect loop against the app's
   own guard. Any new rule in `middleware.ts` that depends on _who_ the user is,
   rather than _whether a cookie exists_, is the same bug again.
+
+- **A conclusion drawn from one page is a conclusion about that page.** The
+  dashboard's add panel hangs on submit, and 0.7.0 recorded the cause as "it
+  only happens inside a Sheet" — true of every test run at the time, because
+  every test ran on the dashboard. Putting the same component on
+  /transactions in 0.8.0 resolved in ~450ms and disproved it. Before writing
+  down a cause, change the one variable you have not varied.
 
 - **A 200 from Firefly is not evidence the write happened.** Converting a
   transaction by sending `type` alone returns 200 with the record unchanged, and

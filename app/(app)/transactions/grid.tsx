@@ -46,13 +46,11 @@ function ApplyButton({ count }: { count: number }) {
 export function TransactionGrid({
   transactions,
   timezone,
-  density,
   rangeLabel,
   summary,
 }: {
   transactions: Transaction[];
   timezone: string;
-  density?: string;
   rangeLabel: string;
   /** Page totals, rendered beside the export button rather than above it. */
   summary?: React.ReactNode;
@@ -161,9 +159,18 @@ export function TransactionGrid({
           selection bar. That is one less band before the data on a phone. */}
       <div className="flex items-center justify-between gap-3">
         {summary ?? <span />}
-        <Button variant="ghost" size="sm" className="shrink-0" onClick={exportCsv}>
+        {/* Icon-only on a phone. The word "Export" next to a download glyph is
+            60px of a 390px line spent saying what the glyph already says, and
+            the line it shares carries three figures that matter more. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 max-sm:size-9 max-sm:p-0"
+          onClick={exportCsv}
+          aria-label={count > 0 ? `Export ${count} selected` : 'Export CSV'}
+        >
           <Download className="size-4" aria-hidden="true" />
-          Export {count > 0 ? count : 'CSV'}
+          <span className="max-sm:sr-only">Export {count > 0 ? count : 'CSV'}</span>
         </Button>
       </div>
 
@@ -328,7 +335,6 @@ export function TransactionGrid({
       <TransactionTable
         transactions={transactions}
         timezone={timezone}
-        density={density}
         selected={selected}
         onToggle={toggle}
         onToggleDay={toggleDay}

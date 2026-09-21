@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getPreferences } from '@/server/preferences';
 import { getActiveConnection, fireflyGetSafe } from '@/server/firefly/api';
-import { getAccount, getBudget, getCategory } from '@/server/firefly/queries';
+import { getAccount, getAccountsSafe, getBudget, getCategory } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { now, toApiDate } from '@/lib/date';
 import { add, toDecimal } from '@/lib/money';
@@ -11,7 +11,7 @@ import { DateRangePicker } from '@/components/date-range-picker';
 import { HideBalancesToggle } from '@/components/hide-balances';
 import { TransactionFilters } from './filters';
 import { TransactionGrid } from './grid';
-import { QuickAdd } from './quick-add';
+import { AddTransactionSheet } from '@/components/transactions/add-sheet';
 import { Pagination } from './pagination';
 import { SavedViews } from './saved-views';
 import { listSavedViews } from '@/server/saved-views';
@@ -136,8 +136,11 @@ export default async function TransactionsPage({
             ? `/v1/tags/${encodeURIComponent(tag)}/transactions?${query.toString()}`
             : `/v1/transactions?${query.toString()}`;
 
-  const [result, pinnedAccount, scopeName] = await Promise.all([
+  const [result, assetAccounts, pinnedAccount, scopeName] = await Promise.all([
     fireflyGetSafe<Paged<Transaction>>(basePath, { data: [], meta: {} }),
+    // For the add panel: it opens with an account already chosen, so the
+    // common case needs no lookup.
+    getAccountsSafe({ type: 'asset' }),
     // An `?account=` filter showed up as nothing but an id in the URL, so the
     // list looked mysteriously short with no visible reason.
     accountId
@@ -173,31 +176,58 @@ export default async function TransactionsPage({
 
   return (
     <div className="mx-auto w-full max-w-7xl min-w-0 space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground text-sm">
-            {pagination
-              ? `${pagination.total.toLocaleString()} match${pagination.total === 1 ? '' : 'es'} · page ${pagination.current_page} of ${pagination.total_pages}`
-              : `${data.length} shown`}
-            {search
-              ? ` · searching “${search}” in ${range.label.toLowerCase()}`
-              : ` · ${range.label}`}
-            {pinnedAccount ? ` · ${pinnedAccount}` : ''}
-            {scopeName ? ` · ${scopeName}` : ''}
-          </p>
+      {/*
+        `items-start` and no wrapping. The header used to be
+        `flex-wrap items-center justify-between`, which on a phone dropped the
+        four controls onto their own line below the title and centred them
+        against a two-line heading — the single biggest source of the page's
+        clumsiness before any data appeared. The controls are now a shrink-0
+        group beside the title, and the subtitle wraps under both.
+      */}
+      {/*
+        The subtitle sits BELOW the row, not beside the buttons.
+        Sharing the row meant it was laid out in whatever width the controls
+        left over — about 190px on a phone — so "22 matches · This month"
+        wrapped onto a second line to say something that fits comfortably on
+        one when given the page.
+      */}
+      <header className="space-y-1">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">Transactions</h1>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <HideBalancesToggle defaultHidden={preferences.hideBalances} />
+            <DateRangePicker label={range.label} />
+            <AddTransactionSheet
+              today={range.end > today ? today : range.end}
+              currency={connection.primaryCurrency}
+              assetAccounts={assetAccounts.data.map((account) => ({
+                id: account.id,
+                name: account.attributes.name,
+              }))}
+              label="Add"
+              /* No floating button here: the toolbar trigger is always on
+                 screen, and a second one hovering over the list would cover
+                 rows to duplicate a control a few centimetres away. */
+              floating={false}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <HideBalancesToggle defaultHidden={preferences.hideBalances} />
-          <DateRangePicker label={range.label} />
-          <QuickAdd today={range.end > today ? today : range.end} />
-          <Button asChild size="sm">
-            <Link href="/transactions/new">
-              <Plus className="size-4" aria-hidden="true" />
-              New
-            </Link>
-          </Button>
-        </div>
+        <p className="text-muted-foreground text-sm">
+          {pagination
+            ? // "page 1 of 1" is noise that wrapped the subtitle onto a
+              // second line on a phone to say there is nothing to page to.
+              `${pagination.total.toLocaleString()} match${pagination.total === 1 ? '' : 'es'}${
+                pagination.total_pages > 1
+                  ? ` · page ${pagination.current_page} of ${pagination.total_pages}`
+                  : ''
+              }`
+            : `${data.length} shown`}
+          {search
+            ? ` · searching “${search}” in ${range.label.toLowerCase()}`
+            : ` · ${range.label}`}
+          {pinnedAccount ? ` · ${pinnedAccount}` : ''}
+          {scopeName ? ` · ${scopeName}` : ''}
+        </p>
       </header>
 
       {/* One toolbar rather than two stacked bands. On a 390px phone the page
@@ -209,14 +239,16 @@ export default async function TransactionsPage({
           search={search}
           accountId={accountId}
           scopeLabel={scopeName}
-        />
-        <SavedViews
-          views={savedViewsList}
-          currentQuery={{
-            q: search || undefined,
-            type: type === 'all' ? undefined : type,
-            account: accountId,
-          }}
+          trailing={
+            <SavedViews
+              views={savedViewsList}
+              currentQuery={{
+                q: search || undefined,
+                type: type === 'all' ? undefined : type,
+                account: accountId,
+              }}
+            />
+          }
         />
       </div>
 
@@ -246,13 +278,15 @@ export default async function TransactionsPage({
           <TransactionGrid
             transactions={data}
             timezone={session.user.timezone}
-            density={typeof params.density === 'string' ? params.density : preferences.density}
             rangeLabel={search ? `search-${search}` : range.label}
             /* Handed in as a slot so the page totals and the export button share
                one line instead of stacking into two bands — on a phone those two
                rows cost ~90px before any transaction is visible. */
             summary={
-              <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              /* One line at any width. It used to wrap into two or three
+                 fragments on a phone, which put 40px of chrome between the
+                 filters and the first row for information that fits in one. */
+              <div className="text-muted-foreground flex min-w-0 items-center gap-x-3 overflow-x-auto text-xs whitespace-nowrap sm:gap-x-4">
                 <span className="hidden font-medium tracking-wide uppercase sm:inline">
                   On this page
                 </span>

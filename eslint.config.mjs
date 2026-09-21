@@ -16,6 +16,10 @@ const eslintConfig = [
       'node_modules/**',
       'drizzle/**',
       'spec/generated/**',
+      // Throwaway verification scripts. They are gitignored, they are driven by
+      // hand against a running container, and linting them means a stray
+      // variable in a probe blocks the build of the thing being probed.
+      'tmp/**',
       'coverage/**',
       'dist/**',
       'next-env.d.ts',

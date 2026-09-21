@@ -44,6 +44,11 @@ export const LANDING_PAGES = [
 
 export interface AppPreferences {
   theme: Theme;
+  /**
+   * Unused since the transaction list went to a single row height. Kept on the
+   * type and the row so the column can be dropped in a migration of its own
+   * rather than bundled into a cosmetic change — nothing reads it.
+   */
   density: Density;
   /** Stored on `users.locale`, because that is what the pages already read. */
   locale: string;
