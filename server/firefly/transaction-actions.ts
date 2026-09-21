@@ -3,7 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { fireflyWrite, FireflyRequestError } from './api';
+import { getTransaction } from './queries';
 import type { Transaction, TransactionSplit } from './types';
+import {
+  buildConversionPayload,
+  conversionApplied,
+  planConversion,
+  type TransactionType,
+} from '@/lib/transaction-convert';
 
 /** E5-06 … E5-10 — the transaction write path. */
 
@@ -143,6 +150,86 @@ export async function updateTransactionAction(
   } catch (error) {
     if (error instanceof FireflyRequestError) return { error: error.message };
     throw error;
+  }
+
+  revalidatePath('/transactions');
+  revalidatePath(`/transactions/${id}`);
+  revalidatePath('/dashboard');
+  redirect(`/transactions/${id}`);
+}
+
+/**
+ * E5-19 — convert a transaction between withdrawal, deposit and transfer.
+ *
+ * The interesting part is the check at the end. Firefly answers **200 OK** to a
+ * conversion it did not perform — send `type` without a valid counter-account
+ * and the response is a success carrying the original type. Reporting that as
+ * done is worse than failing: the user sees "Converted to transfer", goes back
+ * to a list still showing an expense, and concludes the app is lying. Which it
+ * would be.
+ *
+ * The rules this relies on are in lib/transaction-convert.ts, together with
+ * what each one cost to find out.
+ */
+export async function convertTransactionAction(
+  _prev: TransactionFormState,
+  formData: FormData,
+): Promise<TransactionFormState> {
+  const id = String(formData.get('id') ?? '');
+  const to = String(formData.get('to') ?? '') as TransactionType;
+  const accountId = String(formData.get('accountId') ?? '').trim();
+  const accountName = String(formData.get('accountName') ?? '').trim();
+
+  if (!id) return { error: 'Missing transaction id.' };
+  if (!accountId && !accountName) {
+    return { error: 'Choose the account on the other side of this transaction.' };
+  }
+
+  let group: Transaction;
+  try {
+    /*
+     * Re-read rather than trusting the form. The payload must carry EVERY
+     * split — omitting one deletes it — and the browser only ever held the one
+     * the user was looking at. A stale hidden field here destroys data.
+     */
+    group = (await getTransaction(id)).data;
+  } catch (error) {
+    if (error instanceof FireflyRequestError) return { error: error.message };
+    throw error;
+  }
+
+  const splits = group.attributes.transactions;
+  const first = splits[0];
+  if (!first) return { error: 'This transaction has no splits to convert.' };
+
+  const plan = planConversion(first, to);
+  if (plan === null)
+    return { error: `This is already ${to === 'deposit' ? 'income' : `a ${to}`}.` };
+  if ('error' in plan) return { error: plan.error };
+
+  const payload = buildConversionPayload(
+    splits,
+    plan,
+    to,
+    { ...(accountId ? { id: accountId } : {}), name: accountName },
+    group.attributes.group_title ?? null,
+  );
+
+  let updated: Transaction;
+  try {
+    updated = (await fireflyWrite<{ data: Transaction }>(`/v1/transactions/${id}`, 'PUT', payload))
+      .data;
+  } catch (error) {
+    if (error instanceof FireflyRequestError) return { error: error.message };
+    throw error;
+  }
+
+  // The 200 means nothing on its own. See the module comment.
+  if (!conversionApplied(updated.attributes.transactions, to)) {
+    return {
+      error:
+        'Firefly accepted the change but the transaction is unchanged. That usually means the account on the other side is not the kind this type needs — an expense account for a spend, a revenue account for income, one of your own accounts for a transfer.',
+    };
   }
 
   revalidatePath('/transactions');

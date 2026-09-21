@@ -1,8 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { Tabs } from '@/components/ui/tabs';
 
 /**
  * E14-01 — moving between reports must not reset the period you chose. Each
@@ -29,32 +28,15 @@ export function ReportTabs() {
   const query = params.toString();
 
   return (
-    <nav
-      aria-label="Reports"
+    <Tabs
+      label="Reports"
+      active={pathname}
       data-print="hide"
-      className="border-border -mx-4 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0"
-    >
-      <ul className="flex min-w-max gap-1">
-        {REPORT_TABS.map((tab) => {
-          const active = pathname === tab.href;
-          return (
-            <li key={tab.href}>
-              <Link
-                href={query ? `${tab.href}?${query}` : tab.href}
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'inline-block border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors',
-                  active
-                    ? 'border-primary text-foreground font-medium'
-                    : 'text-muted-foreground hover:text-foreground border-transparent',
-                )}
-              >
-                {tab.label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+      tabs={REPORT_TABS.map((tab) => ({
+        id: tab.href,
+        label: tab.label,
+        href: query ? `${tab.href}?${query}` : tab.href,
+      }))}
+    />
   );
 }

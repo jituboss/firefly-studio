@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { CategoryForm } from '../category-form';
 import { DeleteCategoryButton } from './delete-button';
+import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Category' };
 
@@ -100,24 +101,16 @@ export default async function CategoryDetailPage({
         </Card>
       </div>
 
-      <nav className="flex gap-1 border-b" aria-label="Category sections">
-        {[
+      <Tabs
+        label="Category sections"
+        basePath={`/categories/${id}`}
+        query={{ range: range.preset }}
+        active={tab}
+        tabs={[
           { id: 'transactions', label: 'Transactions' },
           { id: 'edit', label: 'Edit' },
-        ].map((entry) => (
-          <Link
-            key={entry.id}
-            href={`/categories/${id}?tab=${entry.id}&range=${range.preset}`}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === entry.id
-                ? 'border-primary text-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-          >
-            {entry.label}
-          </Link>
-        ))}
-      </nav>
+        ]}
+      />
 
       {tab === 'transactions' ? (
         <Card>

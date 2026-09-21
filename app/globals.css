@@ -342,6 +342,88 @@
     animation: fs-rise 220ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  /*
+   * E21-01 — the Table primitive's card mode, below `sm`.
+   *
+   * Written as CSS rather than as Tailwind variants on the components, because
+   * `group-data-[cards]:max-sm:block` compiles to a rule with NO media query.
+   * Tailwind v4 silently drops the `max-sm` when it is stacked after an
+   * arbitrary `group-data-[...]`, so every one of those classes applied at
+   * every width and the desktop tables collapsed into stacks of cards. The
+   * class name reads exactly as intended and the output is wrong, which is the
+   * kind of failure that gets shipped. Plain CSS in a media query cannot lie
+   * about when it applies.
+   */
+  @media (width < 40rem) {
+    table[data-slot='table'][data-cards] thead {
+      /* Hidden, not removed: the header cells are still what associate each
+         value with its column for a screen reader. */
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    table[data-slot='table'][data-cards] tbody tr,
+    table[data-slot='table'][data-cards] tfoot tr {
+      display: block;
+      margin-bottom: calc(var(--spacing) * 2);
+      padding: calc(var(--spacing) * 3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    /*
+     * Every cell becomes a block. Without this the `td`s keep `table-cell` and
+     * the browser wraps them in an anonymous table row inside the block `tr`,
+     * which puts them back in a line — the card that renders as a squashed
+     * table again.
+     */
+    table[data-slot='table'][data-cards] tbody td,
+    table[data-slot='table'][data-cards] tfoot td {
+      display: block;
+      max-width: none;
+      text-align: left;
+    }
+
+    /*
+     * A cell with a label becomes a labelled line inside the card; the
+     * alignment that separated columns now pushes the value off its label.
+     *
+     * This deliberately overrides `hideBelow`. A column is dropped on a narrow
+     * screen because there is no horizontal room for it — but a card is
+     * vertical, and one more labelled line costs nothing. Hiding it there would
+     * throw away the data for the sake of a constraint that no longer applies,
+     * which is how the account report's Transfers column came to be missing on
+     * a phone while the layout had room for it four times over.
+     */
+    table[data-slot='table'][data-cards] td[data-label] {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: calc(var(--spacing) * 3);
+      padding: calc(var(--spacing) * 1) 0;
+      text-align: left;
+    }
+
+    table[data-slot='table'][data-cards] td[data-label]::before {
+      content: attr(data-label);
+      color: var(--muted-foreground);
+      font-size: 0.75rem;
+      line-height: 1rem;
+    }
+
+    /* An empty spacer cell is column scaffolding — it has nothing to say in a
+       card, and rendering its label would print a heading with no value. */
+    table[data-slot='table'][data-cards] td:empty {
+      display: none;
+    }
+  }
+
   /* E21-06 — visually hidden but available to screen readers. */
   .sr-only {
     position: absolute;

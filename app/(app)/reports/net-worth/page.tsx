@@ -8,6 +8,7 @@ import { getNetWorthChart } from '@/server/firefly/report-queries';
 import { resolveReportScope } from '@/lib/report-scope';
 import { buildNetWorth, type NetWorthAccountMeta } from '@/lib/reports';
 import { Amount } from '@/components/ui/amount';
+import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
 import { NetWorthArea } from '@/components/charts/net-worth-area';
 import {
   CurrencyNotice,
@@ -165,65 +166,57 @@ export default async function NetWorthReportPage({
         description="Opening and closing balance for every account inside the total."
         breakBefore
       >
-        <div className="relative min-w-0 overflow-x-auto">
-          <table className="w-full min-w-0 text-sm">
-            <thead>
-              <tr className="text-muted-foreground border-border border-b text-left text-xs">
-                <th scope="col" className="py-1.5 pr-3 font-medium">
-                  Account
-                </th>
-                <th scope="col" className="hidden py-1.5 pr-3 text-right font-medium sm:table-cell">
-                  Opening
-                </th>
-                <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                  Closing
-                </th>
-                <th scope="col" className="py-1.5 text-right font-medium">
-                  Change
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.accounts.map((row) => (
-                <tr key={`${row.kind}-${row.name}`} className="border-border/60 border-b">
-                  <td className="max-w-[16rem] py-2 pr-3">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className={`size-2 shrink-0 rounded-full ${
-                          row.kind === 'liability' ? 'bg-expense' : 'bg-income'
-                        }`}
-                      />
-                      <span className="truncate">{row.name}</span>
-                      <span className="text-muted-foreground shrink-0 text-xs">
-                        {row.percent.toFixed(0)}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="hidden py-2 pr-3 text-right sm:table-cell">
-                    <Amount
-                      value={row.opening}
-                      currency={report.currency}
-                      showSign={false}
-                      tone="neutral"
+        <Table label="Net worth by month">
+          <THead>
+            <TR head>
+              <TH>Account</TH>
+              <TH align="right" hideBelow="sm">
+                Opening
+              </TH>
+              <TH align="right">Closing</TH>
+              <TH align="right">Change</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {report.accounts.map((row) => (
+              <TR key={`${row.kind}-${row.name}`}>
+                <TD className="max-w-[16rem]">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className={`size-2 shrink-0 rounded-full ${
+                        row.kind === 'liability' ? 'bg-expense' : 'bg-income'
+                      }`}
                     />
-                  </td>
-                  <td className="py-2 pr-3 text-right">
-                    <Amount
-                      value={row.closing}
-                      currency={report.currency}
-                      showSign={false}
-                      tone="neutral"
-                    />
-                  </td>
-                  <td className="py-2 text-right">
-                    <Amount value={row.change} currency={report.currency} tone="auto" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <span className="truncate">{row.name}</span>
+                    <span className="text-muted-foreground shrink-0 text-xs">
+                      {row.percent.toFixed(0)}%
+                    </span>
+                  </div>
+                </TD>
+                <TD align="right" hideBelow="sm">
+                  <Amount
+                    value={row.opening}
+                    currency={report.currency}
+                    showSign={false}
+                    tone="neutral"
+                  />
+                </TD>
+                <TD align="right">
+                  <Amount
+                    value={row.closing}
+                    currency={report.currency}
+                    showSign={false}
+                    tone="neutral"
+                  />
+                </TD>
+                <TD align="right">
+                  <Amount value={row.change} currency={report.currency} tone="auto" />
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
         <p className="text-muted-foreground text-xs" data-print="hide">
           <Link href="/accounts" className="hover:text-primary hover:underline">
             Manage accounts →

@@ -8,6 +8,7 @@ import {
   dismissAllNotificationsAction,
 } from '@/server/notifications-actions';
 import { Button } from '@/components/ui/button';
+import { Popover } from '@/components/ui/popover';
 import type { notifications } from '@/server/db/schema';
 
 type Notification = typeof notifications.$inferSelect;
@@ -23,24 +24,33 @@ export function NotificationBadge({ count }: { count: number }) {
 
 export function NotificationInbox({ notifications }: { notifications: Notification[] }) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
   const unread = notifications.filter((n) => !n.readAt);
 
+  /*
+   * E21-01 — this was a hand-rolled panel: it opened on click and the only way
+   * to close it was to click the bell again. No Escape, no click-away, no
+   * `aria-expanded`, and focus stayed on the bell while the panel it had opened
+   * was unreachable by keyboard. Popover owns all four.
+   */
   return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="relative"
-        onClick={() => setOpen((s) => !s)}
-        aria-label="Notifications"
-      >
-        <Bell className="size-5" aria-hidden="true" />
-        <NotificationBadge count={unread.length} />
-      </Button>
-
-      {open ? (
-        <div className="bg-popover absolute top-full right-0 z-50 mt-2 w-80 overflow-hidden rounded-lg border p-1 shadow-lg">
+    <Popover
+      label="Notifications"
+      align="end"
+      trigger={(props) => (
+        <Button
+          {...props}
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label="Notifications"
+        >
+          <Bell className="size-5" aria-hidden="true" />
+          <NotificationBadge count={unread.length} />
+        </Button>
+      )}
+    >
+      {(close) => (
+        <div className="p-1">
           <div className="flex items-center justify-between px-3 py-2">
             <span className="text-sm font-medium">Notifications</span>
             {unread.length > 0 ? (
@@ -72,7 +82,7 @@ export function NotificationInbox({ notifications }: { notifications: Notificati
                         size="sm"
                         className="h-auto px-0 py-0 text-xs"
                         onClick={() => {
-                          setOpen(false);
+                          close();
                           router.push(`/budgets/${n.payload.budgetId}`);
                         }}
                       >
@@ -84,7 +94,7 @@ export function NotificationInbox({ notifications }: { notifications: Notificati
                         size="sm"
                         className="h-auto px-0 py-0 text-xs"
                         onClick={() => {
-                          setOpen(false);
+                          close();
                           router.push(`/bills/${n.payload.billId}`);
                         }}
                       >
@@ -96,7 +106,7 @@ export function NotificationInbox({ notifications }: { notifications: Notificati
                         size="sm"
                         className="h-auto px-0 py-0 text-xs"
                         onClick={() => {
-                          setOpen(false);
+                          close();
                           router.push('/settings/connections');
                         }}
                       >
@@ -106,7 +116,13 @@ export function NotificationInbox({ notifications }: { notifications: Notificati
                   </div>
                   <form action={markNotificationReadAction}>
                     <input type="hidden" name="id" value={n.id} />
-                    <Button type="submit" variant="ghost" size="icon" className="size-6">
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      aria-label="Mark as read"
+                    >
                       <Check className="size-3.5" aria-hidden="true" />
                     </Button>
                   </form>
@@ -115,8 +131,8 @@ export function NotificationInbox({ notifications }: { notifications: Notificati
             </ul>
           )}
         </div>
-      ) : null}
-    </div>
+      )}
+    </Popover>
   );
 }
 

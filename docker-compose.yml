@@ -79,6 +79,14 @@ services:
       # E2-24 — set to enable /api/cron/health for a real cron driver. Unset,
       # the endpoint 404s and the app falls back to opportunistic checks.
       CRON_SECRET: ${CRON_SECRET:-}
+      # E1-16 — nginx-style access lines on stdout, visible in `docker logs`.
+      # On unless explicitly disabled. TRUST_PROXY only when something really
+      # is in front: otherwise a visitor can forge x-forwarded-for and write
+      # any address they like into the log.
+      ACCESS_LOG: ${ACCESS_LOG:-true}
+      ACCESS_LOG_STATIC: ${ACCESS_LOG_STATIC:-false}
+      ACCESS_LOG_PROBES: ${ACCESS_LOG_PROBES:-false}
+      ACCESS_LOG_TRUST_PROXY: ${ACCESS_LOG_TRUST_PROXY:-false}
       # A Firefly III instance this deployment runs on its users' behalf. Set
       # MANAGED_FIREFLY_URL to offer it during onboarding; the instance must
       # have "single user mode" turned OFF so accounts can be provisioned.

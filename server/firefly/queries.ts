@@ -184,6 +184,19 @@ export const getBudgetLimits = (start: string, end: string) =>
 export const getBills = (start: string, end: string) =>
   fireflyGetSafe<Paged<Bill>>(`/v1/bills${qs({ start, end, limit: 50 })}`, { data: [], meta: {} });
 
+/**
+ * Every subscription, with no date window.
+ *
+ * `getBills` takes a range because the list page shows what is due inside one.
+ * Resolving a rule's `link_to_bill` value to a subscription has nothing to do
+ * with dates: the rule names a subscription, and that subscription exists
+ * whether or not it happens to fall due in the period being viewed. Passing a
+ * range here would make the link on a rule appear and disappear depending on
+ * which month the reader had selected.
+ */
+export const getAllBills = () =>
+  fireflyGetSafe<Paged<Bill>>(`/v1/bills${qs({ limit: 200 })}`, { data: [], meta: {} });
+
 export const getPiggyBanks = () =>
   fireflyGetSafe<Paged<PiggyBank>>(`/v1/piggy-banks${qs({ limit: 50 })}`, { data: [], meta: {} });
 

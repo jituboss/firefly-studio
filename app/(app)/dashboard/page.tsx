@@ -17,6 +17,7 @@ import {
 } from '@/server/firefly/queries';
 import type { Budget, BudgetLimit } from '@/server/firefly/types';
 import { previousPeriod, resolveRangeFromParams } from '@/lib/date-range';
+import { now, toApiDate } from '@/lib/date';
 import { buildBalanceTrend } from '@/lib/balance-trend';
 import { toDecimal } from '@/lib/money';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +34,7 @@ import {
   WidgetCard,
 } from '@/components/dashboard/widgets';
 import { HideBalancesToggle } from '@/components/hide-balances';
+import { DashboardQuickEntry } from '@/components/dashboard/quick-entry';
 import { listSavedReports } from '@/server/reports';
 import { describeConfig, parseConfig } from '@/lib/custom-report';
 import { Amount } from '@/components/ui/amount';
@@ -157,7 +159,14 @@ export default async function DashboardPage({
     .slice(0, 8);
 
   return (
-    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-6">
+    /*
+     * `max-sm:pb-24` clears the floating add button, which is fixed to the
+     * bottom-right on phones. Without it the button sits on top of the last
+     * widget's bottom-right corner once the page is scrolled to the end —
+     * which on this page is a budget figure, so the thing it covers is a
+     * number someone came to read.
+     */
+    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-6 max-sm:pb-24">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
@@ -168,6 +177,21 @@ export default async function DashboardPage({
         <div className="flex items-center gap-2">
           <HideBalancesToggle defaultHidden={preferences.hideBalances} />
           <DateRangePicker label={range.label} />
+          {/*
+            E3-16 — the dashboard was read-only: every figure on it comes from
+            transactions and there was no way to add one without leaving for
+            another section first. The asset accounts are handed over because
+            the page has already loaded them, so the common case opens with the
+            right account already chosen and needs no lookup at all.
+          */}
+          <DashboardQuickEntry
+            today={toApiDate(now(session.user.timezone), session.user.timezone)}
+            currency={currency}
+            assetAccounts={accounts.data.map((account) => ({
+              id: account.id,
+              name: account.attributes.name,
+            }))}
+          />
         </div>
       </header>
 

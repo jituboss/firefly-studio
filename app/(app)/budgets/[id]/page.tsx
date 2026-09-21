@@ -18,6 +18,7 @@ import { DateRangePicker } from '@/components/date-range-picker';
 import { BudgetForm } from '../budget-form';
 import { LimitsPanel } from './limits-panel';
 import { DeleteBudgetButton } from './delete-button';
+import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Budget' };
 
@@ -103,25 +104,17 @@ export default async function BudgetDetailPage({
         </Card>
       </div>
 
-      <nav className="flex gap-1 border-b" aria-label="Budget sections">
-        {[
+      <Tabs
+        label="Budget sections"
+        basePath={`/budgets/${id}`}
+        query={{ range: range.preset }}
+        active={tab}
+        tabs={[
           { id: 'transactions', label: 'Transactions' },
           { id: 'limits', label: 'Limits' },
           { id: 'edit', label: 'Edit' },
-        ].map((entry) => (
-          <Link
-            key={entry.id}
-            href={`/budgets/${id}?tab=${entry.id}&range=${range.preset}`}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === entry.id
-                ? 'border-primary text-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-          >
-            {entry.label}
-          </Link>
-        ))}
-      </nav>
+        ]}
+      />
 
       {tab === 'transactions' ? (
         <Card>

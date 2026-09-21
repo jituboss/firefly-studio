@@ -64,13 +64,36 @@ export function middleware(request: NextRequest) {
     return withCsp(NextResponse.redirect(url));
   }
 
-  // `startsWith`, not equality: /verify-email/confirm has to run even for
-  // someone who already has a session — confirming a second address, or
-  // finishing a link opened after signing in elsewhere. Bouncing them to the
-  // dashboard would leave the address unconfirmed with no visible reason.
+  /*
+   * `startsWith`, not equality: /verify-email/confirm has to run even for
+   * someone who already has a session — confirming a second address, or
+   * finishing a link opened after signing in elsewhere. Bouncing them to the
+   * dashboard would leave the address unconfirmed with no visible reason.
+   *
+   * The `/sign-in` exclusion below is load-bearing — do not remove it.
+   *
+   * `hasSession` is the PRESENCE of a cookie, not a valid session — middleware
+   * runs on the edge and cannot reach Postgres to check. So when a cookie
+   * outlives the row it points to (an idle tab reopened after a deploy, an
+   * expired or revoked session), the app and this file disagreed forever:
+   *
+   *     /dashboard -> /sign-in   the layout validates, and rejects it
+   *     /sign-in   -> /          here: the cookie exists, so "already in"
+   *     /          -> /dashboard app/page.tsx sends them to their landing page
+   *
+   * — which the browser ends with ERR_TOO_MANY_REDIRECTS and the user reads as
+   * the app being down. Reproduced with a cookie holding a token that matches
+   * no row: nineteen hops before Chrome gave up.
+   *
+   * The decision belongs where the session can actually be validated, so
+   * /sign-in makes it itself: a real session redirects on, a dead one renders
+   * the form. Middleware keeps the rule for the other public pages, where no
+   * such cycle exists because nothing redirects INTO them.
+   */
   if (
     hasSession &&
     isPublic &&
+    !pathname.startsWith('/sign-in') &&
     !pathname.startsWith('/verify-email') &&
     !pathname.startsWith('/reset-password')
   ) {

@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Sheet } from '@/components/ui/sheet';
+import { Tooltip } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CommandPalette } from '@/components/command-palette';
 import { NotificationInbox } from '@/components/notifications/inbox';
@@ -187,27 +189,6 @@ export function AppShell({
   const pathname = usePathname();
   const settingsActive = pathname.startsWith('/settings');
 
-  // Without this the page behind the drawer keeps scrolling — including
-  // sideways, which is what clipped the content off the left edge.
-  React.useEffect(() => {
-    if (!mobileOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [mobileOpen]);
-
-  // Escape closes the drawer.
-  React.useEffect(() => {
-    if (!mobileOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobileOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [mobileOpen]);
-
   return (
     /*
      * `overflow-x-clip`, NOT `overflow-x-hidden`.
@@ -233,26 +214,30 @@ export function AppShell({
         <SidebarNav version={version} />
       </aside>
 
-      {/* Mobile drawer */}
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            className="absolute inset-0 bg-black/40"
-            aria-label="Close navigation"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside
-            aria-label="Main navigation"
-            className="bg-sidebar border-sidebar-border absolute inset-y-0 left-0 w-64 max-w-[85vw] overflow-y-auto overscroll-contain border-r"
-          >
-            <div className="flex h-14 items-center gap-2 px-5">
-              <Flame className="text-primary size-5" aria-hidden="true" />
-              <span className="font-semibold tracking-tight">Firefly Studio</span>
-            </div>
-            <SidebarNav onNavigate={() => setMobileOpen(false)} version={version} />
-          </aside>
-        </div>
-      ) : null}
+      {/*
+        Mobile drawer. This was a hand-built overlay with a backdrop and an
+        Escape key and nothing else: Tab walked straight out of the open drawer
+        onto the page behind it, so a keyboard user could focus links they
+        could not see. Sheet carries the focus trap, the scroll lock on both
+        axes, `role="dialog"` and the return of focus to the menu button.
+      */}
+      <Sheet
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        side="left"
+        title="Main navigation"
+        showTitle={false}
+        className="lg:hidden"
+        panelClassName="bg-sidebar border-sidebar-border"
+        header={
+          <div className="flex items-center gap-2">
+            <Flame className="text-primary size-5" aria-hidden="true" />
+            <span className="font-semibold tracking-tight">Firefly Studio</span>
+          </div>
+        }
+      >
+        <SidebarNav onNavigate={() => setMobileOpen(false)} version={version} />
+      </Sheet>
 
       <div className="min-w-0 lg:pl-60">
         <header className="bg-background/80 border-border sticky top-0 z-20 flex h-14 items-center gap-3 border-b px-4 backdrop-blur-sm sm:px-6">
@@ -281,17 +266,19 @@ export function AppShell({
           {/* Settings lives here rather than in the sidebar: it is a place you
               visit occasionally and leave, not one of the ledger views you move
               between. /settings redirects to the connections page. */}
-          <Button
-            asChild
-            variant="ghost"
-            size="icon"
-            aria-label="Settings"
-            className={cn(settingsActive && 'bg-accent text-accent-foreground')}
-          >
-            <Link href="/settings">
-              <Settings className="size-4" />
-            </Link>
-          </Button>
+          <Tooltip content="Settings" side="bottom">
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              aria-label="Settings"
+              className={cn(settingsActive && 'bg-accent text-accent-foreground')}
+            >
+              <Link href="/settings">
+                <Settings className="size-4" />
+              </Link>
+            </Button>
+          </Tooltip>
 
           <ThemeToggle />
 
@@ -308,9 +295,11 @@ export function AppShell({
               navigator.serviceWorker?.controller?.postMessage('clear-cache');
             }}
           >
-            <Button type="submit" variant="ghost" size="icon" aria-label="Sign out">
-              <LogOut className="size-4" />
-            </Button>
+            <Tooltip content="Sign out" side="bottom">
+              <Button type="submit" variant="ghost" size="icon" aria-label="Sign out">
+                <LogOut className="size-4" />
+              </Button>
+            </Tooltip>
           </form>
         </header>
 

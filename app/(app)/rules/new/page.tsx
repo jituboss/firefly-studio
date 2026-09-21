@@ -26,6 +26,25 @@ export default async function NewRulePage({
   const params = await searchParams;
   const group = typeof params.group === 'string' ? params.group : undefined;
 
+  /*
+   * E8-07 — "Create a matching rule" on a subscription lands here with the
+   * subscription's name, and the builder opens already filled in: match the
+   * description, link the result to that subscription.
+   *
+   * `description_contains` rather than `description_is`, because a bank writes
+   * "NETFLIX.COM 866-579-7172" where the subscription is called "Netflix". An
+   * exact match would produce a rule that matches nothing and looks like the
+   * feature is broken.
+   */
+  const bill = typeof params.bill === 'string' ? params.bill : undefined;
+  const prefill = bill
+    ? {
+        title: `Link ${bill} payments`,
+        triggers: [{ type: 'description_contains', value: bill }],
+        actions: [{ type: 'link_to_bill', value: bill }],
+      }
+    : undefined;
+
   return (
     <div className="mx-auto w-full max-w-2xl min-w-0 space-y-6">
       <div className="space-y-1">
@@ -37,8 +56,14 @@ export default async function NewRulePage({
           Rules
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">New rule</h1>
+        {bill ? (
+          <p className="text-muted-foreground text-sm">
+            Started from the <strong className="font-medium">{bill}</strong> subscription. Check the
+            description it matches on — your bank may write it differently.
+          </p>
+        ) : null}
       </div>
-      <RuleBuilder groups={groups.data} defaultGroupId={group} />
+      <RuleBuilder groups={groups.data} defaultGroupId={group} prefill={prefill} />
     </div>
   );
 }

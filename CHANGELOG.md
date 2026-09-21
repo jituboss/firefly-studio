@@ -10,6 +10,91 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-21
+
+**The design system is complete, transactions can be retyped, and a stale
+session no longer traps the browser in a redirect loop.**
+
+### Added
+
+- **The last five UI primitives** — Sheet, Popover, Tooltip, Tabs and Table —
+  each because something had already hand-rolled it badly. The mobile nav
+  drawer had a backdrop and an Escape key and nothing else, so Tab walked out
+  of the open drawer onto the page behind and a keyboard user could focus links
+  they could not see. The notification inbox could only be closed by clicking
+  the bell again. The same tab markup had been copied into eight detail pages
+  and drifted — one copy had lost its `aria-label`, another its `aria-current`,
+  and none scrolled at 390px, so the later tabs on a rule page were simply
+  unreachable. Seven hand-typed tables became one primitive that adds a
+  focusable scroll region, without which a keyboard user could not reach the
+  columns past the fold.
+
+- **Change a transaction between expense, income and transfer.** Firefly's own
+  UI has this; ours did not, so correcting a mistyped transaction meant
+  deleting and re-entering it and losing its attachments, its tags and its id.
+
+- **Subscriptions and rules are wired together, both ways.** A subscription now
+  has a Rules tab listing what automates it and a button that opens the rule
+  builder already filled in; a rule links back to the subscription it feeds,
+  and the rules list names it. The rule builder picks a subscription from a
+  list rather than asking you to type its exact name.
+
+- **Record a transaction from the dashboard** — a header button on desktop, a
+  floating button on mobile. See Known issues.
+
+- **Any date range, not just the last two years.** The picker stopped at "last
+  year", so a three-year-old ledger had most of itself unreachable from the
+  interface. Earlier calendar years and an explicit custom range are now
+  offered, and a range is named the way a person would say it: "2024", "March
+  2024", or "1 Mar 2023 → 30 Jun 2023".
+
+- **An HTTP access log on stdout**, nginx-style, so `docker logs` answers who
+  hit what and whether it worked. Query values that could be credentials are
+  redacted before anything is written — `/verify-email/confirm?token=…` and
+  `/reset-password?token=…` carry single-use account-takeover tokens, and a log
+  is the most-forwarded artefact a deployment produces. The referer gets the
+  same treatment, because a browser sitting on a reset URL sends it whole on
+  every request that follows. `ACCESS_LOG=false` silences it;
+  `ACCESS_LOG_TRUST_PROXY=true` when a reverse proxy really is in front.
+
+- **"Try again" on the broken-connection banner.** The app already re-probed
+  in the background every hour, so a recovered connection did clear itself —
+  eventually. An hour of a banner saying the ledger is unavailable, offering
+  only a link to a page that repeats the same stale word, is not a recovery
+  story.
+
+### Fixed
+
+- **A stale session cookie trapped the browser in an endless redirect.**
+  Reported after deploying a new image; reproduced at nineteen hops before
+  Chrome gave up. Deploying was never the cause — it is simply when many
+  long-idle tabs reload at once. Middleware treated the presence of a session
+  cookie as proof of a session, which it cannot verify because it runs on the
+  edge with no database, and the app's own guard disagreed with it forever. The
+  decision now sits where the session can actually be checked, and the sign-in
+  page says your session ended rather than leaving you at an unexplained login
+  form.
+
+- **A revoked Firefly token was reported as an unreachable server**, sending
+  people to check a server that was answering perfectly. The error carried the
+  right code all along; nothing read it.
+
+- **Opening any overlay stole focus back on every re-render.** Typing in a
+  field, a pending flag flipping, a parent re-rendering — each silently moved
+  focus to the close button.
+
+- **The date-range button had no accessible name on a phone.** Its label is
+  hidden below `sm` and both icons are decorative, so a screen reader announced
+  "button" for the one control every figure on the page depends on.
+
+### Known issues
+
+- **The dashboard's quick-add button can stay on "Adding…".** The transaction
+  is written correctly and appears on reload; the confirmation does not arrive.
+  It happens only in that panel — the same form elsewhere in the app is
+  unaffected. Six causes were investigated and ruled out; the findings are
+  recorded in the source so the next attempt does not repeat them.
+
 ## [0.6.5] - 2026-09-20
 
 **The demo seed works on instances that do not ship your currency.**
@@ -678,7 +763,9 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.6.4...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.7.0
+[0.6.5]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.5
 [0.6.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.4
 [0.6.3]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.3
 [0.6.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.6.2

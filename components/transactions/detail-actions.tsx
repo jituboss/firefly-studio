@@ -9,6 +9,8 @@ import {
   duplicateTransactionAction,
 } from '@/server/firefly/transaction-actions';
 import { Button } from '@/components/ui/button';
+import { ConvertDialog } from '@/app/(app)/transactions/[id]/convert-dialog';
+import type { SplitLike } from '@/lib/transaction-convert';
 
 function Pending({ children, ...props }: React.ComponentProps<typeof Button>) {
   const { pending } = useFormStatus();
@@ -19,8 +21,16 @@ function Pending({ children, ...props }: React.ComponentProps<typeof Button>) {
   );
 }
 
-/** E5-09 / E5-10 — edit, duplicate, delete. */
-export function TransactionDetailActions({ id, description }: { id: string; description: string }) {
+/** E5-09 / E5-10 / E5-19 — edit, duplicate, change type, delete. */
+export function TransactionDetailActions({
+  id,
+  description,
+  splits,
+}: {
+  id: string;
+  description: string;
+  splits: SplitLike[];
+}) {
   return (
     <div className="flex flex-wrap gap-2">
       <Button asChild variant="outline" size="sm">
@@ -37,6 +47,8 @@ export function TransactionDetailActions({ id, description }: { id: string; desc
           Duplicate
         </Pending>
       </form>
+
+      <ConvertDialog id={id} splits={splits} />
 
       <form action={deleteTransactionAction} className="ml-auto">
         <input type="hidden" name="id" value={id} />

@@ -16,6 +16,7 @@ import { DateRangePicker } from '@/components/date-range-picker';
 import { TransactionList } from '@/components/transactions/transaction-list';
 import { TagForm } from '../tag-form';
 import { DeleteTagButton } from './delete-button';
+import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Tag' };
 
@@ -150,24 +151,16 @@ export default async function TagDetailPage({
         </Card>
       </div>
 
-      <nav className="flex gap-1 border-b" aria-label="Tag sections">
-        {[
+      <Tabs
+        label="Tag sections"
+        basePath={`/tags/${encodeURIComponent(name)}`}
+        query={{ range: range.preset }}
+        active={tab}
+        tabs={[
           { id: 'transactions', label: 'Transactions' },
           { id: 'edit', label: 'Edit' },
-        ].map((entry) => (
-          <Link
-            key={entry.id}
-            href={`/tags/${encodeURIComponent(name)}?tab=${entry.id}&range=${range.preset}`}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === entry.id
-                ? 'border-primary text-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-          >
-            {entry.label}
-          </Link>
-        ))}
-      </nav>
+        ]}
+      />
 
       {tab === 'transactions' ? (
         <Card>

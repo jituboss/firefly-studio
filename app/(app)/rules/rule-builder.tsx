@@ -20,6 +20,7 @@ import {
   type Keyword,
 } from '@/lib/rule-vocabulary';
 import { Input, Label } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -134,6 +135,27 @@ function RowEditor({
                   </option>
                 ))}
               </Select>
+            ) : keyword?.kind === 'bill' ? (
+              /*
+               * A picker, because Firefly rejects anything that is not the
+               * exact name of an existing subscription — including its id. The
+               * only feedback a free-text box could give is a 422 after save.
+               *
+               * `allowFreeText` stays on all the same: the value may already be
+               * a name this Firefly no longer autocompletes (a deactivated
+               * subscription still matches historic transactions), and blanking
+               * someone's working rule because the picker could not find its
+               * value is worse than letting them keep it.
+               */
+              <>
+                <Combobox
+                  endpoint="bills"
+                  value={row.value}
+                  onChange={(value) => onChange({ ...row, value })}
+                  placeholder="Pick a subscription"
+                />
+                <input type="hidden" name={`${base}[value]`} value={row.value} />
+              </>
             ) : (
               <Input
                 name={`${base}[value]`}
@@ -193,15 +215,33 @@ function RowEditor({
   );
 }
 
+/**
+ * A starting point handed in by whoever linked here — today, the "Create a
+ * matching rule" button on a subscription (E8-07).
+ *
+ * Deliberately a set of DEFAULTS, not a locked form: it fills the rows in and
+ * then gets out of the way, so the description guess can be corrected before
+ * saving. A rule built from a subscription name is a good first guess and
+ * nothing more — "Netflix" matches the subscription, but the bank may well
+ * write it "NETFLIX.COM 866-579-7172".
+ */
+export interface RulePrefill {
+  title?: string;
+  triggers?: Array<{ type: string; value: string }>;
+  actions?: Array<{ type: string; value: string }>;
+}
+
 /** E11-02 / E11-03 — compose a rule out of conditions and actions. */
 export function RuleBuilder({
   rule,
   groups,
   defaultGroupId,
+  prefill,
 }: {
   rule?: Rule;
   groups: RuleGroup[];
   defaultGroupId?: string;
+  prefill?: RulePrefill;
 }) {
   const editing = Boolean(rule);
   const [state, action] = useActionState<RuleFormState, FormData>(
@@ -219,7 +259,9 @@ export function RuleBuilder({
           stop: entry.stop_processing,
           prohibited: Boolean(entry.prohibited),
         }))
-      : [makeRow('description_contains')],
+      : prefill?.triggers?.length
+        ? prefill.triggers.map((entry) => ({ ...makeRow(entry.type), value: entry.value }))
+        : [makeRow('description_contains')],
   );
 
   const [actions, setActions] = useState<RowState[]>(() =>
@@ -232,7 +274,9 @@ export function RuleBuilder({
           stop: entry.stop_processing,
           prohibited: false,
         }))
-      : [makeRow('set_category')],
+      : prefill?.actions?.length
+        ? prefill.actions.map((entry) => ({ ...makeRow(entry.type), value: entry.value }))
+        : [makeRow('set_category')],
   );
 
   const patch = (
@@ -255,7 +299,7 @@ export function RuleBuilder({
               id="title"
               name="title"
               required
-              defaultValue={rule?.attributes.title}
+              defaultValue={rule?.attributes.title ?? prefill?.title}
               placeholder="Tag the weekly shop"
             />
           </div>

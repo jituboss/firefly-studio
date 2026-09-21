@@ -108,7 +108,7 @@ export default async function TransactionDetailPage({
         </div>
       </header>
 
-      <TransactionDetailActions id={id} description={first.description} />
+      <TransactionDetailActions id={id} description={first.description} splits={splits} />
 
       {splits.map((split, index) => (
         <SplitCard

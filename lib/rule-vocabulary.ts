@@ -9,7 +9,7 @@
  * a rule that silently matches nothing. That distinction is added here.
  */
 
-export type ValueKind = 'text' | 'amount' | 'none' | 'transaction-type';
+export type ValueKind = 'text' | 'amount' | 'none' | 'transaction-type' | 'bill';
 
 export interface Keyword {
   value: string;
@@ -160,7 +160,22 @@ export const RULE_ACTIONS: Keyword[] = [
     kind: 'text',
     group: 'Accounts',
   },
-  { value: 'link_to_bill', label: 'Link to subscription', kind: 'text', group: 'Accounts' },
+  /*
+   * `bill`, not `text`, because Firefly hard-validates this one. The value is
+   * the subscription's NAME — an id is rejected with
+   * "This value is invalid for the selected action." (422), and so is any name
+   * that does not exist. Verified against 6.5.5: posting the bill id 34 fails
+   * while posting "Netflix" succeeds.
+   *
+   * A free-text box in front of a field that only accepts one of six exact
+   * strings is a guessing game whose only feedback is a 422 after save, so the
+   * builder renders a picker for this kind instead.
+   *
+   * Renaming the subscription afterwards is safe — Firefly stores the id
+   * internally and the action's value follows the rename. Also verified, and
+   * worth recording because the opposite is the obvious assumption.
+   */
+  { value: 'link_to_bill', label: 'Link to subscription', kind: 'bill', group: 'Accounts' },
 
   {
     value: 'convert_withdrawal',

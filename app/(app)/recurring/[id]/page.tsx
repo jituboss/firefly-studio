@@ -12,6 +12,7 @@ import { TransactionList } from '@/components/transactions/transaction-list';
 import { RecurrenceForm } from '../recurrence-form';
 import { loadRecurrenceFormData } from '../form-data';
 import { DeleteRecurrenceButton, TriggerPanel } from './trigger-panel';
+import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Recurring transaction' };
 
@@ -76,25 +77,16 @@ export default async function RecurrenceDetailPage({
         ) : null}
       </header>
 
-      <nav className="flex gap-1 border-b" aria-label="Sections">
-        {[
+      <Tabs
+        label="Sections"
+        basePath={`/recurring/${id}`}
+        active={tab}
+        tabs={[
           { id: 'schedule', label: 'Schedule' },
           { id: 'created', label: 'Created' },
           { id: 'edit', label: 'Edit' },
-        ].map((entry) => (
-          <Link
-            key={entry.id}
-            href={`/recurring/${id}?tab=${entry.id}`}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === entry.id
-                ? 'border-primary text-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-          >
-            {entry.label}
-          </Link>
-        ))}
-      </nav>
+        ]}
+      />
 
       {tab === 'schedule' ? (
         <div className="space-y-4">

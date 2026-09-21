@@ -11,6 +11,7 @@ import {
 import { drillToTransactions, resolveReportScope } from '@/lib/report-scope';
 import { buildAccountReport } from '@/lib/reports';
 import { subtract } from '@/lib/money';
+import { Table, TBody, TD, TFoot, TH, THead, TR } from '@/components/ui/table';
 import { Amount } from '@/components/ui/amount';
 import { CurrencyNotice, ReportSection, ReportStat } from '@/components/reports/report-ui';
 import { ReportExportButton } from '@/components/reports/report-export';
@@ -97,97 +98,84 @@ export default async function AccountReportPage({
             No account movement in this period.
           </p>
         ) : (
-          <div className="relative min-w-0 overflow-x-auto">
-            <table className="w-full min-w-0 text-sm">
-              <thead>
-                <tr className="text-muted-foreground border-border border-b text-left text-xs">
-                  <th scope="col" className="py-1.5 pr-3 font-medium">
-                    Account
-                  </th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                    In
-                  </th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                    Out
-                  </th>
-                  <th
-                    scope="col"
-                    className="hidden py-1.5 pr-3 text-right font-medium sm:table-cell"
-                  >
-                    Transfers
-                  </th>
-                  <th scope="col" className="py-1.5 text-right font-medium">
-                    Net
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.rows.map((row) => (
-                  <tr key={row.id ?? row.name} className="border-border/60 border-b">
-                    <td className="max-w-[14rem] py-2 pr-3">
-                      {row.id ? (
-                        <Link
-                          href={`/accounts/${row.id}`}
-                          className="hover:text-primary block truncate hover:underline"
-                        >
-                          {row.name}
-                        </Link>
-                      ) : (
-                        <span className="block truncate">{row.name}</span>
-                      )}
-                    </td>
-                    <td className="py-2 pr-3 text-right">
-                      <Amount
-                        value={row.income}
-                        currency={report.currency}
-                        tone="income"
-                        showSign={false}
-                      />
-                    </td>
-                    <td className="py-2 pr-3 text-right">
-                      <Amount
-                        value={row.expense}
-                        currency={report.currency}
-                        tone="expense"
-                        showSign={false}
-                      />
-                    </td>
-                    <td className="hidden py-2 pr-3 text-right sm:table-cell">
-                      <Amount value={row.transfers} currency={report.currency} tone="transfer" />
-                    </td>
-                    <td className="py-2 text-right">
-                      <Amount value={row.net} currency={report.currency} tone="auto" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="font-medium">
-                  <td className="py-2 pr-3">Total</td>
-                  <td className="py-2 pr-3 text-right">
+          <Table label="Account movement" cards>
+            <THead>
+              <TR head>
+                <TH>Account</TH>
+                <TH align="right">In</TH>
+                <TH align="right">Out</TH>
+                <TH align="right" hideBelow="sm">
+                  Transfers
+                </TH>
+                <TH align="right">Net</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {report.rows.map((row) => (
+                <TR key={row.id ?? row.name}>
+                  <TD className="max-w-[14rem] max-sm:font-medium">
+                    {row.id ? (
+                      <Link
+                        href={`/accounts/${row.id}`}
+                        className="hover:text-primary block truncate hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                    ) : (
+                      <span className="block truncate">{row.name}</span>
+                    )}
+                  </TD>
+                  <TD align="right" label="In">
                     <Amount
-                      value={report.totalIncome}
+                      value={row.income}
                       currency={report.currency}
                       tone="income"
                       showSign={false}
                     />
-                  </td>
-                  <td className="py-2 pr-3 text-right">
+                  </TD>
+                  <TD align="right" label="Out">
                     <Amount
-                      value={report.totalExpense}
+                      value={row.expense}
                       currency={report.currency}
                       tone="expense"
                       showSign={false}
                     />
-                  </td>
-                  <td className="hidden sm:table-cell" />
-                  <td className="py-2 text-right">
-                    <Amount value={net} currency={report.currency} tone="auto" />
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                  </TD>
+                  <TD align="right" hideBelow="sm" label="Transfers">
+                    <Amount value={row.transfers} currency={report.currency} tone="transfer" />
+                  </TD>
+                  <TD align="right" label="Net">
+                    <Amount value={row.net} currency={report.currency} tone="auto" />
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+            <TFoot>
+              <TR>
+                <TD className="max-sm:font-semibold">Total</TD>
+                <TD align="right" label="In">
+                  <Amount
+                    value={report.totalIncome}
+                    currency={report.currency}
+                    tone="income"
+                    showSign={false}
+                  />
+                </TD>
+                <TD align="right" label="Out">
+                  <Amount
+                    value={report.totalExpense}
+                    currency={report.currency}
+                    tone="expense"
+                    showSign={false}
+                  />
+                </TD>
+                <TD align="right" hideBelow="sm" />
+                <TD align="right" label="Net">
+                  <Amount value={net} currency={report.currency} tone="auto" />
+                </TD>
+              </TR>
+            </TFoot>
+          </Table>
         )}
         <CurrencyNotice currency={report.currency} otherCurrencies={report.otherCurrencies} />
         <p className="text-muted-foreground text-xs" data-print="hide">

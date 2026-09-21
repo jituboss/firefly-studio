@@ -5,12 +5,12 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-20, at `v0.6.4`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-21, at `v0.7.0`. Written by an outgoing AI coding assistant for whoever continues this work.
 
-**What changed since the previous note:** it was written after M6 and said the latest release was
-`v0.3.0`. Eight releases have happened since. `main` is at **`v0.6.4`**, M7 is most of the way done,
-and the app is AGPL-3.0 licensed — it had no `LICENSE` file at all until 0.5.0, which legally meant
-all rights reserved while a public image was being published on every tag.
+**What changed since the previous note:** 0.7.0 closed E21-01 (the last five primitives) and E8-07,
+and added transaction type conversion, a dashboard quick-add, reachable date ranges and an HTTP
+access log. The full account is `PROJECT_PLAN.md` §18 — read §18.2 and §18.3 before touching
+transactions, overlays or the session guard, because each entry there is a bug that shipped.
 
 ## 1. What this project is, in three sentences
 
@@ -25,9 +25,9 @@ what actually happened building the first four milestones of it.
 
 ## 2. Current state — read this first
 
-**M0–M6 are done. M7 is roughly three-quarters done. M8 has started.** `PROJECT_PLAN.md` §8 is the
-authoritative backlog: **167 of 224 items**, every finished one checked with a note on what shipped,
-what was cut, and why.
+**M0–M6 are done. M7 is nearly done. M8 has started.** `PROJECT_PLAN.md` §8 is the authoritative
+backlog: **173 of 227 items**, every finished one checked with a note on what shipped, what was cut,
+and why.
 
 | Milestone | What it shipped                                                                                    | Status     |
 | --------- | -------------------------------------------------------------------------------------------------- | ---------- |
@@ -38,10 +38,9 @@ what was cut, and why.
 | M8        | Licence, CSP, CSRF, SSRF tests, dependency + secret scanning, coverage gate                        | 🟡 started |
 
 **What M7 still owes:** i18n (E21-07/08, deferred deliberately — it touches every string and nothing
-depends on it), optimistic updates (E22-06, the largest single item left), the last five primitives
-(Sheet, Popover, Tooltip, Tabs, Table), a systematic responsive pass (E21-11 — the overflow gate
-passes, but the grid→card transformation has been done for exactly one table), high contrast
-(E21-12) and a k6 load test (E22-09).
+depends on it), optimistic updates (E22-06, the largest single item left), a systematic responsive
+pass (E21-11 — the Table primitive now has a card mode, so this is applying it rather than inventing
+it), high contrast (E21-12) and a k6 load test (E22-09). **The five primitives are done** (E21-01).
 
 **What M8 still owes:** key rotation for `APP_ENCRYPTION_KEY`, an ASVS pass, backup/restore and user
 documentation, and the test infrastructure in E24 — MSW, Playwright e2e, a contract test. **That
@@ -388,6 +387,47 @@ this codebase the code reads correctly and the rendered result is wrong.
   breaks a feature, because nothing goes red.
 - **Rebuild the container before you believe a screenshot.** An hour went into investigating a
   "missing" feature that was simply not in the running image.
+
+## 7b. Lessons from the 0.7.0 pass — the expensive ones
+
+Full detail is `PROJECT_PLAN.md` §18. These five are the ones most likely to
+cost someone else a day.
+
+- **Anything you time outside the container is timing a different program.**
+  Chasing a hang, the same action was measured in `next dev` and in a local
+  `next start` and resolved quickly in both — reported as "it only happens in
+  the container". It was not a finding. Outside the compose network the app
+  cannot reach `http://firefly:8080`, so the action failed validation and
+  returned before doing any work. Two green runs, both measuring the error path.
+  If a result outside the container looks reassuring, check the action actually
+  did something first.
+
+- **An unstable callback in an effect's dependency array re-runs that effect on
+  every render.** `useFocusTrap` listed `onClose`, and every overlay passes
+  `onClose={() => setOpen(false)}` — a new identity each render. The trap
+  re-installed constantly and re-focused the panel's first control each time, so
+  any re-render inside an open overlay silently moved focus. Everything about it
+  reads correctly. Overlay callbacks go through a ref now; if you add another
+  hook to `components/ui/focus.ts`, do the same.
+
+- **Tailwind v4 silently drops `max-sm` when it follows an arbitrary
+  `group-data` variant.** `group-data-[cards]:max-sm:block` compiles with NO
+  media query. The class name says exactly what you meant and the output does
+  something else. When a responsive variant seems not to apply, read the
+  generated CSS in `.next/static/css/` before rewriting the component.
+
+- **Middleware cannot validate a session, so it must not decide one.**
+  `hasSession` there is the presence of a cookie; the edge runtime has no
+  database. It used to bounce "signed-in" users off `/sign-in`, which meant a
+  cookie outliving its row produced an infinite redirect loop against the app's
+  own guard. Any new rule in `middleware.ts` that depends on _who_ the user is,
+  rather than _whether a cookie exists_, is the same bug again.
+
+- **A 200 from Firefly is not evidence the write happened.** Converting a
+  transaction by sending `type` alone returns 200 with the record unchanged, and
+  a `PUT` that omits a split deletes that split — also with a 200. When a write
+  has a precondition Firefly does not enforce, re-read the response and assert
+  the change, the way `conversionApplied()` does.
 
 ## 8. Testing approach — what exists and what deliberately doesn't
 

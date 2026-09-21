@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { useFocusTrap, useReturnFocus } from './focus';
 
 /**
  * E21-01 — the modal primitive.
@@ -22,10 +23,14 @@ import { cn } from '@/lib/utils';
  *     <body> — looking correct while doing the opposite.
  *   - Tab cycles inside. Without it, tabbing leaves the dialog and lands on
  *     the page behind, which is still rendered.
+ *
+ * The trap itself now lives in `./focus`, shared with Sheet. It used to be
+ * duplicated here, and the copy carried a bug this dialog never happened to
+ * show: `onClose` in the effect's dependency array, which re-runs the effect on
+ * every render and re-steals focus each time. Every dialog in this app ends its
+ * action in a `redirect()`, so the navigation hid it. A Sheet holding a form
+ * that returns state instead did not — read the comment on `useFocusTrap`.
  */
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function Dialog({
   open,
@@ -45,57 +50,11 @@ export function Dialog({
   className?: string;
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
-  const restoreTo = React.useRef<HTMLElement | null>(null);
   const titleId = React.useId();
   const descriptionId = React.useId();
 
-  // Capture the opener before the panel mounts and takes focus.
-  React.useEffect(() => {
-    if (open) restoreTo.current = document.activeElement as HTMLElement | null;
-  }, [open]);
-
-  React.useEffect(() => {
-    if (!open) return;
-
-    // The first control, or the panel itself if it has none.
-    const first = panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? panelRef.current)?.focus();
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        onClose();
-        return;
-      }
-      if (event.key !== 'Tab') return;
-
-      const focusable = Array.from(
-        panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [],
-      );
-      if (focusable.length === 0) return;
-      const firstEl = focusable[0]!;
-      const lastEl = focusable[focusable.length - 1]!;
-
-      if (event.shiftKey && document.activeElement === firstEl) {
-        event.preventDefault();
-        lastEl.focus();
-      } else if (!event.shiftKey && document.activeElement === lastEl) {
-        event.preventDefault();
-        firstEl.focus();
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [open, onClose]);
-
-  // Restore focus on the way out, not on every render.
-  React.useEffect(() => {
-    if (open) return;
-    const target = restoreTo.current;
-    restoreTo.current = null;
-    target?.focus?.();
-  }, [open]);
+  useReturnFocus(open);
+  useFocusTrap(open, panelRef, onClose);
 
   if (!open) return null;
 

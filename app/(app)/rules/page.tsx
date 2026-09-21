@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus, FolderPlus, Workflow } from 'lucide-react';
+import { Plus, FolderPlus, Receipt, Workflow } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getRuleGroups, getRules } from '@/server/firefly/queries';
 import { describeKeyword, findAction, findTrigger } from '@/lib/rule-vocabulary';
+import { billNamesLinkedByRule } from '@/lib/bill-rules';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Rule } from '@/server/firefly/types';
 
@@ -136,6 +138,19 @@ export default async function RulesPage() {
                                   <p className="min-w-0 flex-1 truncate text-sm font-medium">
                                     {rule.attributes.title}
                                   </p>
+                                  {/*
+                                    Which subscription this rule feeds, on the
+                                    row itself. A list of rule titles answers
+                                    "what have I automated?" but not "is this
+                                    subscription covered?" — and the second is
+                                    the question someone scanning this page has.
+                                  */}
+                                  {billNamesLinkedByRule(rule).map((name) => (
+                                    <Badge key={name} variant="secondary" className="shrink-0">
+                                      <Receipt className="size-3" aria-hidden="true" />
+                                      {name}
+                                    </Badge>
+                                  ))}
                                   {rule.attributes.active ? null : (
                                     <span className="text-muted-foreground shrink-0 text-xs">
                                       paused

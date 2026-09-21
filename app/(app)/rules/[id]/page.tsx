@@ -1,17 +1,25 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Ban } from 'lucide-react';
+import { ArrowLeft, Ban, ExternalLink } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
-import { getRule, getRuleGroups, getRuleTestAccounts, testRule } from '@/server/firefly/queries';
+import {
+  getAllBills,
+  getRule,
+  getRuleGroups,
+  getRuleTestAccounts,
+  testRule,
+} from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { describeKeyword, findAction, findTrigger } from '@/lib/rule-vocabulary';
+import { LINK_TO_BILL } from '@/lib/bill-rules';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { TransactionList } from '@/components/transactions/transaction-list';
 import { RuleBuilder } from '../rule-builder';
 import { DeleteRuleButton, RunPanel } from './run-panel';
+import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Rule' };
 
@@ -43,14 +51,26 @@ export default async function RuleDetailPage({
   // see `testRule` in server/firefly/queries.ts.
   const accountIds = tab === 'matches' ? await getRuleTestAccounts() : [];
 
-  const [groups, matches] = await Promise.all([
+  const linksToBill = rule.attributes.actions.some((action) => action.type === LINK_TO_BILL);
+
+  const [groups, matches, bills] = await Promise.all([
     getRuleGroups(),
     // E11-04 — the dry-run. A GET that changes nothing, so it is safe to do on
     // every page view and is the thing worth showing first.
     tab === 'matches'
       ? testRule(id, { start: range.start, end: range.end, accountIds })
       : Promise.resolve({ data: [], meta: {} }),
+    // Only when there is a link to resolve — most rules have none, and this
+    // would otherwise add a request to every rule page to answer a question
+    // nobody asked.
+    linksToBill ? getAllBills() : Promise.resolve({ data: [], meta: {} }),
   ]);
+
+  // Keyed the way the values compare: trimmed and lowercased, matching
+  // lib/bill-rules.
+  const billIdsByName = new Map(
+    bills.data.map((bill) => [bill.attributes.name.trim().toLowerCase(), bill.id]),
+  );
 
   const a = rule.attributes;
 
@@ -101,37 +121,57 @@ export default async function RuleDetailPage({
               Then
             </p>
             <ul className="mt-2 space-y-1">
-              {a.actions.map((action, index) => (
-                <li
-                  key={action.id ?? index}
-                  className={`text-sm ${action.active ? '' : 'text-muted-foreground line-through'}`}
-                >
-                  {describeKeyword(findAction(action.type), action.value)}
-                </li>
-              ))}
+              {a.actions.map((action, index) => {
+                /*
+                 * A `link_to_bill` action names a real subscription, so make it
+                 * one click away. Reading a rule and wanting to see what it
+                 * feeds is the obvious next question, and before this the
+                 * answer was to memorise the name and go and search for it.
+                 *
+                 * Falls back to plain text when the name resolves to nothing:
+                 * Firefly validates the name on save, so a miss here means the
+                 * subscription was deleted afterwards, and a dead link is a
+                 * worse answer than none.
+                 */
+                const billId =
+                  action.type === LINK_TO_BILL && action.value
+                    ? billIdsByName.get(action.value.trim().toLowerCase())
+                    : undefined;
+                const label = describeKeyword(findAction(action.type), action.value);
+                return (
+                  <li
+                    key={action.id ?? index}
+                    className={`text-sm ${action.active ? '' : 'text-muted-foreground line-through'}`}
+                  >
+                    {billId ? (
+                      <Link
+                        href={`/bills/${billId}?tab=rules`}
+                        className="hover:text-primary inline-flex items-center gap-1 hover:underline"
+                      >
+                        {label}
+                        <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+                      </Link>
+                    ) : (
+                      label
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </CardContent>
       </Card>
 
-      <nav className="flex gap-1 border-b" aria-label="Rule sections">
-        {[
+      <Tabs
+        label="Rule sections"
+        basePath={`/rules/${id}`}
+        query={{ range: range.preset }}
+        active={tab}
+        tabs={[
           { id: 'matches', label: 'Matches' },
           { id: 'edit', label: 'Edit' },
-        ].map((entry) => (
-          <Link
-            key={entry.id}
-            href={`/rules/${id}?tab=${entry.id}&range=${range.preset}`}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === entry.id
-                ? 'border-primary text-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-          >
-            {entry.label}
-          </Link>
-        ))}
-      </nav>
+        ]}
+      />
 
       {tab === 'matches' ? (
         <div className="space-y-4">

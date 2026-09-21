@@ -14,7 +14,10 @@ describe('resolveRangeFromParams', () => {
       start: '2026-02-01',
       end: '2026-02-28',
       preset: 'custom',
-      label: '2026-02-01 → 2026-02-28',
+      // The label was the raw ISO pair until custom ranges got a picker. It is
+      // now named the way a person would say it — see describeRange, and
+      // date-range-custom.test.ts for the rest of the cases.
+      label: 'February 2026',
     });
   });
 

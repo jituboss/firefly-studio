@@ -13,6 +13,7 @@ import { eachMonthInRange } from '@/lib/date';
 import { subtract, toDecimal } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { Amount } from '@/components/ui/amount';
+import { Table, TBody, TD, TFoot, TH, THead, TR } from '@/components/ui/table';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { MonthlyGridTable } from '@/components/reports/monthly-grid';
 import { CurrencyNotice, ReportSection, ReportStat } from '@/components/reports/report-ui';
@@ -114,107 +115,94 @@ export default async function BudgetReportPage({
             No budgets with activity in this period. Set a budget limit to see it here.
           </p>
         ) : (
-          <div className="relative min-w-0 overflow-x-auto">
-            <table className="w-full min-w-0 text-sm">
-              <thead>
-                <tr className="text-muted-foreground border-border border-b text-left text-xs">
-                  <th scope="col" className="py-1.5 pr-3 font-medium">
-                    Budget
-                  </th>
-                  <th
-                    scope="col"
-                    className="hidden py-1.5 pr-3 text-right font-medium sm:table-cell"
-                  >
-                    Budgeted
-                  </th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                    Spent
-                  </th>
-                  <th scope="col" className="w-32 py-1.5 pr-3 font-medium">
-                    Usage
-                  </th>
-                  <th scope="col" className="py-1.5 text-right font-medium">
-                    Variance
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.rows.map((row) => {
-                  const over = row.usage > 100;
-                  return (
-                    <tr key={row.name} className="border-border/60 border-b">
-                      <td className="max-w-[14rem] py-2 pr-3">
-                        <span className="block truncate">{row.name}</span>
-                      </td>
-                      <td className="hidden py-2 pr-3 text-right sm:table-cell">
-                        <Amount
-                          value={row.budgeted}
-                          currency={report.currency}
-                          showSign={false}
-                          tone="neutral"
+          <Table label="Budget performance">
+            <THead>
+              <TR head>
+                <TH>Budget</TH>
+                <TH align="right" hideBelow="sm">
+                  Budgeted
+                </TH>
+                <TH align="right">Spent</TH>
+                <TH className="w-32">Usage</TH>
+                <TH align="right">Variance</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {report.rows.map((row) => {
+                const over = row.usage > 100;
+                return (
+                  <TR key={row.name}>
+                    <TD className="max-w-[14rem]">
+                      <span className="block truncate">{row.name}</span>
+                    </TD>
+                    <TD align="right" hideBelow="sm">
+                      <Amount
+                        value={row.budgeted}
+                        currency={report.currency}
+                        showSign={false}
+                        tone="neutral"
+                      />
+                    </TD>
+                    <TD align="right">
+                      <Amount
+                        value={row.spent}
+                        currency={report.currency}
+                        showSign={false}
+                        tone="neutral"
+                      />
+                    </TD>
+                    <TD>
+                      <div className="flex items-center gap-2">
+                        <ProgressBar
+                          value={row.usage}
+                          over={over}
+                          size="sm"
+                          className="flex-1"
+                          label={`${row.name} budget usage`}
                         />
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        <Amount
-                          value={row.spent}
-                          currency={report.currency}
-                          showSign={false}
-                          tone="neutral"
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="flex items-center gap-2">
-                          <ProgressBar
-                            value={row.usage}
-                            over={over}
-                            size="sm"
-                            className="flex-1"
-                            label={`${row.name} budget usage`}
-                          />
-                          <span
-                            className={cn(
-                              'tabular w-12 text-right text-xs',
-                              over ? 'text-expense font-medium' : 'text-muted-foreground',
-                            )}
-                          >
-                            {row.usage.toFixed(0)}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-2 text-right">
-                        <Amount value={row.variance} currency={report.currency} tone="auto" />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="font-medium">
-                  <td className="py-2 pr-3">Total</td>
-                  <td className="hidden py-2 pr-3 text-right sm:table-cell">
-                    <Amount
-                      value={report.totalBudgeted}
-                      currency={report.currency}
-                      showSign={false}
-                      tone="neutral"
-                    />
-                  </td>
-                  <td className="py-2 pr-3 text-right">
-                    <Amount
-                      value={report.totalSpent}
-                      currency={report.currency}
-                      showSign={false}
-                      tone="neutral"
-                    />
-                  </td>
-                  <td />
-                  <td className="py-2 text-right">
-                    <Amount value={remaining} currency={report.currency} tone="auto" />
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                        <span
+                          className={cn(
+                            'tabular w-12 text-right text-xs',
+                            over ? 'text-expense font-medium' : 'text-muted-foreground',
+                          )}
+                        >
+                          {row.usage.toFixed(0)}%
+                        </span>
+                      </div>
+                    </TD>
+                    <TD align="right">
+                      <Amount value={row.variance} currency={report.currency} tone="auto" />
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+            <TFoot>
+              <TR>
+                <TD>Total</TD>
+                <TD align="right" hideBelow="sm">
+                  <Amount
+                    value={report.totalBudgeted}
+                    currency={report.currency}
+                    showSign={false}
+                    tone="neutral"
+                  />
+                </TD>
+                <TD align="right">
+                  <Amount
+                    value={report.totalSpent}
+                    currency={report.currency}
+                    showSign={false}
+                    tone="neutral"
+                  />
+                </TD>
+                <TD />
+                <TD align="right">
+                  <Amount value={remaining} currency={report.currency} tone="auto" />
+                </TD>
+              </TR>
+            </TFoot>
+          </Table>
         )}
         <CurrencyNotice currency={report.currency} otherCurrencies={report.otherCurrencies} />
       </ReportSection>

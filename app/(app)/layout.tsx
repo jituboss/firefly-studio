@@ -13,7 +13,13 @@ import { listUnreadNotifications } from '@/server/notifications';
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
-  if (!session) redirect('/sign-in');
+  /*
+   * `?expired=1` so the sign-in page can say what happened. Arriving at a
+   * login form with no explanation, having been signed in a moment ago, reads
+   * as the app losing your session at random — which is exactly what it looks
+   * like after a deploy reopens a long-idle tab.
+   */
+  if (!session) redirect('/sign-in?expired=1');
 
   if (!session.user.onboardingCompletedAt) redirect('/onboarding');
 

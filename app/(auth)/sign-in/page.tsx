@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { PlayCircle } from 'lucide-react';
 import { SignInForm } from './sign-in-form';
 import { Button } from '@/components/ui/button';
+import { redirect } from 'next/navigation';
 import { demoCredentials } from '@/server/auth/demo';
+import { getSession } from '@/server/auth/session';
 import { FormMessage } from '@/components/auth/form-shell';
 import {
   LandingFormCard,
@@ -36,8 +38,21 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reset?: string; demo?: string }>;
+  searchParams: Promise<{ reset?: string; demo?: string; expired?: string }>;
 }) {
+  /*
+   * The authoritative "are you already signed in?" check.
+   *
+   * Middleware used to make this call from the presence of the session cookie
+   * alone, which is all the edge runtime can see. A cookie that outlived its
+   * row — an idle tab reopened after a deploy — then bounced back and forth
+   * between here and the app's own guard until the browser gave up with
+   * ERR_TOO_MANY_REDIRECTS. `getSession()` reads the database, so a dead
+   * session lands on the form instead of in a loop.
+   */
+  const session = await getSession();
+  if (session) redirect('/');
+
   const params = await searchParams;
   const demo = demoCredentials();
   const prefill = demo && params.demo ? demo : null;
@@ -63,6 +78,13 @@ export default async function SignInPage({
             </>
           }
         >
+          {params.expired ? (
+            <div className="mb-4">
+              <FormMessage tone="notice">
+                Your session ended. Sign in to pick up where you left off.
+              </FormMessage>
+            </div>
+          ) : null}
           {params.reset ? (
             <div className="mb-4">
               <FormMessage tone="notice">

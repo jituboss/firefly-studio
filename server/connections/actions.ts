@@ -16,6 +16,7 @@ import {
   setDefaultConnection,
 } from '@/server/connections';
 import { probeInstance, probeUser } from '@/server/firefly/probe';
+import { checkConnectionHealth } from '@/server/connections/health';
 import { FireflyRequestError } from '@/server/firefly/client';
 import { UrlGuardError } from '@/server/firefly/url-guard';
 import { assertDemoAllowed, demoRefusal } from '@/server/auth/demo';
@@ -60,6 +61,34 @@ export async function testConnectionAction(
     revalidatePath('/settings/connections');
     return { error: describe(error) };
   }
+}
+
+/**
+ * Re-probe a connection right now, from the banner on any page.
+ *
+ * The app shell already refreshes anything older than an hour in the
+ * background, so a connection that recovers does clear itself — eventually.
+ * An hour of a banner saying the ledger is unavailable, with the only offered
+ * action being a link to a settings page that repeats the same stale word, is
+ * not a recovery story. This is the button that closes that gap: it is the
+ * same probe, run on demand.
+ *
+ * Unlike every other action in this file it is NOT gated on
+ * `manageConnections`. Re-checking touches no credential and reveals nothing
+ * the banner has not already said; a demo user staring at a stuck warning with
+ * no way to clear it is exactly the situation this exists to fix.
+ */
+export async function recheckConnectionAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  const connectionId = String(formData.get('connectionId') ?? '');
+  if (!connectionId) return;
+
+  // Scoped to the caller's own connections inside checkConnectionHealth: it
+  // matches on (id, userId), so another user's id finds no row.
+  await checkConnectionHealth(session.user.id, connectionId).catch(() => undefined);
+
+  // The banner lives in the app shell, so the layout is what has to re-render.
+  revalidatePath('/', 'layout');
 }
 
 export async function rotateTokenAction(

@@ -352,6 +352,7 @@ Estimates are ideal engineering days.
 
 - [ ] **E1-14** `P1` `2d` Generate Zod request/response schemas from the vendored spec, for runtime validation at the proxy boundary — needed by M2, not by M0
 - [ ] **E1-15** `P2` `1d` OpenTelemetry Node SDK + OTLP exporter registered in `instrumentation.ts`
+- [x] **E1-16** `P1` `0.5d` HTTP access log on stdout, nginx-style, so `docker logs` answers "who hit what, and did it work" — ip, method, url, status, bytes, duration, user agent, both as a readable line and as structured pino fields. Hooks `node:http` rather than middleware, which cannot do it: middleware runs on the edge (no socket, so no real client address), is excluded from `/api/*` by this app's matcher, and `NextResponse.next()` never resolves to what was sent, so there is no status, size or duration. Resolved via `process.getBuiltinModule`, not `require`/`import`, because those are module specifiers webpack resolves at BUILD time — including for the edge bundle `instrumentation.ts` is compiled into, where `node:http` fails with UnhandledSchemeError and takes the production build down. **Query values are redacted before anything is written**: `/verify-email/confirm?token=…` and `/reset-password?token=…` carry single-use account-takeover credentials, and stdout is the most-forwarded artefact a deployment produces. The referer gets the same treatment — a browser sitting on a reset URL sends it whole on every subresource request. `ACCESS_LOG_TRUST_PROXY` is off by default: with nothing in front, `x-forwarded-for` is client-controlled and believing it lets any visitor write any address into the log.
 - [x] **E1-16** `P1` `0.5d` Approve `@sentry/cli` builds in the release job only, and wire `SENTRY_AUTH_TOKEN` so source maps actually upload — **already shipped**, reconciled 2026-09-17: the release workflow owns the upload and sets `SENTRY_AUTH_TOKEN` (commit 7d5da9b)
 
 **What M0 delivered**
@@ -398,7 +399,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E2-22** `P0` `2d` **Connections manager** in Settings: list, rename, rotate token, set default, test now, delete
 - [x] **E2-23** `P1` `2d` Multiple connections + an instance switcher in the app shell — _the data model and service layer already support N connections; only the switcher UI is missing_ — `components/connection-switcher.tsx` in the app shell; `/onboarding?add=1` attaches a second instance
 - [x] **E2-24** `P1` `1d` Background health check job (hourly): update `status`, notify on transition to failing — _manual "Test now" ships; the scheduled job does not_ — opportunistic checks from the app shell (fire-and-forget) plus `GET /api/cron/health` behind `CRON_SECRET`. **Cut: BullMQ.** A queue and a worker for one periodic probe is too many moving parts for a single-container self-host; the endpoint is there for real cron.
-- [x] **E2-25** `P1` `1d` Global "connection broken" banner with a one-click re-authenticate flow — _the app shell shows a status dot; the banner does not exist_ — `components/connection-banner.tsx` — distinguishes unauthorised from unreachable and links to the matching fix
+- [x] **E2-25** `P1` `1d` Global "connection broken" banner with a one-click re-authenticate flow — _the app shell shows a status dot; the banner does not exist_ — `components/connection-banner.tsx` — distinguishes unauthorised from unreachable and links to the matching fix — **plus a retry that works.** The shell re-probes anything older than an hour in the background, so a recovered connection did clear itself, eventually; an hour of a banner saying the ledger is unavailable whose only action is a link to a settings page repeating the same stale word is not a recovery story. "Try again" runs the same probe on demand, with a pending state because the unreachable path runs to a timeout. Not gated on the demo's `manageConnections` refusal: re-checking touches no credential, and a demo user staring at a stuck warning with no way to clear it is the situation it exists to fix.
 - [x] **E2-26** `P2` `1d` Demo mode — read-only connection to `demo.firefly-iii.org` for evaluation — **done differently, and better.** Rather than depending on someone else's instance being reachable and handing out a token (which is what blocked this), the deployment runs its own: `pnpm demo:seed` builds three years of invented history on a throwaway Firefly III — current, savings, credit-card and mortgage accounts with an offsetting property, budgets with monthly limits, subscriptions, piggy banks and tagged holidays — and `pnpm demo:account` creates the shared app account that reads it. Hosted at fs.rezaur.xyz. **Not read-only, deliberately:** a demo of an accounting app that cannot record a transaction demonstrates nothing, so ledger writes are allowed and the ledger is rebuilt on a schedule. What IS refused is listed in `lib/demo.ts` and enforced by `server/auth/demo.ts` — connections, the danger zone, credential changes, account deletion and step-up elevation — because the password is published, and those are the things a published password would otherwise put at risk. `DEMO_CURRENCY` sets the instance's primary currency and scales the amounts, since 3,850 is a monthly salary in euros and a takeaway in taka.
 
 **Cut from M1, deliberately:**
@@ -422,7 +423,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 **Status: complete** (2026-09-17). Verified against a live Firefly III v6.5.5 holding 166 seeded transactions.
 
 - [x] **E3-01** `P0` `2d` App shell: sidebar, top bar, responsive drawer, skip-to-content, active-route state on detail pages
-- [x] **E3-02** `P0` `2d` Global date-range picker (7 presets) persisted in the URL and read by every page
+- [x] **E3-02** `P0` `2d` Global date-range picker (7 presets) persisted in the URL and read by every page — **and now any period, not just the last two.** The preset list stopped at "last year", so a three-year-old ledger had most of itself unreachable from the interface. `resolveRangeFromParams` had always handled `?start=&end=`, so the data was never the problem — there was simply no control that produced those parameters, and looking at 2023 meant hand-writing a query string. Presets, then the calendar years the presets do not cover, then an explicit range. Ranges are named the way a person says them (a whole year is "2024", a whole month "March 2024"), computed by string slicing and never by constructing a Date — `new Date('2024-03-01')` is UTC midnight, the previous day west of Greenwich, so a Date-based label would call that range February for half the world. An inverted pair is ordered rather than passed through, because Firefly answers a backwards range with an empty result set instead of an error, which reads as "you had no transactions then".
 - [x] **E3-03** `P0` `1d` `⌘K` command palette: live transaction search, navigation, theme; `/` also opens it
 - [x] **E3-04** `P0` `2d` KPI tiles from `/summary/basic` — net worth, earned, spent, balance, each with a period-over-period delta
 - [x] **E3-05** `P0` `2d` Balance trend chart from `/chart/balance/balance`
@@ -436,6 +437,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E3-13** `P1` `1d` Every widget reads through `fireflyGetSafe`, so one failing endpoint degrades that widget alone
 - [x] **E3-14** `P1` `0.5d` "Hide balances" privacy toggle, persisted to `localStorage`
 - [ ] **E3-15** `P2` `1d` Cash-flow forecast widget
+- [x] **E3-16** `P1` `1d` Record a transaction from the dashboard — it was read-only, so the most common reason to open a finance app had the longest path in it. A header button on desktop, a floating button bottom-right on mobile (the header is at the top of a long scrolling page and a thumb is at the bottom), both opening one Sheet: a bottom sheet on phones, a side panel from `sm`. A Sheet rather than an inline form because an inline form pushes the KPI tiles down the moment it opens, moving the figures someone came to read. The asset accounts come from the page's own data, so the common case opens with the right account already chosen and needs no lookup. **KNOWN DEFECT: the submit button can stay on "Adding…".** The transaction is written correctly (200 in ~230ms) but the action's returned state never reaches the client. It reproduces only inside the Sheet — the same action from the inline quick-add resolves in ~570ms, and this form resolves in ~550ms with the Sheet swapped for a plain div. Six hypotheses were deployed and measured against the container and are listed at the top of `components/dashboard/quick-entry.tsx` so the next attempt starts where this one stopped. Not worked around by clearing the form optimistically, which would report success without knowing.
 
 ### E4 · Accounts — M2
 
@@ -473,6 +475,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E5-16** `P1` `1d` Export the filtered view to CSV/XLSX — CSV from the rendered rows, one line per split, in the same grid. **Cut: XLSX**, same reasoning as E14-11.
 - [x] **E5-17** `P1` `2d` One debounced, cached `Combobox` over the `/autocomplete/*` endpoints — accounts (typed by transaction kind), categories, budgets, bills
 - [ ] **E5-18** `P2` `2d` Keyboard-only rapid entry — M3
+- [x] **E5-19** `P1` `2d` Change a transaction between withdrawal, deposit and transfer — Firefly's own UI has this and ours did not, so fixing a mistyped transaction meant deleting and re-entering it, losing its attachments, its tags and its id. There is no convert endpoint; it goes through `PUT /transactions/{id}` with a changed `type`, and the rules are not in the spec — see §18.2 for the three found by making real calls, two of which shaped the code. UI is a "Change type" menu in the existing action row opening a Dialog that states the effect in plain language, then asks for the other side with the account picker filtered to the kind that type requires. Rules and payload construction are pure and unit-tested in `lib/transaction-convert.ts`.
 - [x] **E5-19** `P2` `1d` Attach receipt by drop — M3 — **already shipped** — the drop zone and paste handler in `components/transactions/attachments.tsx`
 
 **What M2 delivered**
@@ -521,7 +524,7 @@ Firefly III instance.
 - [x] **E8-04** `P1` `2d` Subscription calendar — **already shipped**, reconciled 2026-09-17: `app/(app)/bills/calendar/page.tsx`
 - [x] **E8-05** `P1` `1d` Annualised cost summary / most-expensive ranking — added to subscriptions list
 - [x] **E8-06** `P1` `1d` Unpaid/overdue alerts in the notification inbox — **already shipped**, reconciled 2026-09-17: `app/(app)/bills/page.tsx` writes `unpaid_bill` notifications
-- [ ] **E8-07** `P2` `1d` "Create a matching rule from this bill" — **Blocked on M6:** creating a rule needs the rules engine, which is E11/M6.
+- [x] **E8-07** `P1` `1d` "Create a matching rule from this bill" — **done.** Was marked "Blocked on M6" long after M6 shipped. Both directions: a subscription gets a Rules tab listing what automates it, with a count on the tab and a button that opens the rule builder pre-filled (`description_contains <name>` → `link_to_bill <name>`); a rule's `link_to_bill` action links back to that subscription, and the rules list carries a badge naming it. `description_contains`, not `description_is` — a bank writes "NETFLIX.COM 866-579-7172" where the subscription is called "Netflix", and an exact match produces a rule that matches nothing and reads as a broken feature. Firefly has no reverse lookup (`/bills/{id}` never mentions rules), so the tab reads every rule and filters; the matching is pure and unit-tested in `lib/bill-rules.ts`.
 
 ### E9 · Piggy banks & object groups — M4
 
@@ -650,7 +653,7 @@ working, because Firefly fires them, not us.
 
 ### E21 · Design system, a11y & i18n — continuous, audited in M7
 
-- [ ] **E21-01** `P0` `3d` Core primitives: Button, Input, Select, Combobox, Dialog, Sheet, Popover, Tooltip, Tabs, Table, Badge, Card, Toast, Skeleton — _partial._ Shipped: Button, Input, Combobox, Badge, Card, Toast, Skeleton, Checkbox, DropdownMenu, Select (all 43 call sites), ProgressBar, and now **Dialog** with a `ConfirmButton` on top of it. `window.confirm` is gone from the app: **all 19 destructive actions** now use the dialog — every delete button, the bulk transaction delete, the rule run, the exchange-rate and saved-report deletes, connection removal, and the danger zone (which keeps BOTH gates — the typed phrase proves deliberation, the dialog states the consequence). Dialog carries every lesson from the command-palette fix in E21-06: role and `aria-modal` on the panel not the backdrop, Escape closes, Tab cycles inside, and focus is captured in the opener's handler rather than an effect, because an autofocused child takes focus before any effect runs. `requestSubmit()` rather than `submit()`, since `submit()` skips React's onSubmit and a Server Action bound through `action={}` would never run — a delete button that silently does nothing reads as success. Verified in the container: Cancel, Escape and a backdrop click each leave the record intact (checked against the API, not the page), and confirming deletes. **Missing: Sheet, Popover, Tooltip, Tabs, Table.** The command palette and attachment lightbox were NOT migrated onto Dialog: both already have correct modal semantics after E21-06, and rewriting a working focus trap to prove a point is how you break one.
+- [x] **E21-01** `P0` `3d` Core primitives: Button, Input, Select, Combobox, Dialog, Sheet, Popover, Tooltip, Tabs, Table, Badge, Card, Toast, Skeleton — **complete.** The last five landed together, each because something in the app had already hand-rolled it badly. **Sheet**: the mobile nav drawer had a backdrop and an Escape key and nothing else — Tab walked out of the open drawer onto the page behind, so a keyboard user could focus links they could not see. **Popover**: the notification inbox opened on click and could only be closed by clicking the bell again; no Escape, no click-away, no `aria-expanded`. Deliberately not a DropdownMenu, because `role="menu"` announces an item count and promises arrow-key navigation for a panel full of forms. **Tooltip**: hover AND focus, Escape to dismiss (WCAG 1.4.13), and never the only place the information lives — the trigger keeps its `aria-label` and the tooltip is `aria-hidden`, because a phone has no hover at all. **Tabs**: the same markup had been copied into eight detail pages plus the reports layout and the copies had drifted — one had lost its `aria-label`, one its `aria-current`, and none scrolled at 390px, so the later tabs on `/rules/[id]` were unreachable. Links with `aria-current`, not `role="tablist"`: these navigate, and a tablist promises an instant switch. **Table**: absorbs seven hand-typed copies and adds the two things every copy lacked — a focusable scroll region (axe's `scrollable-region-focusable`; a keyboard user could not reach columns past the fold) and an opt-in card transformation below `sm`. Card mode is CSS in `globals.css`, not Tailwind variants: `group-data-[cards]:max-sm:block` compiles to a rule with NO media query — v4 drops the `max-sm` when stacked after an arbitrary `group-data` variant — so every card class applied at every width and the desktop tables collapsed into stacks. Caught by reading the generated CSS, not the source, which reads exactly as intended. The command palette and attachment lightbox were NOT migrated onto Dialog: both already have correct modal semantics after E21-06, and rewriting a working focus trap to prove a point is how you break one.
 - [x] **E21-02** `P0` `2d` Money primitives: `<Amount>`, `<Delta>`, `<CurrencyInput>`, `<ProgressBar>`, `<Sparkline>` — tabular numerals, sign glyphs, colour never carries meaning alone — `<Amount>` (M2), `<ProgressBar>` (iteration 7), and now **`<Delta>`** and **`<CurrencyInput>`** (11 money fields, including the transaction split amounts). **`<Delta>` fixed a live bug:** the dashboard computed its change with signed arithmetic while the tile above rendered a magnitude, and Firefly reports spending as negative — so a period where spending FELL displayed "Spent ↑ 48.7%" in green. The arrow disagreed with the colour and both disagreed with the ledger. `compare` and `betterWhen` are now named by the caller, because no arithmetic can work out that spending more is not an improvement. The maths is in `lib/delta.ts` with 11 tests, including the exact figures that exposed it. `<CurrencyInput>` is `type="text" inputMode="decimal"`, never `type="number"`: a number input's scroll wheel changes an amount when someone scrolls a long form, and Firefox and Safari accept `1,5` then return an empty string on read. A `pattern` was tried and removed — it refused a pasted `1,234.56` that the Server Action parses perfectly well. **`<Sparkline>` is not built:** nothing in the app renders one, and a primitive with no call site is a file.
 - [x] **E21-03** `P0` `2d` Chart theme layer: shared axis/grid/tooltip/legend components, colour-blind-safe categorical palette, dark-mode variants — `components/charts/theme.ts`. Seven charts had written out the same grid, axis ticks and tooltip card by hand — eleven copies of `var(--border)`, seven `contentStyle` objects — and had already drifted: some tooltips set a cursor fill and some did not, two used a different corner radius, and `balance-trend` kept private copies of all three. Everything now resolves to a CSS custom property, so both themes work without the charts knowing a theme exists. `seriesColor()` replaced five hand-written `var(--chart-N)` expressions and `SEMANTIC_COLORS` the income/expense/net literals. Grepping the chart directory for any of those strings now returns nothing outside the theme module.
 - [x] **E21-04** `P0` `1d` Empty states with an illustration and a primary action for every list — `EmptyState` (icon, a line saying _why_ it is empty rather than that it is, and the action that fills it) plus `NoResults` for a list emptied by a filter. Adopted on budgets, categories, bills, piggy banks and tags. **The important half was telling empty from broken:** `fireflyGetSafe` swallows a failed read and returns a fallback, so with the instance stopped `/budgets` rendered "No budgets yet" and offered to create the first one — an empty state that is really an error, which tells somebody their data is gone. A per-request `readFailure()` (React `cache`) now lets a page render the typed error instead, verified by stopping the Firefly container and reloading. The remaining lists (object groups, rules, recurring, available budgets, accounts) still have their hand-written empty states and have not been given the same treatment.
@@ -747,7 +750,7 @@ working, because Firefly fires them, not us.
 - [ ] **Q2** Do we support multiple Firefly connections per user in v1 (E2-23), or defer to v1.1?
 - [ ] **Q3** Is Firefly OAuth2 (E2-12) needed for v1, or is PAT sufficient? PAT is simpler and covers self-hosters.
 - [ ] **Q4** Email delivery provider for verification and scheduled reports — Resend, SES, or bring-your-own SMTP?
-- [ ] **Q5** Do we ship a hosted demo instance for evaluation (E2-26)?
+- [x] **Q5** Do we ship a hosted demo instance for evaluation (E2-26)? — **Yes, and it shipped in 0.6.3–0.6.5.** The deployment runs its own rather than depending on `demo.firefly-iii.org` being reachable; `pnpm demo:seed` builds three years of invented history and `pnpm demo:account` creates the shared app account. Hosted at fs.rezaur.xyz. Deliberately not read-only — a demo of an accounting app that cannot record a transaction demonstrates nothing — with the refusals in `lib/demo.ts` covering what a published password would otherwise put at risk.
 - [x] **Q6** Licence — **answered 2026-09-20: AGPL-3.0-or-later**, matching Firefly III. `LICENSE` is committed and
       `package.json` declares the SPDX id. We are not obliged to match — this client only consumes Firefly's REST API —
       but AGPL is the one common licence that binds _network_ use, which is the only way this app is ever used: a
@@ -1118,3 +1121,122 @@ the code that depends on it. Added to the list in LEARNING.md §7.
 - **Rule and rule-group reordering** is read-only: the lists render in Firefly's
   `order`, but there is no drag to change it. Firefly assigns a sentinel
   (`31337`) on create and reorders on write, so this needs its own pass.
+
+---
+
+## 18. M7 pass verification log — primitives, linking, conversion, logging
+
+Written 2026-09-21, released as 0.7.0. Everything below was verified against
+Firefly III 6.5.5 running in the compose stack and against the app running in
+its own container, not a dev server — see §18.4 for why that distinction cost
+an hour.
+
+### 18.1 What shipped
+
+| Item                                            | Epic            |
+| ----------------------------------------------- | --------------- |
+| Sheet, Popover, Tooltip, Tabs, Table primitives | E21-01 (closes) |
+| Subscriptions ↔ rules, both directions          | E8-07           |
+| Change a transaction's type                     | E5-19           |
+| Record a transaction from the dashboard         | E3-16           |
+| Any date range, not just the last two years     | E3-02           |
+| HTTP access log on stdout                       | E1-16           |
+| Retry a failing connection from the banner      | E2-25           |
+
+### 18.2 API behaviours found by making real calls
+
+Four more for the list in §17.2 and docs/LEARNING.md §7. The first two are the
+dangerous kind: a successful response that is silently wrong.
+
+- **Converting a transaction by sending `type` alone is a silent no-op.**
+  `PUT /transactions/{id}` with `{transaction_journal_id, type:'transfer'}` on a
+  withdrawal answers **200 OK** with the transaction unchanged — still a
+  withdrawal, no error, no warning. Each type demands a different kind of
+  account on the far side (withdrawal `asset→expense`, deposit `revenue→asset`,
+  transfer `asset→asset`), so the counter-account has to change too. Anything
+  that trusts the 200 reports success over an unchanged record, which is why
+  `conversionApplied()` re-checks the returned type.
+
+- **Omitting a split from a `PUT` DELETES it.** Converting one split of a
+  two-split group by sending only that split left the group with one split and
+  destroyed the other — silently, with a 200. The `transactions` array replaces
+  the group. Every split must be sent; fields left off a split that IS sent are
+  preserved, so each entry needs only its journal id, the new type and the
+  accounts. Above one split Firefly also demands `group_title` or 422s with
+  "A group title is mandatory when there is more than one transaction."
+
+- **`link_to_bill` takes the subscription's NAME, and survives renames.**
+  Posting the bill's id returns 422 "This value is invalid for the selected
+  action", and so does any name that does not exist — which is why the rule
+  builder renders a picker rather than a text box, since free text's only
+  feedback would be a 422 after save. Renaming the subscription afterwards is
+  **safe**: Firefly stores the id internally and rewrites the action's value to
+  follow the rename. This was tested expecting the opposite, and a warning about
+  renaming was written and then deleted — it would have been confidently wrong.
+
+- **An inverted date range returns an empty result set, not an error.**
+  `?start=` after `?end=` is trivially produced by editing a shared link, and
+  Firefly answers it with zero matches, which reads as "you had no transactions
+  then" rather than "that range is backwards". `resolveRangeFromParams` orders
+  the pair.
+
+### 18.3 Bugs found in our own code, by running it
+
+- **A revoked token was classified `unreachable`.** `checkConnectionHealth`
+  regex-matched the error MESSAGE, and the message a 401 throws is "Firefly III
+  rejected that token" — containing neither "401" nor "unauthor". So every
+  expired PAT was filed as unreachable and the banner sent the user to check a
+  server that was answering perfectly. The thrown `FireflyRequestError` had
+  carried `code: 'unauthorised'` the whole time; nothing read it.
+
+- **The focus trap re-stole focus on every render.** `useFocusTrap` listed
+  `onClose` in its dependency array, and every overlay is opened with
+  `onClose={() => setOpen(false)}` — a new function identity each render. The
+  effect therefore tore down and re-ran on EVERY render, and its first act is to
+  move focus to the panel's first control. Any re-render inside an open overlay
+  silently yanked focus off whatever the user was using. Dialog carried the same
+  pattern inline and was immune only because every dialog in this app ends its
+  action in a `redirect()`. Both now share one hook that installs per OPEN.
+
+- **A stale session cookie caused an infinite redirect loop.** Reproduced at
+  nineteen hops before Chrome gave up with ERR_TOO_MANY_REDIRECTS:
+  `/dashboard → /sign-in` (the layout validates and rejects),
+  `/sign-in → /` (middleware: a cookie exists, so "already signed in"),
+  `/ → /dashboard`. `hasSession` in middleware is the PRESENCE of a cookie,
+  never a valid session — the edge runtime cannot reach Postgres — so it was
+  answering a question it has no way to answer. The decision moved to `/sign-in`,
+  which can validate. Nothing about this was specific to deploying; a deploy is
+  simply when many long-idle tabs reload at once, so that is when it is noticed.
+
+- **The date-range button had no accessible name below `sm`.** Its visible
+  label is `hidden sm:inline` and both icons are `aria-hidden`, so a screen
+  reader announced "button" for the one control every figure on the page depends
+  on. Found by driving the picker at 390px.
+
+- **Tailwind v4 drops `max-sm` when stacked after an arbitrary `group-data`
+  variant.** `group-data-[cards]:max-sm:block` compiles to a rule with NO media
+  query, so the Table primitive's card mode applied at every width and desktop
+  tables would have collapsed into stacks of cards. The class name reads exactly
+  as intended. Caught by reading the generated CSS, never by reading the source.
+
+### 18.4 What is deliberately not done
+
+- **The dashboard quick-add's pending state can stick.** The write is correct;
+  the action's returned state does not reach the client, and only inside a
+  Sheet. Six hypotheses were deployed and measured — the action wrapper,
+  revalidating the current route, the focus trap, the service worker, the fetch
+  patch in NavigationProgress, and a server-side error — and all were negative.
+  They are listed in `components/dashboard/quick-entry.tsx` so the next attempt
+  does not repeat them. The untested lead: the plain-div control kept the form
+  permanently mounted, while Sheet does `if (!open) return null`.
+
+- **Two `sr-only` chart tables were left as raw markup.** A visually-hidden
+  focusable scroll region is a tab stop that goes nowhere.
+
+- **A measurement lesson worth more than the bug it came from.** Twice during
+  the above, a fix was declared before it had been tested, and once "it resolves
+  in dev and in a local production build" was reported as a finding. It was not:
+  outside the compose network the app cannot reach `http://firefly:8080`, so the
+  action failed validation and returned early. Two green runs, both measuring the
+  error path. **Anything timed outside the container is timing a different
+  program.**

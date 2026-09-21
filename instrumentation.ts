@@ -15,9 +15,17 @@ export async function register() {
   const { getEnv } = await import('@/lib/env');
   const { logger } = await import('@/lib/logger');
   const { initObservability } = await import('@/server/observability');
+  const { installAccessLog } = await import('@/server/observability/access-log');
 
   const env = getEnv();
   initObservability();
+
+  /*
+   * E1-16 — before the first request, because it patches the HTTP server that
+   * is about to receive them. `register()` is the only hook Next.js gives that
+   * is guaranteed to run at that point.
+   */
+  installAccessLog();
 
   logger.info(
     {

@@ -19,6 +19,7 @@ import { TransactionList } from '@/components/transactions/transaction-list';
 import { RuleGroupForm } from '../group-form';
 import { DeleteRuleGroupButton } from './delete-button';
 import { RunPanel } from '../../[id]/run-panel';
+import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Rule group' };
 
@@ -89,25 +90,17 @@ export default async function RuleGroupPage({
         </div>
       </header>
 
-      <nav className="flex gap-1 border-b" aria-label="Group sections">
-        {[
+      <Tabs
+        label="Group sections"
+        basePath={`/rules/groups/${id}`}
+        query={{ range: range.preset }}
+        active={tab}
+        tabs={[
           { id: 'rules', label: 'Rules' },
           { id: 'matches', label: 'Matches' },
           { id: 'edit', label: 'Edit' },
-        ].map((entry) => (
-          <Link
-            key={entry.id}
-            href={`/rules/groups/${id}?tab=${entry.id}&range=${range.preset}`}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === entry.id
-                ? 'border-primary text-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-          >
-            {entry.label}
-          </Link>
-        ))}
-      </nav>
+        ]}
+      />
 
       {tab === 'rules' ? (
         <Card className="min-w-0 overflow-hidden">

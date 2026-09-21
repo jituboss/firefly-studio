@@ -6,6 +6,7 @@ import { toDecimal } from '@/lib/money';
 import type { Delta, ReportRow } from '@/lib/reports';
 import { Card, CardContent } from '@/components/ui/card';
 import { Amount } from '@/components/ui/amount';
+import { Table, TBody, TD, TFoot, TH, THead, TR } from '@/components/ui/table';
 
 /**
  * E14 — the presentational vocabulary every report is built from.
@@ -140,80 +141,72 @@ export function BreakdownTable({
   }
 
   return (
-    <div className="relative min-w-0 overflow-x-auto">
-      <table className="w-full min-w-0 text-sm">
-        <thead>
-          <tr className="text-muted-foreground border-border border-b text-left text-xs">
-            <th scope="col" className="py-1.5 pr-3 font-medium">
-              {nameLabel}
-            </th>
-            <th scope="col" className="hidden py-1.5 pr-3 font-medium sm:table-cell">
-              Share
-            </th>
-            <th scope="col" className="py-1.5 text-right font-medium">
-              {valueLabel}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => {
-            const href = hrefFor?.(row) ?? null;
-            const name = href ? (
-              <Link href={href} className="hover:text-primary truncate hover:underline">
-                {row.name}
-              </Link>
-            ) : (
-              <span className="truncate">{row.name}</span>
-            );
+    <Table label={`${nameLabel} breakdown`}>
+      <THead>
+        <TR head>
+          <TH>{nameLabel}</TH>
+          <TH hideBelow="sm">Share</TH>
+          <TH align="right">{valueLabel}</TH>
+        </TR>
+      </THead>
+      <TBody>
+        {rows.map((row, index) => {
+          const href = hrefFor?.(row) ?? null;
+          const name = href ? (
+            <Link href={href} className="hover:text-primary truncate hover:underline">
+              {row.name}
+            </Link>
+          ) : (
+            <span className="truncate">{row.name}</span>
+          );
 
-            return (
-              <tr key={row.id ?? `${row.name}-${index}`} className="border-border/60 border-b">
-                <td className="max-w-[16rem] py-2 pr-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: `var(--chart-${(index % 8) + 1})` }}
+          return (
+            <TR key={row.id ?? `${row.name}-${index}`}>
+              <TD className="max-w-[16rem]">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ background: `var(--chart-${(index % 8) + 1})` }}
+                  />
+                  <div className="min-w-0 flex-1 truncate">{name}</div>
+                </div>
+              </TD>
+              <TD hideBelow="sm" className="w-40">
+                <div className="flex items-center gap-2">
+                  <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(100, row.percent)}%`,
+                        background: `var(--chart-${(index % 8) + 1})`,
+                      }}
                     />
-                    <div className="min-w-0 flex-1 truncate">{name}</div>
                   </div>
-                </td>
-                <td className="hidden w-40 py-2 pr-3 sm:table-cell">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.min(100, row.percent)}%`,
-                          background: `var(--chart-${(index % 8) + 1})`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-muted-foreground tabular w-10 text-right text-xs">
-                      {row.percent.toFixed(0)}%
-                    </span>
-                  </div>
-                </td>
-                <td className="py-2 text-right">
-                  <Amount value={row.amount} currency={currency} showSign={false} tone="neutral" />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-        {total ? (
-          <tfoot>
-            <tr className="font-medium">
-              <td className="py-2 pr-3">Total</td>
-              <td className="hidden sm:table-cell" />
-              <td className="py-2 text-right">
-                <Amount value={total} currency={currency} showSign={false} tone="neutral" />
-              </td>
-            </tr>
-          </tfoot>
-        ) : null}
-      </table>
-    </div>
+                  <span className="text-muted-foreground tabular w-10 text-right text-xs">
+                    {row.percent.toFixed(0)}%
+                  </span>
+                </div>
+              </TD>
+              <TD align="right">
+                <Amount value={row.amount} currency={currency} showSign={false} tone="neutral" />
+              </TD>
+            </TR>
+          );
+        })}
+      </TBody>
+      {total ? (
+        <TFoot>
+          <TR>
+            <TD>Total</TD>
+            <TD hideBelow="sm" />
+            <TD align="right">
+              <Amount value={total} currency={currency} showSign={false} tone="neutral" />
+            </TD>
+          </TR>
+        </TFoot>
+      ) : null}
+    </Table>
   );
 }
 

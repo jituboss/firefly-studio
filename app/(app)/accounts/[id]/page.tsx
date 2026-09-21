@@ -27,6 +27,7 @@ import { HideBalancesToggle } from '@/components/hide-balances';
 import { BalanceTrend } from '@/components/charts/balance-trend';
 import { AccountForm } from '../account-form';
 import { DeleteAccountButton } from './delete-button';
+import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Account' };
 
@@ -75,8 +76,6 @@ export default async function AccountDetailPage({
   const trend = buildBalanceTrend(chart, currency);
   const moneyOut = expense[0];
   const moneyIn = income[0];
-
-  const tabHref = (next: string) => `/accounts/${id}?tab=${next}&range=${range.preset}`;
 
   return (
     <div className="mx-auto w-full max-w-5xl min-w-0 space-y-6">
@@ -215,25 +214,16 @@ export default async function AccountDetailPage({
         </CardContent>
       </Card>
 
-      <nav className="flex gap-1 border-b" aria-label="Account sections">
-        {[
+      <Tabs
+        label="Account sections"
+        basePath={`/accounts/${id}`}
+        query={{ range: range.preset }}
+        active={tab}
+        tabs={[
           { id: 'transactions', label: 'Transactions' },
           { id: 'edit', label: 'Edit' },
-        ].map((entry) => (
-          <Link
-            key={entry.id}
-            href={tabHref(entry.id)}
-            aria-current={tab === entry.id ? 'page' : undefined}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === entry.id
-                ? 'border-primary text-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-          >
-            {entry.label}
-          </Link>
-        ))}
-      </nav>
+        ]}
+      />
 
       {tab === 'transactions' ? (
         <Card className="min-w-0 overflow-hidden">

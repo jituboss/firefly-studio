@@ -14,6 +14,7 @@ import { divide, toDecimal } from '@/lib/money';
 import { formatDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
 import { Amount } from '@/components/ui/amount';
+import { Table, TBody, TD, TFoot, TH, THead, TR } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ReportSection, ReportStat } from '@/components/reports/report-ui';
 import { ReportExportButton } from '@/components/reports/report-export';
@@ -113,115 +114,97 @@ export default async function BillReportPage({
             </Link>
           </p>
         ) : (
-          <div className="relative min-w-0 overflow-x-auto">
-            <table className="w-full min-w-0 text-sm">
-              <thead>
-                <tr className="text-muted-foreground border-border border-b text-left text-xs">
-                  <th scope="col" className="py-1.5 pr-3 font-medium">
-                    Subscription
-                  </th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                    Expected
-                  </th>
-                  <th
-                    scope="col"
-                    className="hidden py-1.5 pr-3 text-left font-medium sm:table-cell"
-                  >
-                    Every
-                  </th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                    Per year
-                  </th>
-                  <th scope="col" className="py-1.5 text-right font-medium">
-                    Paid
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className={cn('border-border/60 border-b', !row.active && 'opacity-55')}
-                  >
-                    <td className="max-w-[14rem] py-2 pr-3">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Link
-                          href={`/bills/${row.id}`}
-                          className="hover:text-primary truncate hover:underline"
-                        >
-                          {row.name}
-                        </Link>
-                        {row.active ? null : (
-                          <Badge variant="secondary" className="shrink-0">
-                            inactive
-                          </Badge>
-                        )}
-                      </div>
-                      {row.nextExpected ? (
-                        <p className="text-muted-foreground text-xs">
-                          next {formatDate(row.nextExpected, { timezone: session.user.timezone })}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="py-2 pr-3 text-right">
-                      <Amount
-                        value={row.expected}
-                        currency={report.currency}
-                        showSign={false}
-                        tone="neutral"
-                      />
-                    </td>
-                    <td className="text-muted-foreground hidden py-2 pr-3 sm:table-cell">
-                      {row.repeatFreq}
-                    </td>
-                    <td className="py-2 pr-3 text-right">
-                      {toDecimal(row.annualised).isZero() ? (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      ) : (
-                        <Amount
-                          value={row.annualised}
-                          currency={report.currency}
-                          showSign={false}
-                          tone="expense"
-                        />
+          <Table label="Subscriptions">
+            <THead>
+              <TR head>
+                <TH>Subscription</TH>
+                <TH align="right">Expected</TH>
+                <TH hideBelow="sm">Every</TH>
+                <TH align="right">Per year</TH>
+                <TH align="right">Paid</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {report.rows.map((row) => (
+                <TR key={row.id} className={cn(!row.active && 'opacity-55')}>
+                  <TD className="max-w-[14rem]">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Link
+                        href={`/bills/${row.id}`}
+                        className="hover:text-primary truncate hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                      {row.active ? null : (
+                        <Badge variant="secondary" className="shrink-0">
+                          inactive
+                        </Badge>
                       )}
-                    </td>
-                    <td className="py-2 text-right">
-                      <Amount
-                        value={row.actual}
-                        currency={report.currency}
-                        showSign={false}
-                        tone="neutral"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="font-medium">
-                  <td className="py-2 pr-3">Total</td>
-                  <td />
-                  <td className="hidden sm:table-cell" />
-                  <td className="py-2 pr-3 text-right">
+                    </div>
+                    {row.nextExpected ? (
+                      <p className="text-muted-foreground text-xs">
+                        next {formatDate(row.nextExpected, { timezone: session.user.timezone })}
+                      </p>
+                    ) : null}
+                  </TD>
+                  <TD align="right">
                     <Amount
-                      value={report.totalAnnualised}
-                      currency={report.currency}
-                      showSign={false}
-                      tone="expense"
-                    />
-                  </td>
-                  <td className="py-2 text-right">
-                    <Amount
-                      value={report.totalActual}
+                      value={row.expected}
                       currency={report.currency}
                       showSign={false}
                       tone="neutral"
                     />
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                  </TD>
+                  <TD hideBelow="sm" className="text-muted-foreground">
+                    {row.repeatFreq}
+                  </TD>
+                  <TD align="right">
+                    {toDecimal(row.annualised).isZero() ? (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    ) : (
+                      <Amount
+                        value={row.annualised}
+                        currency={report.currency}
+                        showSign={false}
+                        tone="expense"
+                      />
+                    )}
+                  </TD>
+                  <TD align="right">
+                    <Amount
+                      value={row.actual}
+                      currency={report.currency}
+                      showSign={false}
+                      tone="neutral"
+                    />
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+            <TFoot>
+              <TR>
+                <TD>Total</TD>
+                <TD />
+                <TD hideBelow="sm" />
+                <TD align="right">
+                  <Amount
+                    value={report.totalAnnualised}
+                    currency={report.currency}
+                    showSign={false}
+                    tone="expense"
+                  />
+                </TD>
+                <TD align="right">
+                  <Amount
+                    value={report.totalActual}
+                    currency={report.currency}
+                    showSign={false}
+                    tone="neutral"
+                  />
+                </TD>
+              </TR>
+            </TFoot>
+          </Table>
         )}
         <p className="text-muted-foreground text-xs">
           A frequency Firefly does not recognise annualises to —, so it is left out of the total

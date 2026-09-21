@@ -22,12 +22,12 @@ presentation and workflow layer with its own identity system, so you sign in her
 attach your own Firefly instance with a Personal Access Token. Your ledger never moves,
 and you can keep using Firefly III's own UI alongside it.
 
-> **Status: beta (`v0.6.4`).** Milestones M0–M6 are complete — the whole
+> **Status: beta (`v0.7.0`).** Milestones M0–M6 are complete — the whole
 > money-management, reporting and automation surface runs against your own instance
-> — and M7 is most of the way there: the app is installable, passes an automated
-> accessibility audit in both themes, and ships with a bundle budget and a typed
-> error taxonomy. What remains is i18n, optimistic updates and the M8 security
-> pass. See the [roadmap](#roadmap).
+> — and M7 is nearly there: the design system is complete, the app is installable,
+> it passes an automated accessibility audit in both themes, and it ships with a
+> bundle budget and a typed error taxonomy. What remains is i18n, optimistic
+> updates and the M8 security pass. See the [roadmap](#roadmap).
 
 ## Try it
 
@@ -290,7 +290,7 @@ to hand to someone else:
 
 | Milestone                   | What is left                                                                                                                                                                                                                            |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **M7 — Polish**             | Mostly landed: accessibility audit, PWA, prefetching, bundle budget, preferences page, empty and error states, most primitives. Left: i18n, optimistic updates, the last few primitives, a systematic responsive pass                   |
+| **M7 — Polish**             | Mostly landed: accessibility audit, PWA, prefetching, bundle budget, preferences page, empty and error states, and the complete primitive set. Left: i18n, optimistic updates, a systematic responsive pass, high contrast              |
 | **M8 — Hardening & launch** | CSP/HSTS and CSRF double-submit, an SSRF test suite over the existing guard, encryption-key rotation, dependency and secret scanning, `SECURITY.md` and a threat model, Playwright e2e and contract tests, backup/restore and user docs |
 
 A few things are blocked rather than pending, and the plan records what would unblock

@@ -14,6 +14,7 @@ import { buildBreakdown, buildCashFlow, delta, insightTotal } from '@/lib/report
 import { formatMonthLabel } from '@/lib/date';
 import { subtract } from '@/lib/money';
 import { Amount } from '@/components/ui/amount';
+import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
 import { IncomeExpenseBars } from '@/components/charts/income-expense-bars';
 import {
   BreakdownTable,
@@ -160,65 +161,55 @@ export default async function IncomeExpenseReportPage({
       </div>
 
       <ReportSection title="Monthly detail" description="The figures behind the chart." breakBefore>
-        <div className="relative min-w-0 overflow-x-auto">
-          <table className="w-full min-w-0 text-sm">
-            <thead>
-              <tr className="text-muted-foreground border-border border-b text-left text-xs">
-                <th scope="col" className="py-1.5 pr-3 font-medium">
-                  Month
-                </th>
-                <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                  Income
-                </th>
-                <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                  Expenses
-                </th>
-                <th scope="col" className="py-1.5 pr-3 text-right font-medium">
-                  Net
-                </th>
-                <th scope="col" className="hidden py-1.5 text-right font-medium sm:table-cell">
-                  Running
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {cashFlow.points.map((point) => (
-                <tr key={point.date} className="border-border/60 border-b">
-                  <td className="py-2 pr-3 whitespace-nowrap">
-                    {formatMonthLabel(point.date, session.user.timezone, session.user.locale)}
-                  </td>
-                  <td className="py-2 pr-3 text-right">
-                    <Amount
-                      value={point.earned}
-                      currency={cashFlow.currency}
-                      tone="income"
-                      showSign={false}
-                    />
-                  </td>
-                  <td className="py-2 pr-3 text-right">
-                    <Amount
-                      value={point.spent}
-                      currency={cashFlow.currency}
-                      tone="expense"
-                      showSign={false}
-                    />
-                  </td>
-                  <td className="py-2 pr-3 text-right">
-                    <Amount value={point.net} currency={cashFlow.currency} tone="auto" />
-                  </td>
-                  <td className="hidden py-2 text-right sm:table-cell">
-                    <Amount
-                      value={point.cumulative}
-                      currency={cashFlow.currency}
-                      tone="neutral"
-                      showSign={false}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table label="Monthly detail">
+          <THead>
+            <TR head>
+              <TH>Month</TH>
+              <TH align="right">Income</TH>
+              <TH align="right">Expenses</TH>
+              <TH align="right">Net</TH>
+              <TH align="right" hideBelow="sm">
+                Running
+              </TH>
+            </TR>
+          </THead>
+          <TBody>
+            {cashFlow.points.map((point) => (
+              <TR key={point.date}>
+                <TD className="whitespace-nowrap">
+                  {formatMonthLabel(point.date, session.user.timezone, session.user.locale)}
+                </TD>
+                <TD align="right">
+                  <Amount
+                    value={point.earned}
+                    currency={cashFlow.currency}
+                    tone="income"
+                    showSign={false}
+                  />
+                </TD>
+                <TD align="right">
+                  <Amount
+                    value={point.spent}
+                    currency={cashFlow.currency}
+                    tone="expense"
+                    showSign={false}
+                  />
+                </TD>
+                <TD align="right">
+                  <Amount value={point.net} currency={cashFlow.currency} tone="auto" />
+                </TD>
+                <TD align="right" hideBelow="sm">
+                  <Amount
+                    value={point.cumulative}
+                    currency={cashFlow.currency}
+                    tone="neutral"
+                    showSign={false}
+                  />
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
       </ReportSection>
     </div>
   );

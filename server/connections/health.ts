@@ -4,6 +4,7 @@ import { db } from '@/server/db';
 import { fireflyConnections, connectionPublicColumns } from '@/server/db/schema';
 import { getConnectionToken, recordConnectionCheck } from '@/server/connections';
 import { probeInstance } from '@/server/firefly/probe';
+import { FireflyRequestError } from '@/server/firefly/client';
 import { createNotification } from '@/server/notifications';
 import { purgeConnectionNamespace } from '@/server/firefly/cache';
 import { logger } from '@/lib/logger';
@@ -60,9 +61,28 @@ export async function checkConnectionHealth(
     }
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : String(caught);
-    // A 401 means the token itself is the problem, which needs a different fix
-    // (re-authenticate) from an unreachable host (check the URL or the server).
-    status = /401|unauthor/i.test(message) ? 'unauthorised' : 'unreachable';
+    /*
+     * A 401 means the token itself is the problem, which needs a different fix
+     * (re-authenticate) from an unreachable host (check the URL or the server).
+     *
+     * Classify on the thrown CODE, not on the message. The message for a 401 is
+     * "Firefly III rejected that token." — which contains neither "401" nor
+     * "unauthor", so the regex below filed every revoked token as `unreachable`
+     * and told the user to go and look at a server that was answering
+     * perfectly. Found on a live connection whose PAT had been revoked.
+     *
+     * The regex stays as the fallback, because the guard in `url-guard.ts`
+     * resolves and checks the host BEFORE any HTTP call: a stopped instance
+     * throws from there, not from the client, and never carries a code.
+     */
+    status =
+      caught instanceof FireflyRequestError
+        ? caught.code === 'unauthorised' || caught.code === 'forbidden'
+          ? 'unauthorised'
+          : 'unreachable'
+        : /401|unauthor/i.test(message)
+          ? 'unauthorised'
+          : 'unreachable';
     error = message.slice(0, 300);
   }
 
