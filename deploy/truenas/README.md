@@ -1,12 +1,26 @@
 # TrueNAS SCALE deployment
 
-`docker-compose.yml` in this directory is **gitignored**: it holds real
-generated secrets — the encryption key, both database passwords, the Firefly
-admin password — and belongs on the machine that deploys it, not in the
-history. This file describes its shape so the deployment can be rebuilt from
-scratch.
+[`docker-compose.example.yml`](docker-compose.example.yml) is the whole stack,
+with every secret replaced by a `CHANGE_ME_` placeholder. Start there:
 
-It is a single self-contained file. Named volumes, so there are no dataset
+```bash
+cp docker-compose.example.yml docker-compose.yml
+# fill in every CHANGE_ME_ value, then paste the result into TrueNAS as a
+# custom app — or run it from a dataset with `docker compose up -d`
+```
+
+`docker-compose.yml` is gitignored, so the filled-in copy cannot be committed by
+accident. That is deliberate and it is the only reason the example exists as a
+separate file: the deployed version holds the encryption key, both database
+passwords and the Firefly admin password, and none of those belong in a public
+history.
+
+**The placeholders are not valid keys, and the stack refuses to start on them.**
+That is the point. An example that boots as-is is an example that someone
+deploys as-is, on credentials published in this repository — a back door with
+documentation. Failing loudly on the first run is the cheaper mistake.
+
+One self-contained file, deliberately. Named volumes, so there are no dataset
 directories to create and no ownership to get right, and the database bootstrap
 SQL is inlined as a `configs:` entry rather than being a second file to place.
 
@@ -24,23 +38,57 @@ things you open in a browser are.
 
 ## Generate the secrets
 
+One command per placeholder in the example:
+
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # APP_ENCRYPTION_KEY
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # AUTH_SECRET
-openssl rand -hex 20                                                         # CRON_SECRET
-openssl rand -hex 16                                                         # Firefly APP_KEY — EXACTLY 32 chars
+openssl rand -base64 32   # APP_ENCRYPTION_KEY
+openssl rand -base64 32   # AUTH_SECRET
+openssl rand -hex 20      # CRON_SECRET
+openssl rand -hex 16      # Firefly APP_KEY — must be EXACTLY 32 characters
+openssl rand -hex 16      # firefly_studio database password
+openssl rand -hex 16      # firefly database password
+openssl rand -hex 12      # MANAGED_FIREFLY_ADMIN_PASSWORD
 ```
 
-Database passwords should stay alphanumeric: one of them is interpolated into
-`DATABASE_URL`, where a `@` or `/` would need escaping.
+Nothing should be left when you are done — excluding the header, which names
+the token in prose and would otherwise match itself:
+
+```bash
+grep -n CHANGE_ME_ docker-compose.yml | grep -v '#'   # no output = ready to deploy
+```
+
+The one that hides from a casual read is inside the bootstrap SQL at the bottom
+of the file, in the middle of a quoted `CREATE ROLE` statement rather than on an
+`ENV: value` line of its own. A find-and-replace catches it; an eye scanning the
+left-hand column does not.
+
+**Both database passwords appear twice in the file, and the pairs have to
+match.** They are far enough apart to miss:
+
+| Password         | Appears as                                                             |
+| ---------------- | ---------------------------------------------------------------------- |
+| `firefly_studio` | `POSTGRES_PASSWORD` on `postgres`, and inside `DATABASE_URL` on `app`  |
+| `firefly`        | `DB_PASSWORD` on `firefly`, and inside the bootstrap SQL at the bottom |
+
+Get a pair out of step and Postgres creates the role with one password while the
+application tries the other. Neither reports a password problem: Firefly Studio
+cannot open its database and Firefly III cannot log in, both of which surface as
+an unhealthy container. Because each placeholder is unique, a global
+find-and-replace per password does the right thing.
+
+Database passwords should stay alphanumeric — `openssl rand -hex` guarantees it.
+One of them is interpolated into `DATABASE_URL`, where a `@` or a `/` would have
+to be percent-encoded, and a password that quietly truncates the connection
+string is a confusing way to spend an evening.
 
 **Keep `APP_ENCRYPTION_KEY`.** Losing it means every stored Firefly token
 becomes undecryptable and every connection has to be re-authorised.
 
 ## The inlined bootstrap SQL is not optional
 
-Postgres only runs it when the data directory is empty, and the application's
-own migrations do not create what it creates. It must:
+It is already in the example; this is what it is for, in case you ever need to
+rebuild or re-apply it. Postgres runs it only when the data directory is empty,
+and the application's own migrations do not create what it creates:
 
 - `CREATE EXTENSION` `citext` and `pgcrypto` — the schema stores emails as
   `citext` and defaults ids to `gen_random_uuid()`, so the first migration
@@ -48,10 +96,11 @@ own migrations do not create what it creates. It must:
 - create the `firefly` role and database, with the password matching
   `DB_PASSWORD` on the `firefly` service.
 
-Guard both with `IF NOT EXISTS` so it stays safe to re-apply by hand against a
-data directory that already exists.
+Both statements are guarded with `IF NOT EXISTS`, so it stays safe to re-apply
+by hand against a data directory that already has data — which is what you have
+to do if you change a password after the first boot.
 
-**Write it without a `DO $$ … $$` block.** Compose treats `$$` as the escape for
+**It is written without a `DO $$ … $$` block on purpose.** Compose treats `$$` as the escape for
 a literal `$`, so a dollar-quoted block arrives inside the container as `DO $`
 and fails with `syntax error at or near "$"` — _after_ the `CREATE EXTENSION`
 lines above it have already succeeded, so the file looks like it ran and the

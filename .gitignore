@@ -31,8 +31,14 @@ dist/
 
 # Filled-in deployment files. These carry real generated secrets — encryption
 # keys, database passwords, the Firefly admin password — so they stay on the
-# machine that deploys them and never in the history. `deploy/*/README.md` is
-# kept so the shape of a deployment can still be documented.
+# machine that deploys them and never in the history.
+#
+# The `.example.yml` alongside them is the same stack with every secret replaced
+# by a `CHANGE_ME_` placeholder, which is what gets committed. Deny-by-default
+# and name the exceptions, rather than ignoring `docker-compose.yml` by name: a
+# second deployment file added later is then ignored automatically instead of
+# being committed by whoever did not think to update this list.
 deploy/**
 !deploy/*/
 !deploy/*/README.md
+!deploy/*/*.example.yml

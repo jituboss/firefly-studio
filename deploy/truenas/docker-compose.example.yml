@@ -1,0 +1,276 @@
+# ---------------------------------------------------------------------------
+# Firefly Studio — TrueNAS SCALE stack (EXAMPLE)
+#
+# The whole deployment in one file, with every secret replaced by a placeholder.
+# Copy it, fill the placeholders in, and keep your copy off the internet and out
+# of git:
+#
+#   cp docker-compose.example.yml docker-compose.yml
+#
+# `docker-compose.yml` is gitignored precisely so the filled-in version of this
+# file cannot be committed by accident.
+#
+# Self-contained: paste it in as a TrueNAS custom app and deploy. Named volumes,
+# so there are no dataset directories to create and no ownership to get right —
+# the four images run as four different users (70, 999, 1001, 33) and mismatched
+# host-path ownership is the usual reason a TrueNAS deploy comes up unhealthy.
+# The database bootstrap SQL is inlined as a config at the bottom rather than
+# being a second file you have to place.
+#
+# EVERY `CHANGE_ME_` VALUE HAS TO GO
+#
+#   openssl rand -base64 32     # APP_ENCRYPTION_KEY
+#   openssl rand -base64 32     # AUTH_SECRET
+#   openssl rand -hex 20        # CRON_SECRET
+#   openssl rand -hex 16        # Firefly APP_KEY — must be EXACTLY 32 chars
+#   openssl rand -hex 16        # each database password, and the Firefly admin
+#
+# The placeholders are deliberately not valid keys. The stack refuses to start
+# on them rather than coming up on credentials that are published in this
+# repository — an example that can be deployed by accident is a back door with
+# documentation.
+#
+# Keep database passwords alphanumeric. One of them is interpolated into
+# DATABASE_URL, where a `@` or a `/` would have to be percent-encoded.
+#
+# KEEP APP_ENCRYPTION_KEY. It decrypts every stored Firefly token; lose it and
+# every connection has to be re-authorised from scratch.
+#
+# ALSO CHANGE
+#
+#   1. APP_URL on `app`, and APP_URL on `firefly`. Verification and
+#      password-reset links are built from them, so a wrong value produces mail
+#      pointing at the wrong host. Use the address you actually browse to.
+#   2. TZ on all four services.
+#   3. The mail block, or set MAIL_TRANSPORT to `console` to have links printed
+#      to the container log instead of sent.
+#
+# Host ports are deliberately high — TrueNAS itself uses a lot of the low ones.
+# Change them freely, but keep APP_URL in step.
+# ---------------------------------------------------------------------------
+
+services:
+  postgres:
+    container_name: firefly_studio_db
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: firefly_studio
+      POSTGRES_PASSWORD: CHANGE_ME_studio_db_password
+      POSTGRES_DB: firefly_studio
+      # Deterministic collation so index ordering matches across machines.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+      TZ: Etc/UTC
+    # Runs only on an empty data directory. Creates the extensions the schema
+    # needs and Firefly III's own role and database — see the config at the
+    # bottom of this file.
+    configs:
+      - source: firefly_studio_init_db
+        target: /docker-entrypoint-initdb.d/00-init.sql
+    volumes:
+      - firefly_studio_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U firefly_studio -d firefly_studio']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  redis:
+    container_name: firefly_studio_cache
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--save', '60', '1', '--loglevel', 'warning']
+    volumes:
+      - firefly_studio_redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  app:
+    container_name: firefly_studio
+    # `latest` is the newest stable release; `0.9` follows the newest patch in
+    # the 0.9 line and never moves to 0.10. Pin an exact version (0.9.1) to
+    # decide each upgrade yourself.
+    image: jituboss/firefly-studio:latest
+    # Without this, `docker compose up -d` reuses whatever is already cached
+    # under the tag and a moving tag never moves: `latest` on Docker Hub can be
+    # four releases ahead while the container keeps starting from the image
+    # pulled months ago, with nothing on screen to say so. `always` re-resolves
+    # the tag to a digest on every `up` and recreates the container only when
+    # that digest actually changed, which is what makes TrueNAS's own redeploy
+    # button enough on its own.
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - '30300:3000'
+    environment:
+      NODE_ENV: production
+      TZ: Etc/UTC
+
+      # >>> CHANGE THIS <<< the address you open Firefly Studio on.
+      APP_URL: http://localhost:30300
+
+      DATABASE_URL: postgresql://firefly_studio:CHANGE_ME_studio_db_password@postgres:5432/firefly_studio
+      REDIS_URL: redis://redis:6379
+
+      APP_ENCRYPTION_KEY: CHANGE_ME_app_encryption_key_base64_32_bytes
+      AUTH_SECRET: CHANGE_ME_auth_secret_base64_32_bytes
+
+      # Mailtrap, on the submission port. SMTP_SECURE is deliberately absent:
+      # the transport turns implicit TLS on only for port 465 and otherwise
+      # starts plaintext and upgrades with STARTTLS, which is what 587 wants.
+      # Setting it to true here would make the connection hang.
+      #
+      # The sending domain must be verified in Mailtrap or it will reject the
+      # message; `firefly-studio@example.com` has to belong to a domain you own there.
+      MAIL_TRANSPORT: smtp
+      MAIL_FROM: Firefly Studio <firefly-studio@example.com>
+      SMTP_HOST: live.smtp.mailtrap.io
+      SMTP_PORT: '587'
+      SMTP_USER: api
+      SMTP_PASSWORD: CHANGE_ME_smtp_password
+
+      # Enables GET /api/cron/health, so a TrueNAS cron job can check every
+      # stored connection on a schedule:
+      #   curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
+      #     http://truenas.local:30300/api/cron/health
+      CRON_SECRET: CHANGE_ME_cron_secret
+
+      # Checks new passwords against Have I Been Pwned on sign-up. Off by
+      # default because it calls a third party; only the first five characters
+      # of the hash would ever leave the server.
+      PASSWORD_BREACH_CHECK: 'false'
+
+      # The bundled Firefly III below, offered as a one-click choice during
+      # onboarding: an account is created for each person and their access
+      # token minted, so nobody has to find a Personal Access Token by hand.
+      #
+      # This needs Firefly's "single user mode" turned OFF, which means that
+      # instance accepts registrations. Fine while it is only reachable on your
+      # LAN — do not port-forward 30808. Delete these four lines to drop the
+      # feature and have each person attach their own instance instead.
+      MANAGED_FIREFLY_URL: http://firefly:8080
+      MANAGED_FIREFLY_ADMIN_EMAIL: admin@truenas.local
+      MANAGED_FIREFLY_ADMIN_PASSWORD: CHANGE_ME_managed_firefly_admin_password
+      MANAGED_FIREFLY_LABEL: Home Firefly
+
+      # Self-hosted Firefly lives on the LAN and is reached over plain http
+      # inside this network, so both of these stay on.
+      FIREFLY_ALLOW_PRIVATE_NETWORKS: 'true'
+      FIREFLY_ALLOW_INSECURE_HTTP: 'true'
+
+      LOG_LEVEL: info
+      # Migrations run on boot behind an advisory lock, so upgrading is just a
+      # pull and a restart.
+      RUN_MIGRATIONS_ON_BOOT: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # -------------------------------------------------------------------------
+  # Firefly III itself — the ledger Firefly Studio is a client for.
+  #
+  # Shares the Postgres above in a database of its own, owned by a role of its
+  # own, so neither application can read the other's tables.
+  # -------------------------------------------------------------------------
+  firefly:
+    container_name: firefly_iii
+    image: fireflyiii/core:version-6.5.5
+    restart: unless-stopped
+    ports:
+      - '30808:8080'
+    environment:
+      APP_ENV: production
+      APP_DEBUG: 'false'
+      # Laravel requires EXACTLY 32 characters here.
+      APP_KEY: CHANGE_ME_firefly_app_key_exactly_32_chars
+      SITE_OWNER: admin@truenas.local
+      TZ: Etc/UTC
+      DEFAULT_LANGUAGE: en_US
+
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: firefly
+      DB_USERNAME: firefly
+      DB_PASSWORD: CHANGE_ME_firefly_db_password
+
+      TRUSTED_PROXIES: '**'
+      # >>> CHANGE THIS <<< the address you open Firefly III on.
+      APP_URL: http://truenas.local:30808
+    volumes:
+      - firefly_iii_upload:/var/www/html/storage/upload
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  firefly_studio_pgdata:
+  firefly_studio_redis:
+  firefly_iii_upload:
+
+# ---------------------------------------------------------------------------
+# Inlined so this file is the only one you need. Postgres runs it once, when it
+# initialises an empty data directory; it does NOT run against a directory that
+# already has data, so applying it to an existing database means running it by
+# hand. Every statement is guarded, so that is safe to do.
+# ---------------------------------------------------------------------------
+configs:
+  firefly_studio_init_db:
+    content: |
+      -- Required by Firefly Studio's schema: emails are stored as `citext` and
+      -- ids default to `gen_random_uuid()`. The app's own migrations do not
+      -- create these, so the first boot fails partway through without them.
+      CREATE EXTENSION IF NOT EXISTS citext;
+      CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+      -- Firefly III's role and database. The password must match DB_PASSWORD
+      -- on the `firefly` service above.
+      --
+      -- Written without a DO $$ ... $$ block ON PURPOSE. Compose treats $$ as
+      -- the escape for a literal $, so a dollar-quoted block arrives inside the
+      -- container as `DO $` and dies with "syntax error at or near $" — after
+      -- the extensions above have already been created, which makes it look
+      -- like the file ran. These two statements use no dollar sign at all.
+      SELECT 'CREATE ROLE firefly LOGIN PASSWORD ''CHANGE_ME_firefly_db_password'''
+      WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'firefly')\gexec
+
+      SELECT 'CREATE DATABASE firefly OWNER firefly'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'firefly')\gexec
