@@ -12,12 +12,12 @@ SQL is inlined as a `configs:` entry rather than being a second file to place.
 
 ## What the stack runs
 
-| Service    | Image                           | Published | Notes                                 |
-| ---------- | ------------------------------- | --------- | ------------------------------------- |
-| `app`      | `jituboss/firefly-studio:0.4`   | 3000      | Firefly Studio itself                 |
-| `firefly`  | `fireflyiii/core:version-6.5.5` | 8080      | the ledger it is a client for         |
-| `postgres` | `postgres:16-alpine`            | —         | both applications, separate databases |
-| `redis`    | `redis:7-alpine`                | —         | the Firefly response cache            |
+| Service    | Image                            | Published | Notes                                 |
+| ---------- | -------------------------------- | --------- | ------------------------------------- |
+| `app`      | `jituboss/firefly-studio:latest` | 3000      | Firefly Studio itself                 |
+| `firefly`  | `fireflyiii/core:version-6.5.5`  | 8080      | the ledger it is a client for         |
+| `postgres` | `postgres:16-alpine`             | —         | both applications, separate databases |
+| `redis`    | `redis:7-alpine`                 | —         | the Firefly response cache            |
 
 Postgres and Redis are deliberately not published to the host. Only the two
 things you open in a browser are.
@@ -104,10 +104,101 @@ feature off and have each person attach their own instance instead.
 
 ## Upgrading
 
-The `0.4` tag follows the newest patch in that line and never moves to 0.5, so
-`docker compose pull && docker compose up -d` picks up fixes. Pin an exact
-version instead to decide each upgrade yourself. Migrations run on boot
-(`RUN_MIGRATIONS_ON_BOOT`), behind an advisory lock, so a restart is enough.
+Every stable release publishes four tags pointing at the same image:
+
+| Tag      | Moves to                                 | Use it when                     |
+| -------- | ---------------------------------------- | ------------------------------- |
+| `0.9.1`  | never                                    | you want to decide each upgrade |
+| `0.9`    | the newest patch in the 0.9 line         | you want fixes, not features    |
+| `latest` | the newest stable release, across minors | you want everything as it lands |
+| `0`      | the newest 0.x                           | same as `latest` until 1.0      |
+
+Migrations run on boot (`RUN_MIGRATIONS_ON_BOOT`) behind an advisory lock, so a
+restart is all an upgrade needs — no separate migration step, and two containers
+starting at once cannot race each other.
+
+### A moving tag does not move on its own
+
+This is the part that catches people, and it is not a registry problem.
+`docker compose up -d` uses whatever image is already cached under the tag; it
+does not ask Docker Hub whether the tag still points there. So `latest` can be
+four releases ahead while the container keeps starting from the image pulled
+months ago, with nothing on screen to say so — the tag looks right, the app is
+old.
+
+The compose file sets `pull_policy: always` on `app` for exactly this reason.
+With it, every `up` re-resolves the tag to a digest, and the container is
+recreated only when that digest actually changed. Nothing happens on an `up`
+when you are already current.
+
+Without it, the pull has to be explicit:
+
+```bash
+docker compose pull app && docker compose up -d app
+```
+
+### Reclaiming the old images
+
+Superseded images are not deleted, they are just untagged — three or four
+upgrades and there is a few GB of nothing on the pool:
+
+```bash
+docker image prune -f          # untagged images only
+docker image prune -af         # everything not backing a running container
+```
+
+`-f` is the one to run on a schedule. `-af` also removes images you have pulled
+but are not currently running, which on a NAS is usually not what you meant.
+
+### Updating from the TrueNAS UI
+
+For a custom app, **Edit → Save** redeploys the stack, which with
+`pull_policy: always` is enough to pick up a new release. From a shell in the
+app's dataset, the equivalent is the `pull` + `up -d` pair above.
+
+### Updating without touching the NAS
+
+To have a release land by itself, run a watcher alongside the stack rather than
+opening the NAS to the internet — nothing in the release pipeline should be able
+to reach inward, and a webhook endpoint on a machine holding your financial data
+is a poor trade for saving a click.
+
+```yaml
+watchtower:
+  image: containrrr/watchtower
+  restart: unless-stopped
+  command: --cleanup --include-restarting firefly_studio
+  environment:
+    TZ: Asia/Dhaka
+    WATCHTOWER_POLL_INTERVAL: '21600' # six hours
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+```
+
+Two things to weigh before adding it:
+
+- **The Docker socket is root on the host.** Any container that can reach it can
+  start a privileged container on your NAS. That is the standing cost of every
+  auto-updater of this shape, Watchtower included.
+- **It is named `firefly_studio` on purpose.** Left unscoped, Watchtower updates
+  every container it can see — including `postgres` and `fireflyiii/core`, where
+  an unattended major-version jump is how a ledger gets hurt. Those two are
+  pinned for a reason; keep them out of it.
+
+If you would rather not give anything the socket, a cron job on the host does
+the same work with none of the exposure:
+
+```bash
+cd /path/to/the/stack && docker compose pull app && docker compose up -d app && docker image prune -f
+```
+
+### Which tag to follow
+
+`latest` crosses minor versions, and before 1.0 a minor bump is where breaking
+changes are allowed to live. Following it means an untested release can land on
+your ledger unattended. `0.9` only ever moves to a patch, which is the safer
+thing to point an unattended updater at; move it by hand when you have read the
+changelog and decided to take the next minor.
 
 ## The demo account
 
