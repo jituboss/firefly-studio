@@ -10,6 +10,29 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-22
+
+**The subscription calendar on a phone.**
+
+### Fixed
+
+- **The subscription calendar was unreadable on a phone.** A seven-column month
+  grid does not fit a phone screen, and squeezing it produced a page of "Am…",
+  "Do…", "Sp…" with the amounts painting straight out of their cells and across
+  the neighbouring day — a figure standing in a column is a claim about which
+  day it falls on, so that was worse than showing nothing.
+
+  On a narrow screen it is an agenda now: the days that actually have something
+  due, in order, with the whole name and the whole amount. The month grid comes
+  back on a wide screen, where the columns can hold both.
+
+- **Unpaid subscriptions showed their amount in green** — the colour this app
+  uses for money coming in — inside a red "due" chip.
+
+- **"Today" was highlighted in UTC** rather than in your own timezone, so far
+  enough east or west the wrong day was marked, changing partway through the
+  evening.
+
 ## [0.9.2] - 2026-09-22
 
 **The totals above the transaction list, rebuilt.**
@@ -960,7 +983,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.2...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.3
 [0.9.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.2
 [0.9.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.1
 [0.9.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.0
