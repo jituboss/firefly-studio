@@ -5,7 +5,7 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-21, at `v0.9.0`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-22, at `v0.9.1`. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous note:** 0.7.0 closed E21-01 (the last five primitives) and E8-07,
 and added transaction type conversion, a dashboard quick-add, reachable date ranges and an HTTP
@@ -26,7 +26,7 @@ what actually happened building the first four milestones of it.
 ## 2. Current state — read this first
 
 **M0–M6 are done. M7 is nearly done. M8 has started.** `PROJECT_PLAN.md` §8 is the authoritative
-backlog: **173 of 227 items**, every finished one checked with a note on what shipped, what was cut,
+backlog: **180 of 228 items**, every finished one checked with a note on what shipped, what was cut,
 and why.
 
 | Milestone | What it shipped                                                                                    | Status     |
@@ -293,6 +293,78 @@ ones most likely to bite again:
   Firefly's registration form for exactly this reason — read its module comment before
   changing it, and re-run `preflightManagedFirefly()` after any Firefly upgrade, because it
   depends on Firefly's web pages rather than its documented API.
+
+**Rule actions have a macro language, and the spec does not mention it.** Any action
+value beginning with `=` is handed to Symfony's ExpressionLanguage with the transaction's
+own fields in scope, so `='Bill for ' ~ substr(date, 0, 7)` writes "Bill for 2026-08".
+Full detail in `PROJECT_PLAN.md` §20 and `lib/rule-expressions.ts`; the parts that will
+catch someone out again:
+
+- **`\=` is an escape, and Firefly adds it for you.** A value starting with `\=` is a
+  literal, and Firefly writes the rest of it verbatim INCLUDING the equals sign — so the
+  rule sets the description to the text of its own expression, which looks exactly like an
+  expression that failed to run. `upgrade:600-rule-actions` rewrites every action value
+  beginning with `=` to `\=` when an instance upgrades onto the expression engine, so a
+  rule written before the upgrade arrives escaped and still looks correct in every UI that
+  renders its value.
+- **There are five functions, total**: `min`, `max`, `substr`, `strlen`, `strpos`.
+  `CustomExpressionLanguage::registerFunctions()` overrides Symfony's and never calls the
+  parent, so nothing else exists.
+- **`tags` is an array and using it 500s the whole transaction** with "Array to string
+  conversion" — the `POST /transactions` is rejected, not just the rule.
+- **`amount` is signed and carried to twelve places** (`-12.500000000000`), `date` is a
+  datetime, and `transaction_type_type` is capitalised. Every one of those defeats the
+  obvious assumption.
+- Expressions ARE validated on save, with a precise 422, so a broken one cannot be stored.
+
+**E4-06 (reconciliation) added six more, and they are the worst set yet** because the
+documented shapes do not merely surprise you, they fail outright. All verified against a
+live 6.5.5 container; the reasoning is in `lib/reconcile.ts`.
+
+- **The whole feature is undocumented.** The OpenAPI spec has `reconciliation` in the
+  `TransactionTypeProperty` enum and nothing else — no endpoint, no field, no note. The
+  semantics below were read out of Firefly's own PHP (`Http/Controllers/Account/
+ReconcileController`, `Http/Controllers/Json/ReconcileController`,
+  `Repositories/Account/AccountRepository::getReconciliation`) inside the container, then
+  confirmed by posting real transactions and re-reading the balances.
+- **A reconciliation correction needs BOTH `source_id` and `destination_id`.** The
+  validator (`Validation/Account/ReconciliationValidation`) explicitly allows omitting one
+  side so Firefly can fill in the holding account. Both shapes are broken on 6.5.5:
+  omitting the destination answers `422 Internal exception: Created zero transaction
+journals`; omitting the source answers `500 Attempt to read property "type" on null`,
+  because the validator sets an empty `new Account()` as the source and the journal
+  factory then reads `->accountType->type` off it.
+- **The holding account cannot be created over the API.** `POST /accounts` validates
+  `type` against `config('firefly.subTitlesByIdentifier')`, which is
+  asset/expense/revenue/cash/liability/liabilities and nothing else; `reconciliation` comes
+  back "The selected type is invalid" (plus a spurious "name is already in use", which is
+  the uniqueness rule scoping itself by a type it could not resolve — the name is a red
+  herring). Firefly's own web UI creates it lazily on the first reconciliation that needs
+  one. So a client can USE a holding account and can never MAKE one, and the honest thing
+  is to say so rather than 500. Its name is
+  `"<account> reconciliation (<CUR>)"` and `GET /accounts?type=reconciliation` lists them
+  once they exist.
+- **Direction is carried by the account pair, and it is the opposite of intuition.**
+  `difference = (opening + cleared) - statementClosing`. A POSITIVE difference means our
+  books claim MORE than the statement, and the fix is source = asset, destination =
+  holding, which LOWERS the balance (measured: 50,646.51 → 50,636.51 on a 10.00
+  correction). Negative is the mirror image.
+- **The opening balance is the balance at the end of the day BEFORE the range.** Firefly
+  does `$start->subDay()->endOfDay()`. `GET /accounts/{id}?date=YYYY-MM-DD` gives the
+  balance at 23:59:59 on that date, so pass the previous day — `previousDay()` in
+  `lib/date-range.ts`, string arithmetic so there is no timezone in the answer.
+- **Reconciliation is asset accounts only.** `config('firefly.expected_source_types')`
+  allows the `reconciliation` type between Reconciliation and Asset and no other pair, and
+  `getReconciliation()` throws for a non-asset account. There is no liability
+  reconciliation to build.
+
+**And one defect of our own that this found, worth its own line because it destroyed
+data:** `PUT /transactions/{id}` whose `transactions` array OMITS a split **deletes that
+split**. This was already known for bulk edit (§18.2) but `setReconciledAction` had been
+shipping a single-split payload since E5-15, so ticking "Reconciled" on one line of a
+split transaction silently deleted its siblings. Measured on a two-leg group worth 10.00
+and 20.00: the PUT answered 200 and the 10.00 leg was gone. Any write that touches one
+split must re-read the group and resend all of them.
 
 **Practical instruction for whoever continues this:** before implementing a write action
 or trusting a response shape for a new Firefly resource (rules, recurring transactions,
@@ -635,6 +707,8 @@ Use this map before assuming a feature still needs to be built.
 | Dashboard KPIs + balance chart                                                               | `app/(app)/dashboard/page.tsx`, `components/charts/area-trend.tsx`, `components/dashboard/widgets.tsx`                                                                                                             |
 | Accounts list + type filters + landing                                                       | `app/(app)/accounts/page.tsx`, `app/(app)/accounts/filters.tsx`                                                                                                                                                    |
 | Account create/edit/detail/delete                                                            | `app/(app)/accounts/account-form.tsx`, `app/(app)/accounts/[id]/page.tsx`, `app/(app)/accounts/new/page.tsx`, `app/(app)/accounts/[id]/delete-button.tsx`                                                          |
+| Reconciliation (E4-06, asset accounts only)                                                  | `app/(app)/accounts/[id]/reconcile/page.tsx` + `workspace.tsx`, `lib/reconcile.ts`, `server/firefly/reconcile-actions.ts`                                                                                          |
+| Rule value field: autocomplete + expressions (E11-09)                                        | `app/(app)/rules/value-field.tsx`, `lib/rule-expressions.ts`, `lib/rule-vocabulary.ts`                                                                                                                             |
 | Transactions list + pagination + search                                                      | `app/(app)/transactions/page.tsx`, `app/(app)/transactions/table.tsx`, `app/(app)/transactions/filters.tsx`, `app/(app)/transactions/pagination.tsx`, `app/(app)/transactions/saved-views.tsx`                     |
 | Transaction create/edit/split/duplicate                                                      | `app/(app)/transactions/transaction-form.tsx`, `app/(app)/transactions/[id]/edit/page.tsx`, `app/(app)/transactions/[id]/page.tsx`, `app/(app)/transactions/new/page.tsx`, `server/firefly/transaction-actions.ts` |
 | Attachments (upload/download/delete)                                                         | `components/transactions/attachments.tsx`, `app/api/attachments/route.ts`                                                                                                                                          |

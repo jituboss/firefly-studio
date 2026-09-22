@@ -141,3 +141,32 @@ function daysInMonth(year: number, month: number): number {
   if (month === 2) return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28;
   return [4, 6, 9, 11].includes(month) ? 30 : 31;
 }
+
+/**
+ * The ISO date one calendar day before `iso`.
+ *
+ * E4-06 needs it because a reconciliation's opening balance is the account
+ * balance at the END of the day before the statement period starts, which is
+ * what Firefly's own reconcile screen uses (`$start->subDay()->endOfDay()`).
+ *
+ * String arithmetic, for the reason `describeRange` gives: `new Date(iso)` is
+ * UTC midnight and lands on the previous day west of Greenwich, so a helper
+ * built on it would hand back the day before *that* for half the world and
+ * quietly shift the opening balance of every reconciliation by one day.
+ */
+export function previousDay(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+
+  const year = Number.parseInt(y, 10);
+  const month = Number.parseInt(m, 10);
+  const day = Number.parseInt(d, 10);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return iso;
+
+  if (day > 1) return `${pad(year, 4)}-${pad(month, 2)}-${pad(day - 1, 2)}`;
+  if (month > 1)
+    return `${pad(year, 4)}-${pad(month - 1, 2)}-${pad(daysInMonth(year, month - 1), 2)}`;
+  return `${pad(year - 1, 4)}-12-31`;
+}
+
+const pad = (value: number, width: number) => String(value).padStart(width, '0');

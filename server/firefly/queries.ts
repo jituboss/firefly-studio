@@ -137,6 +137,94 @@ export const getAccountTransactions = (
     { data: [], meta: {} },
   );
 
+/**
+ * E4-06 — the account's balance at the END of a given day.
+ *
+ * Firefly answers `GET /accounts/{id}?date=YYYY-MM-DD` with `current_balance`
+ * rewound to 23:59:59 on that date; verified against a live instance, where the
+ * same account reported 47,460.57 at 2026-06-30 and 50,646.51 at 2026-08-31.
+ * Reconciliation needs the balance the day BEFORE the statement period opens,
+ * which is what Firefly's own reconcile screen uses as its opening figure, so
+ * callers pass that date rather than the range start.
+ */
+export const getAccountBalanceOn = (
+  id: string,
+  date: string,
+  options: { noCache?: boolean } = {},
+) => fireflyGet<{ data: Account }>(`/v1/accounts/${id}${qs({ date })}`, options);
+
+/**
+ * E4-06 — the reconciliation holding accounts Firefly maintains for itself.
+ *
+ * Listed rather than looked up by name because the API has no name lookup and
+ * no relationship from the asset account to its holding account; `lib/reconcile`
+ * matches on the name Firefly generates. An instance that has never reconciled
+ * has none, and that is a normal state, not an error — but a FAILED read is not
+ * the same as an empty one, so this throws rather than degrading to `[]`: the
+ * empty answer is what makes the page tell someone to go and create an account
+ * that may already exist.
+ *
+ * Uncached by default. Whether the holding account exists decides what the page
+ * tells the user to do, and the advice it gives when it is missing is "create it
+ * in Firefly and come back" — which lands them on a 60-second-stale answer
+ * saying it is still missing.
+ */
+export const getReconciliationAccounts = (options: { noCache?: boolean } = { noCache: true }) =>
+  fireflyGet<Paged<Account>>(`/v1/accounts${qs({ type: 'reconciliation', limit: 300 })}`, options);
+
+/**
+ * E4-06 — EVERY transaction touching an account in a range, across pages.
+ *
+ * Reconciliation is the one screen where a partial list is worse than no list:
+ * a missing page does not look like a missing page, it looks like a difference,
+ * and the user would "correct" it by writing a transaction for money that was
+ * already accounted for. So this pages to exhaustion and reports when it hits
+ * the ceiling instead of quietly returning a prefix.
+ *
+ * It also THROWS rather than using the fail-soft reader the rest of the account
+ * views use. `fireflyGetSafe` answers `{ data: [] }` when Firefly is unreachable,
+ * which everywhere else degrades to an empty list and here would degrade to a
+ * confident difference the size of the whole statement period, next to a button
+ * offering to write it into the ledger. Same shape as the dashboard-zeros
+ * defect, with a write on the end of it.
+ *
+ * The cap is a real month of a busy current account with room to spare. Beyond
+ * it the page tells the user to narrow the range rather than showing numbers it
+ * cannot stand behind.
+ */
+export const MAX_RECONCILE_PAGES = 20;
+export const RECONCILE_PAGE_SIZE = 100;
+
+export async function getAllAccountTransactions(
+  id: string,
+  start: string,
+  end: string,
+  options: { noCache?: boolean } = {},
+): Promise<{ groups: Transaction[]; truncated: boolean }> {
+  const groups: Transaction[] = [];
+
+  for (let page = 1; page <= MAX_RECONCILE_PAGES; page += 1) {
+    const response = await fireflyGet<Paged<Transaction>>(
+      `/v1/accounts/${id}/transactions${qs({
+        start,
+        end,
+        page,
+        limit: RECONCILE_PAGE_SIZE,
+      })}`,
+      options,
+    );
+    groups.push(...response.data);
+
+    const pagination = response.meta.pagination;
+    // No pagination block at all means Firefly returned everything it had.
+    if (!pagination || page >= (pagination.total_pages ?? 1)) {
+      return { groups, truncated: false };
+    }
+  }
+
+  return { groups, truncated: true };
+}
+
 // --- transactions -----------------------------------------------------------
 
 export interface TransactionQuery {

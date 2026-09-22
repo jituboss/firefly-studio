@@ -248,19 +248,43 @@ export async function deleteTransactionAction(formData: FormData): Promise<void>
   redirect('/transactions?deleted=1');
 }
 
-/** E5-15 — flip the reconciled flag on a single split. */
+/**
+ * E5-15 — flip the reconciled flag on a single split.
+ *
+ * Reads the group first and resends EVERY split, changing the flag on one.
+ *
+ * This used to send the one split it meant to change, which destroyed data: a
+ * `PUT /transactions/{id}` whose `transactions` array omits a split DELETES
+ * that split. Measured on 6.5.5 — a two-leg group worth 10.00 and 20.00, PUT
+ * with the single journal id of the 20.00 leg, answered 200 and came back
+ * holding one leg, the 10.00 one silently gone. Anyone who ticked "Reconciled"
+ * on one line of a split transaction lost the other lines.
+ *
+ * `group_title` is resent above one split because Firefly makes it mandatory
+ * there and rejects the PUT without it.
+ */
 export async function setReconciledAction(formData: FormData): Promise<void> {
   const id = String(formData.get('id') ?? '');
   const journalId = String(formData.get('journalId') ?? '');
   const reconciled = formData.get('reconciled') === 'true';
   if (!id || !journalId) return;
 
+  const group = (await getTransaction(id)).data;
+  const splits = group.attributes.transactions;
+
   await fireflyWrite(`/v1/transactions/${id}`, 'PUT', {
-    transactions: [{ transaction_journal_id: journalId, reconciled }],
+    ...(splits.length > 1
+      ? { group_title: group.attributes.group_title ?? 'Split transaction' }
+      : {}),
+    transactions: splits.map((split) => ({
+      transaction_journal_id: split.transaction_journal_id,
+      reconciled: split.transaction_journal_id === journalId ? reconciled : split.reconciled,
+    })),
   });
 
   revalidatePath(`/transactions/${id}`);
   revalidatePath('/transactions');
+  revalidatePath('/accounts');
 }
 
 /** E5-10 — clone a transaction into the new-transaction form. */

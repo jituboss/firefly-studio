@@ -27,6 +27,9 @@ const APP_PAGES = [
   '/dashboard',
   '/transactions',
   '/accounts',
+  // E4-06. Checkboxes, a live region and a disabled submit that has to explain
+  // itself — the page in the app with the most to get wrong here.
+  '/accounts/1/reconcile',
   '/budgets',
   '/categories',
   '/bills',
@@ -34,6 +37,9 @@ const APP_PAGES = [
   '/reports/net-worth',
   '/reports/categories',
   '/rules',
+  // E11-09. Rows of selects and comboboxes with no visible labels, plus a
+  // popover — the shape that had a critical select-name violation on it.
+  '/rules/new',
   '/recurring',
   '/tags',
   '/currencies',

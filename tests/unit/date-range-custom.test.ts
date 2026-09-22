@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   describeRange,
+  previousDay,
   resolveRangeFromParams,
   selectableYears,
   yearRange,
@@ -78,5 +79,47 @@ describe('resolveRangeFromParams with a custom range', () => {
   it('ignores a malformed pair and falls back to a preset', () => {
     const r = resolveRangeFromParams({ start: 'yesterday', end: '2021-12-31' });
     expect(r.preset).toBe('this-month');
+  });
+});
+
+describe('previousDay', () => {
+  it('steps back inside a month', () => {
+    expect(previousDay('2026-08-15')).toBe('2026-08-14');
+  });
+
+  it('crosses a month boundary onto the right last day', () => {
+    expect(previousDay('2026-08-01')).toBe('2026-07-31');
+    expect(previousDay('2026-05-01')).toBe('2026-04-30');
+  });
+
+  it('crosses a year boundary', () => {
+    expect(previousDay('2026-01-01')).toBe('2025-12-31');
+  });
+
+  it('knows February in a leap year and out of one', () => {
+    expect(previousDay('2024-03-01')).toBe('2024-02-29');
+    expect(previousDay('2026-03-01')).toBe('2026-02-28');
+    expect(previousDay('2100-03-01')).toBe('2100-02-28');
+    expect(previousDay('2000-03-01')).toBe('2000-02-29');
+  });
+
+  it('keeps two-digit padding', () => {
+    expect(previousDay('2026-10-10')).toBe('2026-10-09');
+    expect(previousDay('2026-02-01')).toBe('2026-01-31');
+  });
+
+  it('gives the same answer everywhere on earth', () => {
+    // The point of the string arithmetic: no Date, so no timezone. Asserted by
+    // running it under a timezone west of Greenwich, where `new Date(iso)`
+    // would already be on the previous day before any subtraction.
+    const original = process.env.TZ;
+    process.env.TZ = 'Pacific/Honolulu';
+    expect(previousDay('2026-08-01')).toBe('2026-07-31');
+    process.env.TZ = original;
+  });
+
+  it('hands back anything it cannot parse rather than inventing a date', () => {
+    expect(previousDay('')).toBe('');
+    expect(previousDay('not-a-date')).toBe('not-a-date');
   });
 });

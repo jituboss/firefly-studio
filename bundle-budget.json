@@ -41,6 +41,7 @@
   "/(app)/categories/new/page": 143152,
   "/(app)/budgets/[id]/page": 180357,
   "/(app)/accounts/[id]/page": 316850,
+  "/(app)/accounts/[id]/reconcile/page": 197999,
   "/(app)/currencies/loading": 126324,
   "/(app)/currencies/[code]/page": 146182,
   "/(app)/categories/uncategorised/page": 200454,

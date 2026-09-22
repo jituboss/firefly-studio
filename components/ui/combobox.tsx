@@ -23,6 +23,7 @@ export function Combobox({
   id,
   allowFreeText = true,
   extraQuery,
+  label,
 }: {
   endpoint: string;
   value: string;
@@ -31,6 +32,13 @@ export function Combobox({
   id?: string;
   allowFreeText?: boolean;
   extraQuery?: Record<string, string>;
+  /**
+   * Accessible name, where the surrounding form has no visible `<label>` for
+   * this box. Optional so the callers that do have one are unaffected; a
+   * placeholder is a hint, not a name, and it disappears the moment someone
+   * types.
+   */
+  label?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const [options, setOptions] = React.useState<ComboOption[]>([]);
@@ -129,6 +137,7 @@ export function Combobox({
             }
           }}
           role="combobox"
+          aria-label={label}
           aria-expanded={open}
           aria-autocomplete="list"
           aria-controls={id ? `${id}-listbox` : undefined}

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ScaleIcon } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getPreferences } from '@/server/preferences';
 import { getActiveConnection } from '@/server/firefly/api';
@@ -109,7 +109,18 @@ export default async function AccountDetailPage({
               .join(' · ')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* E4-06 — asset accounts only, because that is the only pair Firefly
+              will write a reconciliation between. Offering it on a mortgage
+              would lead to an error message instead of a feature. */}
+          {a.type === 'asset' ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/accounts/${id}/reconcile`}>
+                <ScaleIcon className="size-4" aria-hidden="true" />
+                Reconcile
+              </Link>
+            </Button>
+          ) : null}
           <HideBalancesToggle defaultHidden={preferences.hideBalances} />
           <DateRangePicker label={range.label} />
         </div>

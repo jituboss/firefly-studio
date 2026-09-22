@@ -448,7 +448,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E4-03** `P0` `3d` Account detail: KPIs, balance chart, transactions tab — _piggy-bank and attachment tabs deferred to M4/M3_
 - [x] **E4-04** `P0` `2d` Create/edit form, including the liability and credit-card field sets Firefly requires
 - [x] **E4-05** `P0` `1d` Delete with a typed confirmation
-- [ ] **E4-06** `P1` `1d` Reconciliation helper
+- [x] **E4-06** `P0` `1d` **Reconciliation** — `/accounts/{id}/reconcile`, reachable from a Reconcile button on any asset account. Pick a statement period (defaults to LAST month, because a statement covers a period that has closed), type the closing balance from the statement, tick the lines that appear on it, and watch the difference work down to zero. The arithmetic runs in the browser on `lib/reconcile.ts` so every tick moves the number in the same frame — reconciling is "tick, look, tick" forty times over, and a server round trip per tick is what makes people go back to Firefly's own screen. The same functions then re-run in the Server Action against UNCACHED, THROWING reads before anything is written, so a stale tab cannot talk the server into a wrong correction. Shift-click ticks a run of rows; the whole row is the label, so the hit target is the row and not a 16px box. **Asset accounts only** — that is Firefly's rule, not ours, and a liability gets an explanation instead of a 404. Below `md` the guidance moves out of the sticky bar into flow: with the correction card inside it the bar came to 379px of a 780px phone screen, and it is 65px now. Where the difference will not close, the page offers to write Firefly's own reconciliation transaction, naming the amount, the direction and the account before you commit — and it says out loud when lines are still unticked, because a correction written over those covers money the books already have. **Firefly's API cannot create the holding account that correction needs** (see §19.1), so when it is missing the page says exactly that and what to do once, rather than surfacing a 500. Verified end to end against 6.5.5: after correcting to a typed statement figure the account balance equalled it to the cent. Zero axe violations at 390px and 1280px, light and dark, across the fresh/ticked/invalid states.
 - [ ] **E4-07** `P1` `1d` Liability amortisation view
 - [x] **E4-08** `P1` `0.5d` Archive/activate via the `active` flag on the edit form
 - [ ] **E4-09** `P2` `1d` Account ordering and custom colours
@@ -557,6 +557,7 @@ before implementing — see §13.
 - [x] **E11-06** `P1` `1d` Group-level test (`/rule-groups/{id}/test`)
 - [ ] **E11-07** `P2` `2d` Rule templates library (common recipes: auto-categorise by payee, tag subscriptions, flag large expenses)
 - [ ] **E11-08** `P2` `1d` Duplicate/export/import a rule as JSON
+- [x] **E11-09** `P0` `1d` **Expressions and autocomplete in the rule builder** — two gaps that turned out to be one control. Firefly evaluates any action value beginning with `=` against the transaction's own fields (`='Bill for ' ~ substr(date, 0, 7)`), a feature the OpenAPI spec does not mention at all and which the builder gave no sign of: no field list, no validation, no idea what it would produce. And autocomplete existed on exactly one keyword out of seventeen, so "Set category to" was a spelling test whose only feedback was a rule that quietly did nothing. `RuleValueField` now switches between a picker and an expression editor on the leading `=`, because the two are alternatives — a value starting with `=` is not a category name. The editor lints against the real whitelist (with did-you-mean), lists the five functions Firefly actually registers, and **previews the result** on a sample transaction whose field values were read out of a live instance; the preview refuses rather than approximating anything it does not support. Seventeen keywords gained their `/autocomplete/*` endpoint, with the three `convert_*` actions narrowed by account type. The `_contains`/`_starts`/`_ends` triggers deliberately did not: they match a fragment, and a list of whole names in front of a box that wants "Amaz" is a picker that is wrong about its own job. **It also explains the `\=` escape** (see §20), which is the one failure mode that looks like somebody else's bug. Fixed a pre-existing critical `select-name` violation on every keyword row while here; `/rules/new` is now clean in both themes at 390px and 1280px.
 
 ### E12 · Tags — M6
 
@@ -1281,3 +1282,163 @@ dangerous kind: a successful response that is silently wrong.
   action failed validation and returned early. Two green runs, both measuring the
   error path. **Anything timed outside the container is timing a different
   program.**
+
+## 19. E4-06 reconciliation — verification log
+
+Firefly documents none of this. The spec carries `reconciliation` in the
+`TransactionTypeProperty` enum and stops there — no endpoint, no field, no note.
+Everything below was read out of Firefly's own PHP inside the running container
+(`Http/Controllers/Account/ReconcileController`,
+`Http/Controllers/Json/ReconcileController`,
+`Repositories/Account/AccountRepository::getReconciliation`,
+`Validation/Account/ReconciliationValidation`, `config/firefly.php`) and then
+confirmed by posting real transactions against 6.5.5 and re-reading the balances.
+
+### 19.1 What Firefly actually does
+
+| Question                            | Answer, and how it was established                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Which accounts can be reconciled?   | **Asset only.** `expected_source_types` allows `reconciliation` between a Reconciliation account and an Asset account and no other pair; `getReconciliation()` throws `"%s is not an asset account"` for anything else. There is no liability reconciliation to build.                                                                                       |
+| What is the opening balance?        | The balance at the **end of the day before** the range (`$start->subDay()->endOfDay()`). `GET /accounts/{id}?date=YYYY-MM-DD` answers with the balance at 23:59:59 on that date — measured: 47,460.57 at 2026-06-30, 50,646.51 at 2026-08-31.                                                                                                                |
+| How is the difference computed?     | Firefly writes it as `(startBalance − endBalance) + clearedAmount + amount`, which rearranges to **`(opening + cleared) − statementClosing`**. `cleared` is signed from the account's point of view: `processJournal` adds the journal amount when the account is the source (negative in the collector) and negates it when the account is the destination. |
+| Which way does a correction go?     | A **positive** difference means our books claim MORE than the statement, and the correction is `source = asset, destination = holding`, which LOWERS the balance. Measured both ways on account 104: 50,646.51 → 50,636.51 on a drain of 10.00, and back to 50,646.51 on the mirror.                                                                         |
+| What does the correction look like? | `type: reconciliation`, dated the range end, description `Reconciliation (<from> to <to>)`, `reconciled: true` — the same shape Firefly's own `createReconciliation()` builds, so a correction written from here is indistinguishable from one written there.                                                                                                |
+
+### 19.2 Three ways the API refuses to cooperate
+
+- **Both account ids are mandatory on the correction.** `ReconciliationValidation`
+  explicitly treats a null source (or destination) as valid so that
+  `reconciliationSanityCheck()` can fill in the holding account. Both shapes are broken on
+  6.5.5. Omitting the destination: `422 Internal exception: Created zero transaction
+journals`. Omitting the source: `500 Attempt to read property "type" on null`, because
+  the validator sets an empty `new Account()` as the source and the journal factory then
+  reads `->accountType->type` off it. Passing both ids works first time.
+- **The holding account cannot be created over the API.** `POST /accounts` validates
+  `type` against `config('firefly.subTitlesByIdentifier')` —
+  asset/expense/revenue/cash/liability/liabilities — so `reconciliation` returns "The
+  selected type is invalid". It also returns "This account name is already in use" for a
+  name that demonstrably is not; that is the uniqueness rule scoping itself by a type it
+  could not resolve, and it is a red herring worth recognising rather than chasing.
+  Firefly's own web UI creates the account lazily on the first reconciliation that needs
+  one. **A client can use a holding account and can never make one.** The app therefore
+  detects its absence (`GET /accounts?type=reconciliation`, matched on the generated name
+  `"<account> reconciliation (<CUR>)"`) and says what to do once, instead of posting
+  something it knows will 500.
+- **Firefly's own reconcile screen widens the window by ±3 days** and then excludes those
+  rows from the running total. Deliberately not copied: the extra rows are genuinely
+  useful for a cheque that cleared late, and the arithmetic around them in Firefly's own
+  JS is confusing enough that "the range means the range" is the more defensible answer.
+  Widening the date range does the same job without a second set of rules.
+
+### 19.3 A shipped defect this found, which destroyed data
+
+`PUT /transactions/{id}` whose `transactions` array **omits** a split deletes that split.
+This was already recorded for bulk edit (§18.2), but `setReconciledAction` had been
+sending a single-split payload since E5-15. Ticking "Reconciled" on one line of a split
+transaction silently deleted its siblings. Measured directly: a two-leg group worth 10.00
+and 20.00, PUT with only the 20.00 leg's `transaction_journal_id`, answered 200 and came
+back holding one leg with the 10.00 one gone. Fixed by reading the group and resending
+every split. **Any write that touches one split must resend all of them** — and note that
+the rows on a reconcile screen only cover legs that touch the account being reconciled, so
+even they are not a safe basis for the payload; `planReconciledWrites` returns intent and
+the action applies it over what Firefly actually holds.
+
+### 19.4 Bugs in our own code, caught by measuring
+
+- **The sticky bar was 379px of a 780px phone screen** — half the viewport, permanently,
+  over the list it exists to help you read. Found by measuring the bar's rect at 390×780,
+  not by looking at a desktop screenshot. Moving the correction card into normal flow took
+  it to 65px.
+- **Un-reconciling reported itself as reconciling.** Unticking a month and saving answered
+  "Reconciled 12 transactions" for a submit that did the exact opposite. The write was
+  correct and the sentence describing it was not, which on a page about making the books
+  true is the wrong place to be loose. `countChanges` now splits the two directions and
+  both the button and the banner name what will actually happen.
+- **The page would have rendered a dead Firefly as a full-period difference.**
+  `getAccountTransactions` is `fireflyGetSafe`, which answers `{data: []}` on failure. On
+  a list that reads as "no transactions"; here it would read as an opening balance, a
+  difference the size of the whole statement, and a button offering to write that
+  difference into the ledger — the dashboard-zeros defect with a money write on the end of
+  it. The reconciliation reads throw, and the page shows the failure as a failure.
+- **The action re-checked the arithmetic against a cached copy of the same data.** Reads
+  are cached for 30s (transactions) and 60s (accounts), so re-deriving the difference
+  server-side would have reproduced exactly the staleness that re-deriving it exists to
+  catch — including a transaction the user just edited in Firefly's own UI in the other
+  tab. The action's reads are `noCache`, and so is the holding-account lookup, whose
+  answer decides what advice the page gives.
+- **A statement figure is pasted from a bank, and `toDecimal` answers 0 for anything it
+  cannot read.** 0 is a plausible balance, so a pasted `1.234,56` would have become a
+  €1,234.56 difference and then a correction for money that never moved.
+  `parseStatementInput` resolves separators by position rather than locale and refuses
+  what it cannot read, with 23 cases pinned in tests.
+
+## 20. E11-09 rule expressions — verification log
+
+Firefly's rule actions have a macro language. The OpenAPI spec mentions it
+nowhere; the only way to find it is to read `Models/RuleAction.php`. Everything
+below was read out of the container's PHP and then confirmed by writing rules on
+a live 6.5.5 instance, creating transactions that matched them, and reading back
+what got written.
+
+### 20.1 How it works
+
+|              |                                                                                                                                                                                                                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Trigger      | An action value where `str_starts_with($v, '=') && strlen($v) > 1`. Triggers are never evaluated — `RuleAction::getValue()` is the only caller.                                                                                                                                                                    |
+| Engine       | Symfony ExpressionLanguage, via `CustomExpressionLanguage`.                                                                                                                                                                                                                                                        |
+| Functions    | `min`, `max`, `substr`, `strlen`, `strpos`. **That is the complete list** — `registerFunctions()` overrides Symfony's and never calls the parent, so `strtolower`, `str_replace`, `date` and everything else are absent. `constant()` resolves but is deliberately neutered by `ActionExpressionLanguageProvider`. |
+| Variables    | The 40 names whitelisted in `ActionExpression::$NAMES`.                                                                                                                                                                                                                                                            |
+| Validation   | `IsValidActionExpression` lints on save and returns a precise 422: _"Variable \"nonexistent_field\" is not valid around position 1"_. A bad expression cannot be stored.                                                                                                                                           |
+| Feature flag | `firefly.feature_flags.expression_engine`, hard-coded `true` in 6.5.5.                                                                                                                                                                                                                                             |
+
+### 20.2 The escape, which is the trap
+
+A value beginning with `\=` is a literal, and `getValue()` returns
+`substr($value, 1)` — so Firefly writes the rest of it verbatim **including the
+equals sign**. An action stored as `\='Bill for ' ~ substr(date, 0, 7)` sets the
+description to the string `='Bill for ' ~ substr(date, 0, 7)`, which is
+indistinguishable from an expression that silently failed to run. Confirmed by
+storing exactly that and reading the transaction back.
+
+It matters because Firefly puts the prefix there itself.
+`upgrade:600-rule-actions` walks every rule action on upgrade and rewrites any
+value starting with `=` to `\=`, so that pre-expression-engine rules keep their
+old literal behaviour. A rule written before an instance moved onto the engine
+therefore arrives on the other side escaped, still looking correct in every UI
+that renders its value. The builder detects the prefix, explains it and offers
+one click to undo it.
+
+### 20.3 Three field values that are not what their names suggest
+
+Read off a real withdrawal by setting the description to each field in turn:
+
+- **`amount` is signed and carried to twelve places** — `-12.500000000000`, not
+  `12.50`. Anyone writing `=amount` into a description gets that.
+- **`date` is a datetime** — `2026-08-14 00:00:00`. Hence `substr(date, 0, 7)`
+  for the month and `0, 10` for the day.
+- **`transaction_type_type` is capitalised** — `Withdrawal`, not `withdrawal`.
+
+And one that is worse than surprising: **`tags` is an array, and touching it in
+an expression throws `Array to string conversion`, which fails the whole
+transaction with a 500** — not just the rule, the write. `POST /transactions`
+was rejected outright. The builder refuses to preview it and says so in the
+field list.
+
+### 20.4 The preview, and why it refuses
+
+`previewExpression` implements the part of the grammar people use — literals,
+field names, `~`, arithmetic and the five functions — and returns a REASON
+instead of a value for anything else. A preview that is confidently wrong about
+what a rule will do to a ledger is worse than no preview, so a ternary, a
+`matches`, or a comparison all come back as "no preview, Firefly will check it
+when you save" rather than an approximation.
+
+Its answers were checked against Firefly rather than reasoned out: fourteen
+expressions were written into a real rule in turn, a matching transaction
+created for each, and the description read back. All fourteen matched. The two
+worth recording because the obvious assumption is wrong both times:
+
+- `substr(date, 0, -9)` is `2026-08-14` — a negative length counts back from the
+  end, PHP-style.
+- `'' ~ 1 + 2` is `3`, not `12`. `~` binds LOOSER than `+`, which is the opposite
+  of reading it left to right.

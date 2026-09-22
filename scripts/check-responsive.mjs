@@ -21,6 +21,10 @@ const PAGES = [
   '/accounts',
   '/transactions',
   '/accounts/1',
+  // E4-06. The reconcile list is a row of flex children with an amount at the
+  // far right and a sticky bar under it, which is the shape that pushed pages
+  // sideways before.
+  '/accounts/1/reconcile',
   '/transactions/new',
   '/budgets',
   '/budgets/new',

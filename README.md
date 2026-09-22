@@ -22,7 +22,7 @@ presentation and workflow layer with its own identity system, so you sign in her
 attach your own Firefly instance with a Personal Access Token. Your ledger never moves,
 and you can keep using Firefly III's own UI alongside it.
 
-> **Status: beta (`v0.9.0`).** Milestones M0–M6 are complete — the whole
+> **Status: beta (`v0.9.1`).** Milestones M0–M6 are complete — the whole
 > money-management, reporting and automation surface runs against your own instance
 > — and M7 is nearly there: the design system is complete, the app is installable,
 > it passes an automated accessibility audit in both themes, and it ships with a
@@ -96,26 +96,26 @@ one — and the dashboard finds its figures, which are keyed by that currency.
 
 ## Features
 
-|                                                                                                                                                                                                        |       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
-| **Dashboard** — net worth, income, spending and balance with period-over-period deltas, net-worth chart, top categories, upcoming bills, savings goals, budget pacing                                  | ✅    |
-| **Transactions** — virtualised grid, filters, operator-aware search, saved views, full create/edit/split/duplicate/delete, bulk edit, quick add, CSV export, attachments, transaction links            | ✅    |
-| **Accounts** — grouped list, per-account detail with balance history and money in/out                                                                                                                  | ✅    |
-| **Budgets, categories, subscriptions, piggy banks** — full CRUD, budget limits, spending pace, annualised cost, savings progress, object groups                                                        | ✅    |
-| **Reports** — net worth, income vs expense, categories, budgets, accounts, tags, subscriptions, a cash-flow Sankey, and a custom report builder; CSV and print-to-PDF                                  | ✅    |
-| **Automation** — rule groups with a visual builder and a dry run, recurring transactions with a forecast and manual trigger, tags with a cloud view and bulk tagging                                   | ✅    |
-| **Currencies** — enable/disable, set the primary currency, manage exchange rates                                                                                                                       | ✅    |
-| **Attachments** — upload, drag/drop/paste, camera capture, lightbox preview, and a manager for everything stored                                                                                       | ✅    |
-| **A front door** — the sign-in page doubles as the landing page: it explains what this is to a first-time visitor without making a returning one scroll past it                                        | ✅    |
-| **Accounts & auth** — sign-up, email verification, password reset, database-backed sessions, TOTP two-factor with recovery codes, active-session management, audit trail, account deletion             | ✅    |
-| **Connections** — guided onboarding that probes your instance, several instances per account with a switcher, background health checks, and an optional managed instance users can be provisioned onto | ✅    |
-| **Settings & admin** — Firefly preferences, an About/diagnostics panel, owner-gated user, user-group and instance-configuration management, and a danger zone behind step-up re-auth                   | ✅    |
-| **Operations** — multi-stage non-root image, migrations on boot, health and readiness endpoints, Redis-backed response cache, opt-in Sentry error reporting                                            | ✅    |
-| **Installable** — web manifest and service worker, an offline page, and a cache that deliberately holds no financial data                                                                              | ✅    |
-| **Accessible** — an axe-core gate over 19 routes in both themes with zero violations, a text alternative for every chart, and a typed error state for every kind of failure                            | ✅    |
-| **Polish & hardening** — i18n, optimistic updates, load testing, e2e suite                                                                                                                             | M7–M8 |
+|                                                                                                                                                                                                                       |       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| **Dashboard** — net worth, income, spending and balance with period-over-period deltas, net-worth chart, top categories, upcoming bills, savings goals, budget pacing                                                 | ✅    |
+| **Transactions** — virtualised grid, filters, operator-aware search, saved views, full create/edit/split/duplicate/delete, bulk edit, quick add, CSV export, attachments, transaction links                           | ✅    |
+| **Accounts** — grouped list, per-account detail with balance history and money in/out, and statement reconciliation with a running difference and an optional correcting entry                                        | ✅    |
+| **Budgets, categories, subscriptions, piggy banks** — full CRUD, budget limits, spending pace, annualised cost, savings progress, object groups                                                                       | ✅    |
+| **Reports** — net worth, income vs expense, categories, budgets, accounts, tags, subscriptions, a cash-flow Sankey, and a custom report builder; CSV and print-to-PDF                                                 | ✅    |
+| **Automation** — rule groups with a visual builder, a dry run and Firefly's expression macros with a live preview, recurring transactions with a forecast and manual trigger, tags with a cloud view and bulk tagging | ✅    |
+| **Currencies** — enable/disable, set the primary currency, manage exchange rates                                                                                                                                      | ✅    |
+| **Attachments** — upload, drag/drop/paste, camera capture, lightbox preview, and a manager for everything stored                                                                                                      | ✅    |
+| **A front door** — the sign-in page doubles as the landing page: it explains what this is to a first-time visitor without making a returning one scroll past it                                                       | ✅    |
+| **Accounts & auth** — sign-up, email verification, password reset, database-backed sessions, TOTP two-factor with recovery codes, active-session management, audit trail, account deletion                            | ✅    |
+| **Connections** — guided onboarding that probes your instance, several instances per account with a switcher, background health checks, and an optional managed instance users can be provisioned onto                | ✅    |
+| **Settings & admin** — Firefly preferences, an About/diagnostics panel, owner-gated user, user-group and instance-configuration management, and a danger zone behind step-up re-auth                                  | ✅    |
+| **Operations** — multi-stage non-root image, migrations on boot, health and readiness endpoints, Redis-backed response cache, opt-in Sentry error reporting                                                           | ✅    |
+| **Installable** — web manifest and service worker, an offline page, and a cache that deliberately holds no financial data                                                                                             | ✅    |
+| **Accessible** — an axe-core gate over 21 routes in both themes with zero violations, a text alternative for every chart, and a typed error state for every kind of failure                                           | ✅    |
+| **Polish & hardening** — i18n, optimistic updates, load testing, e2e suite                                                                                                                                            | M7–M8 |
 
-167 of 224 backlog items are complete. The full backlog, with what shipped and what was
+180 of 228 backlog items are complete. The full backlog, with what shipped and what was
 cut, is [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) §8.
 
 ## Quick start

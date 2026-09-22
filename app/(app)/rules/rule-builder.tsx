@@ -12,7 +12,6 @@ import {
   RULE_ACTIONS,
   RULE_TRIGGERS,
   RULE_TRIGGER_MODES,
-  TRANSACTION_TYPES,
   byGroup,
   findAction,
   findTrigger,
@@ -20,9 +19,9 @@ import {
   type Keyword,
 } from '@/lib/rule-vocabulary';
 import { Input, Label } from '@/components/ui/input';
-import { Combobox } from '@/components/ui/combobox';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { RuleValueField } from './value-field';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
 import type { Rule, RuleGroup } from '@/server/firefly/types';
@@ -61,17 +60,27 @@ function KeywordSelect({
   vocabulary,
   value,
   onChange,
+  label,
 }: {
   name: string;
   vocabulary: Keyword[];
   value: string;
   onChange: (next: string) => void;
+  /**
+   * The accessible name. Required, because without one axe reports
+   * `select-name` at critical and a screen reader announces the row as a bare
+   * combo box — on a page whose whole content is rows of unlabelled selects,
+   * that is the difference between a form and a wall of "combo box, Set
+   * category to".
+   */
+  label: string;
 }) {
   return (
     <Select
       name={name}
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      aria-label={label}
       className="border-input bg-background w-full rounded-md border px-2 py-1.5 text-sm"
     >
       {byGroup(vocabulary).map((group) => (
@@ -117,55 +126,29 @@ function RowEditor({
             vocabulary={vocabulary}
             value={row.type}
             onChange={(type) => onChange({ ...row, type })}
+            label={prefix === 'triggers' ? `Condition ${index + 1}` : `Action ${index + 1}`}
           />
         </div>
 
         <div className="min-w-0 flex-1 basis-48">
           {wantsValue ? (
-            keyword?.kind === 'transaction-type' ? (
-              <Select
-                name={`${base}[value]`}
-                value={row.value || TRANSACTION_TYPES[0]}
-                onChange={(event) => onChange({ ...row, value: event.target.value })}
-                className="border-input bg-background w-full rounded-md border px-2 py-1.5 text-sm"
-              >
-                {TRANSACTION_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </Select>
-            ) : keyword?.kind === 'bill' ? (
-              /*
-               * A picker, because Firefly rejects anything that is not the
-               * exact name of an existing subscription — including its id. The
-               * only feedback a free-text box could give is a 422 after save.
-               *
-               * `allowFreeText` stays on all the same: the value may already be
-               * a name this Firefly no longer autocompletes (a deactivated
-               * subscription still matches historic transactions), and blanking
-               * someone's working rule because the picker could not find its
-               * value is worse than letting them keep it.
-               */
-              <>
-                <Combobox
-                  endpoint="bills"
-                  value={row.value}
-                  onChange={(value) => onChange({ ...row, value })}
-                  placeholder="Pick a subscription"
-                />
-                <input type="hidden" name={`${base}[value]`} value={row.value} />
-              </>
-            ) : (
-              <Input
-                name={`${base}[value]`}
-                value={row.value}
-                inputMode={keyword?.kind === 'amount' ? 'decimal' : undefined}
-                placeholder={keyword?.kind === 'amount' ? '25.00' : 'value'}
-                onChange={(event) => onChange({ ...row, value: event.target.value })}
-                aria-label="Value"
-              />
-            )
+            /*
+             * One control for every value, because the choices are alternatives
+             * rather than a list: a picker where the keyword names a thing, a
+             * select where Firefly takes one of three words, and an expression
+             * editor the moment the value starts with `=`. See value-field.tsx.
+             */
+            <RuleValueField
+              name={`${base}[value]`}
+              keyword={keyword}
+              value={row.value}
+              onChange={(value) => onChange({ ...row, value })}
+              label={
+                prefix === 'triggers'
+                  ? `Value for condition ${index + 1}`
+                  : `Value for action ${index + 1}`
+              }
+            />
           ) : (
             <p className="text-muted-foreground px-1 py-2 text-xs">Nothing more to fill in.</p>
           )}

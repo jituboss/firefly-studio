@@ -10,6 +10,67 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-22
+
+**Two things Firefly III can do that this app could not reach — and one way it
+was losing data.**
+
+### Fixed
+
+- **Ticking "Reconciled" on one line of a split transaction deleted the other
+  lines.** Firefly treats a transaction update that leaves a part out as an
+  instruction to remove that part, and this app had been sending only the line
+  you clicked. A two-part transaction of 10.00 and 20.00 came back holding one
+  part, with no error and nothing to show what had gone. If you have used that
+  toggle on a split transaction, check those transactions.
+
+### Added
+
+- **Reconcile an account against a bank statement.** A Reconcile button on any
+  asset account opens a statement period, takes the closing balance printed on
+  your statement, and lets you tick off the lines that appear on it while the
+  difference counts down to zero. It tells you which situation you are in
+  rather than only showing a number: still working through the list, or
+  everything ticked and the statement has a line your ledger has never heard
+  of. Shift-click ticks a run of rows; the whole row is the target, not the
+  checkbox.
+
+  Where the difference will not close, it offers to write Firefly's own
+  reconciliation entry to bring the account into line, naming the amount, the
+  direction and the account before you commit to it — and saying so out loud if
+  you still have lines unticked, because a correction written over those covers
+  money your books already have.
+
+  Asset accounts only. That is Firefly's rule rather than a limitation here: it
+  has no reconciliation for a liability, and the page says so instead of
+  failing later.
+
+- **Rule actions can build their value from the transaction.** Firefly III
+  evaluates any rule action value starting with `=` against the transaction
+  itself, so `='Bill for ' ~ substr(date, 0, 7)` writes "Bill for 2026-08".
+  Nothing in this app said so. The rule builder now recognises it, lists the
+  fields and functions you can use, checks what you have written before you
+  save it, and **shows what it will produce**.
+
+  It also explains the case that looks like a bug. Firefly stores some action
+  values with a `\=` prefix meaning "write this out as text", and adds that
+  prefix itself to existing rules when an instance is upgraded — so a rule that
+  used to work starts writing out its own formula, equals sign and all, while
+  still looking correct everywhere. The builder spots it, says what happened,
+  and fixes it in one click.
+
+- **Autocomplete on every rule value that names something.** Setting a
+  category, budget, tag, account or subscription in a rule was a text box you
+  had to spell correctly, and a near-miss produced a rule that quietly did
+  nothing. All seventeen now suggest as you type, and the three "convert to"
+  actions only offer the kind of account Firefly will accept.
+
+### Changed
+
+- Rule rows are readable by a screen reader. Every condition and action is
+  named, where before the page was a column of unlabelled dropdowns and eight
+  boxes all called "Value".
+
 ## [0.9.0] - 2026-09-21
 
 **Two things the app was saying that were not true, and four it could not do
@@ -874,7 +935,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.0...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.1
 [0.9.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.0
 [0.8.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.8.0
 [0.7.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.7.0

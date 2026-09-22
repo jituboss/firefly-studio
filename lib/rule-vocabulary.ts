@@ -17,6 +17,23 @@ export interface Keyword {
   kind: ValueKind;
   /** Grouping for the picker, so 36 options are not one flat list. */
   group: string;
+  /**
+   * The `/autocomplete/*` endpoint whose names are valid here, when there is
+   * one.
+   *
+   * Only ever set on keywords that match or set a whole NAME. The `_contains`,
+   * `_starts` and `_ends` triggers match a fragment, and offering a list of
+   * complete names in front of a box that wants "Amaz" is a picker that is
+   * wrong about its own job — every suggestion it makes is a value the trigger
+   * will still match, but none of them is what the user is writing.
+   */
+  autocomplete?: string;
+  /**
+   * Narrows an account picker to the types this keyword can actually take, via
+   * Firefly's `types=` parameter. Offering every account for "convert to
+   * withdrawal, paying" would list asset accounts that Firefly then rejects.
+   */
+  accountTypes?: string;
 }
 
 /** Firefly's own three transaction types, for `transaction_type`. */
@@ -42,7 +59,13 @@ export const RULE_TRIGGERS: Keyword[] = [
   { value: 'amount_more', label: 'Amount is more than', kind: 'amount', group: 'Amount' },
   { value: 'amount_less', label: 'Amount is less than', kind: 'amount', group: 'Amount' },
 
-  { value: 'from_account_is', label: 'Source account is', kind: 'text', group: 'Accounts' },
+  {
+    value: 'from_account_is',
+    autocomplete: 'accounts',
+    label: 'Source account is',
+    kind: 'text',
+    group: 'Accounts',
+  },
   {
     value: 'from_account_contains',
     label: 'Source account contains',
@@ -61,14 +84,26 @@ export const RULE_TRIGGERS: Keyword[] = [
     kind: 'text',
     group: 'Accounts',
   },
-  { value: 'source_account_is', label: 'Source account matches', kind: 'text', group: 'Accounts' },
+  {
+    value: 'source_account_is',
+    autocomplete: 'accounts',
+    label: 'Source account matches',
+    kind: 'text',
+    group: 'Accounts',
+  },
   {
     value: 'source_account_starts',
     label: 'Source account begins',
     kind: 'text',
     group: 'Accounts',
   },
-  { value: 'to_account_is', label: 'Destination account is', kind: 'text', group: 'Accounts' },
+  {
+    value: 'to_account_is',
+    autocomplete: 'accounts',
+    label: 'Destination account is',
+    kind: 'text',
+    group: 'Accounts',
+  },
   {
     value: 'to_account_contains',
     label: 'Destination account contains',
@@ -89,14 +124,27 @@ export const RULE_TRIGGERS: Keyword[] = [
   },
   {
     value: 'destination_account_is',
+    autocomplete: 'accounts',
     label: 'Destination account matches',
     kind: 'text',
     group: 'Accounts',
   },
 
-  { value: 'category_is', label: 'Category is', kind: 'text', group: 'Classification' },
-  { value: 'budget_is', label: 'Budget is', kind: 'text', group: 'Classification' },
-  { value: 'tag_is', label: 'Tag is', kind: 'text', group: 'Classification' },
+  {
+    value: 'category_is',
+    autocomplete: 'categories',
+    label: 'Category is',
+    kind: 'text',
+    group: 'Classification',
+  },
+  {
+    value: 'budget_is',
+    autocomplete: 'budgets',
+    label: 'Budget is',
+    kind: 'text',
+    group: 'Classification',
+  },
+  { value: 'tag_is', autocomplete: 'tags', label: 'Tag is', kind: 'text', group: 'Classification' },
   { value: 'currency_is', label: 'Currency is', kind: 'text', group: 'Classification' },
   {
     value: 'transaction_type',
@@ -126,12 +174,24 @@ export const RULE_TRIGGERS: Keyword[] = [
  * marker rather than something a person composes, so it is not offered.
  */
 export const RULE_ACTIONS: Keyword[] = [
-  { value: 'set_category', label: 'Set category to', kind: 'text', group: 'Classification' },
+  {
+    value: 'set_category',
+    autocomplete: 'categories',
+    label: 'Set category to',
+    kind: 'text',
+    group: 'Classification',
+  },
   { value: 'clear_category', label: 'Clear the category', kind: 'none', group: 'Classification' },
-  { value: 'set_budget', label: 'Set budget to', kind: 'text', group: 'Classification' },
+  {
+    value: 'set_budget',
+    autocomplete: 'budgets',
+    label: 'Set budget to',
+    kind: 'text',
+    group: 'Classification',
+  },
   { value: 'clear_budget', label: 'Clear the budget', kind: 'none', group: 'Classification' },
-  { value: 'add_tag', label: 'Add tag', kind: 'text', group: 'Tags' },
-  { value: 'remove_tag', label: 'Remove tag', kind: 'text', group: 'Tags' },
+  { value: 'add_tag', autocomplete: 'tags', label: 'Add tag', kind: 'text', group: 'Tags' },
+  { value: 'remove_tag', autocomplete: 'tags', label: 'Remove tag', kind: 'text', group: 'Tags' },
   { value: 'remove_all_tags', label: 'Remove all tags', kind: 'none', group: 'Tags' },
 
   { value: 'set_description', label: 'Set description to', kind: 'text', group: 'Description' },
@@ -153,9 +213,16 @@ export const RULE_ACTIONS: Keyword[] = [
   { value: 'prepend_notes', label: 'Prepend to notes', kind: 'text', group: 'Notes' },
   { value: 'clear_notes', label: 'Clear the notes', kind: 'none', group: 'Notes' },
 
-  { value: 'set_source_account', label: 'Set source account to', kind: 'text', group: 'Accounts' },
+  {
+    value: 'set_source_account',
+    autocomplete: 'accounts',
+    label: 'Set source account to',
+    kind: 'text',
+    group: 'Accounts',
+  },
   {
     value: 'set_destination_account',
+    autocomplete: 'accounts',
     label: 'Set destination account to',
     kind: 'text',
     group: 'Accounts',
@@ -175,16 +242,38 @@ export const RULE_ACTIONS: Keyword[] = [
    * internally and the action's value follows the rename. Also verified, and
    * worth recording because the opposite is the obvious assumption.
    */
-  { value: 'link_to_bill', label: 'Link to subscription', kind: 'bill', group: 'Accounts' },
+  {
+    value: 'link_to_bill',
+    autocomplete: 'bills',
+    label: 'Link to subscription',
+    kind: 'bill',
+    group: 'Accounts',
+  },
 
   {
     value: 'convert_withdrawal',
+    autocomplete: 'accounts',
+    accountTypes: 'Expense account',
     label: 'Convert to withdrawal, paying',
     kind: 'text',
     group: 'Convert',
   },
-  { value: 'convert_deposit', label: 'Convert to deposit, from', kind: 'text', group: 'Convert' },
-  { value: 'convert_transfer', label: 'Convert to transfer, to', kind: 'text', group: 'Convert' },
+  {
+    value: 'convert_deposit',
+    autocomplete: 'accounts',
+    accountTypes: 'Revenue account',
+    label: 'Convert to deposit, from',
+    kind: 'text',
+    group: 'Convert',
+  },
+  {
+    value: 'convert_transfer',
+    autocomplete: 'accounts',
+    accountTypes: 'Asset account',
+    label: 'Convert to transfer, to',
+    kind: 'text',
+    group: 'Convert',
+  },
 
   { value: 'delete_transaction', label: 'Delete the transaction', kind: 'none', group: 'Danger' },
 ];

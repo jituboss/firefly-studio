@@ -28,6 +28,15 @@ export interface AmountProps extends Omit<React.ComponentProps<'span'>, 'childre
   showSign?: boolean;
   compact?: boolean;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /**
+   * Replaces the screen-reader text, for figures that are not a flow of money.
+   *
+   * The default announces "incoming" or "outgoing", which is right for a
+   * transaction and wrong for a balance: "incoming 49,036.80" is not what an
+   * opening balance is. Pass a phrase instead wherever the number is a position
+   * rather than a movement.
+   */
+  describe?: string;
 }
 
 const toneClasses: Record<Exclude<AmountTone, 'auto'>, string> = {
@@ -57,6 +66,7 @@ export function Amount({
   showSign,
   compact = false,
   size = 'md',
+  describe,
   className,
   ...props
 }: AmountProps) {
@@ -91,7 +101,7 @@ export function Amount({
       {/* The visible glyph is inside the formatted string via signDisplay; this
           label is what a screen reader announces instead of a bare minus sign. */}
       <span aria-hidden="true">{formatted}</span>
-      <span className="sr-only">{describeMoney(value, currency, locale)}</span>
+      <span className="sr-only">{describe ?? describeMoney(value, currency, locale)}</span>
     </span>
   );
 }
