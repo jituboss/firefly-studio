@@ -61,4 +61,14 @@ regexes = [
   # same pair baked into the Dockerfile's build stage.
   '''(APP_ENCRYPTION_KEY|AUTH_SECRET)\s*[:=]\s*['"]?A{20,}=''',
   '''(APP_ENCRYPTION_KEY|AUTH_SECRET)\s*[:=]\s*['"]?B{20,}=''',
+  # The `CHANGE_ME_` placeholders in the committed deployment example. Long
+  # enough to read as high entropy — the managed-Firefly one measures 4.86 — so
+  # the custom rules match them exactly as they would match a real password.
+  #
+  # Allowlisted by the PLACEHOLDER CONVENTION rather than by path on purpose.
+  # `deploy/truenas/docker-compose.example.yml` is a file people copy, fill in
+  # and sometimes paste back; exempting the whole file would mean a real secret
+  # landing in it went unreported, which is the one thing that file must not be
+  # able to do. A value that literally begins `CHANGE_ME_` is never a secret.
+  '''[A-Za-z_]+\s*[:=]\s*['"]?CHANGE_ME_[A-Za-z0-9_]*''',
 ]
