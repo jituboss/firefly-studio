@@ -22,13 +22,9 @@ presentation and workflow layer with its own identity system, so you sign in her
 attach your own Firefly instance with a Personal Access Token. Your ledger never moves,
 and you can keep using Firefly III's own UI alongside it.
 
-> **Status: beta (`v0.9.1`).** Milestones M0–M6 are complete — the whole
-> money-management, reporting and automation surface runs against your own instance
-> — and M7 is nearly there: the design system is complete, the app is installable,
-> it passes an automated accessibility audit in both themes, and it ships with a
-> bundle budget and a typed error taxonomy. What remains is i18n, the rest of the
-> optimistic-update pass, and the M8 security and testing work. See the
-> [roadmap](#roadmap).
+> **Status: beta.** The whole money-management, reporting and automation surface
+> works against your own instance, and is what the demo below runs on. It is not yet
+> hardened for a hostile network — see [Security](#security) — and it is English-only.
 
 ## Try it
 
@@ -96,27 +92,26 @@ one — and the dashboard finds its figures, which are keyed by that currency.
 
 ## Features
 
-|                                                                                                                                                                                                                       |       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| **Dashboard** — net worth, income, spending and balance with period-over-period deltas, net-worth chart, top categories, upcoming bills, savings goals, budget pacing                                                 | ✅    |
-| **Transactions** — virtualised grid, filters, operator-aware search, saved views, full create/edit/split/duplicate/delete, bulk edit, quick add, CSV export, attachments, transaction links                           | ✅    |
-| **Accounts** — grouped list, per-account detail with balance history and money in/out, and statement reconciliation with a running difference and an optional correcting entry                                        | ✅    |
-| **Budgets, categories, subscriptions, piggy banks** — full CRUD, budget limits, spending pace, annualised cost, savings progress, object groups                                                                       | ✅    |
-| **Reports** — net worth, income vs expense, categories, budgets, accounts, tags, subscriptions, a cash-flow Sankey, and a custom report builder; CSV and print-to-PDF                                                 | ✅    |
-| **Automation** — rule groups with a visual builder, a dry run and Firefly's expression macros with a live preview, recurring transactions with a forecast and manual trigger, tags with a cloud view and bulk tagging | ✅    |
-| **Currencies** — enable/disable, set the primary currency, manage exchange rates                                                                                                                                      | ✅    |
-| **Attachments** — upload, drag/drop/paste, camera capture, lightbox preview, and a manager for everything stored                                                                                                      | ✅    |
-| **A front door** — the sign-in page doubles as the landing page: it explains what this is to a first-time visitor without making a returning one scroll past it                                                       | ✅    |
-| **Accounts & auth** — sign-up, email verification, password reset, database-backed sessions, TOTP two-factor with recovery codes, active-session management, audit trail, account deletion                            | ✅    |
-| **Connections** — guided onboarding that probes your instance, several instances per account with a switcher, background health checks, and an optional managed instance users can be provisioned onto                | ✅    |
-| **Settings & admin** — Firefly preferences, an About/diagnostics panel, owner-gated user, user-group and instance-configuration management, and a danger zone behind step-up re-auth                                  | ✅    |
-| **Operations** — multi-stage non-root image, migrations on boot, health and readiness endpoints, Redis-backed response cache, opt-in Sentry error reporting                                                           | ✅    |
-| **Installable** — web manifest and service worker, an offline page, and a cache that deliberately holds no financial data                                                                                             | ✅    |
-| **Accessible** — an axe-core gate over 21 routes in both themes with zero violations, a text alternative for every chart, and a typed error state for every kind of failure                                           | ✅    |
-| **Polish & hardening** — i18n, optimistic updates, load testing, e2e suite                                                                                                                                            | M7–M8 |
+- **Dashboard** — net worth, income, spending and balance with period-over-period deltas, net-worth chart, top categories, upcoming bills, savings goals, budget pacing
+- **Transactions** — virtualised grid, filters, operator-aware search, saved views, full create/edit/split/duplicate/delete, bulk edit, quick add, CSV export, attachments, transaction links
+- **Accounts** — grouped list, per-account detail with balance history and money in/out, and statement reconciliation with a running difference and an optional correcting entry
+- **Budgets, categories, subscriptions, piggy banks** — full CRUD, budget limits, spending pace, annualised cost, savings progress, object groups
+- **Reports** — net worth, income vs expense, categories, budgets, accounts, tags, subscriptions, a cash-flow Sankey, and a custom report builder; CSV and print-to-PDF
+- **Automation** — rule groups with a visual builder, a dry run and Firefly's expression macros with a live preview, recurring transactions with a forecast and manual trigger, tags with a cloud view and bulk tagging
+- **Currencies** — enable/disable, set the primary currency, manage exchange rates
+- **Attachments** — upload, drag/drop/paste, camera capture, lightbox preview, and a manager for everything stored
+- **A front door** — the sign-in page doubles as the landing page: it explains what this is to a first-time visitor without making a returning one scroll past it
+- **Accounts & auth** — sign-up, email verification, password reset, database-backed sessions, TOTP two-factor with recovery codes, active-session management, audit trail, account deletion
+- **Connections** — guided onboarding that probes your instance, several instances per account with a switcher, background health checks, and an optional managed instance users can be provisioned onto
+- **Settings & admin** — Firefly preferences, an About/diagnostics panel, owner-gated user, user-group and instance-configuration management, and a danger zone behind step-up re-auth
+- **Operations** — multi-stage non-root image, migrations on boot, health and readiness endpoints, Redis-backed response cache, opt-in Sentry error reporting
+- **Installable** — web manifest and service worker, an offline page, and a cache that deliberately holds no financial data
+- **Accessible** — an axe-core gate over every main route in both themes with zero violations, a text alternative for every chart, and a typed error state for every kind of failure
 
-180 of 228 backlog items are complete. The full backlog, with what shipped and what was
-cut, is [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) §8.
+**Not yet:** translations, an end-to-end test suite, and the remaining hardening listed
+under [Security](#security). A few things are blocked on Firefly III itself rather than
+on this: the export centre (all nine `/data/export/*` endpoints return HTTP 500 on
+6.5.5), Firefly OAuth2 sign-in, and scheduled report delivery.
 
 ## Quick start
 
@@ -273,59 +268,50 @@ re-authentication.
 Two things to get right before exposing this:
 
 - **Set `FIREFLY_ALLOW_PRIVATE_NETWORKS=false` on anything internet-facing.** The Firefly
-  base URL is supplied by the user, which makes SSRF the primary risk in this design; the
-  controls are in [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) §4.2.
+  base URL is supplied by the user, which makes SSRF the primary risk in this design;
+  [docs/SECURITY.md](docs/SECURITY.md) describes the guard and what is still untested
+  about it.
 - **Back up `APP_ENCRYPTION_KEY` separately from your database.** It decrypts every stored
   token. Losing it means every user re-enters theirs.
 
-The M8 hardening pass is not finished — key rotation, a load test and an independent
-review are still open, though CSRF, dependency scanning and secret scanning have landed. Treat this as beta software: fine on a private network or behind
-an authenticating proxy, not yet audited for a hostile one.
+Hardening is not finished: encryption-key rotation, a load test and an independent review
+are still open, though CSRF protection, dependency scanning and secret scanning have
+landed. Treat this as beta software — fine on a private network or behind an
+authenticating proxy, not yet audited for a hostile one.
 [docs/SECURITY.md](docs/SECURITY.md) lists every known gap by name, says what is in scope,
 and explains how to report something privately.
 
-## Roadmap
-
-M0–M6 shipped the product surface. The two remaining milestones are about making it fit
-to hand to someone else:
-
-| Milestone                   | What is left                                                                                                                                                                                                                            |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **M7 — Polish**             | Mostly landed: accessibility audit, PWA, prefetching, bundle budget, preferences page, empty and error states, and the complete primitive set. Left: i18n, optimistic updates, a systematic responsive pass, high contrast              |
-| **M8 — Hardening & launch** | CSP/HSTS and CSRF double-submit, an SSRF test suite over the existing guard, encryption-key rotation, dependency and secret scanning, `SECURITY.md` and a threat model, Playwright e2e and contract tests, backup/restore and user docs |
-
-A few things are blocked rather than pending, and the plan records what would unblock
-each: the export centre (all nine `/data/export/*` endpoints return HTTP 500 on Firefly
-III 6.5.5 — an upstream `league/csv` bug), Firefly OAuth2 and social sign-in (need
-registered clients), and scheduled reports (need a job runner). Webhooks were dropped
-from scope deliberately: Firefly III already owns the delivery log and retry state, so a
-second UI could only be a worse copy — see E17 in the plan.
-
 ## Documentation
+
+**Running it**
+
+|                                      |                                                                 |
+| ------------------------------------ | --------------------------------------------------------------- |
+| [deploy/truenas/](deploy/truenas/)   | A complete single-file deployment, and the traps in it          |
+| [docs/SECURITY.md](docs/SECURITY.md) | Known gaps, what is in scope, how to report something privately |
+| [CHANGELOG.md](CHANGELOG.md)         | What changed, by version                                        |
+
+**Working on it**
 
 |                                              |                                                                           |
 | -------------------------------------------- | ------------------------------------------------------------------------- |
-| [docs/](docs/)                               | Documentation index                                                       |
+| [CONTRIBUTING.md](CONTRIBUTING.md)           | Setup, and the four lint-enforced rules                                   |
 | [docs/LEARNING.md](docs/LEARNING.md)         | Start here if you are picking this project up — the "why" and the gotchas |
-| [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | Plan, architecture, API coverage inventory, backlog, verification logs    |
 | [docs/adr/](docs/adr/)                       | Architecture decision records                                             |
-| [docs/SECURITY.md](docs/SECURITY.md)         | Reporting a vulnerability, what is in scope, and the known gaps           |
+| [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | Plan, API coverage, backlog and the verification logs behind each feature |
 | [docs/RELEASING.md](docs/RELEASING.md)       | Cutting and publishing a release                                          |
-| [deploy/truenas/](deploy/truenas/)           | A worked single-file deployment, and the traps in it                      |
-| [CONTRIBUTING.md](CONTRIBUTING.md)           | Setup and the four lint-enforced rules                                    |
-| [CHANGELOG.md](CHANGELOG.md)                 | What changed, by version                                                  |
 | [spec/README.md](spec/README.md)             | How the vendored Firefly API spec is maintained                           |
 
 ## Development
 
 ```bash
 pnpm dev              # dev server
-pnpm test             # unit tests (350)
+pnpm test             # unit tests
 pnpm lint             # includes the four enforced rules
 pnpm typecheck
 pnpm build
 pnpm check:bundle     # per-route gzipped JS against a committed budget
-pnpm check:a11y       # axe-core over 19 routes, light and dark
+pnpm check:a11y       # axe-core over every main route, light and dark
 pnpm check:responsive # horizontal-overflow check at 4 widths (needs a session cookie)
 pnpm audit            # dependency advisories at moderate and above
 ```
