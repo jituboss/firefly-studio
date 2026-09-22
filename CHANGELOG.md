@@ -10,6 +10,31 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-22
+
+**The totals above the transaction list, rebuilt.**
+
+### Fixed
+
+- **The page totals were a line of text with a scrollbar under them.** In, Out
+  and Net, the note about transfers and the whole multi-currency disclosure were
+  held on one line at any width, so on anything narrower than a desktop the
+  strip scrolled sideways and clipped at both ends — the label saying what the
+  figures were totals _of_ was the first thing to disappear. A ledger in a
+  currency with long amounts, like BDT, pushed it well past a laptop's width
+  too.
+
+  They are three tiles now, at every width, with the qualifiers as a sentence
+  underneath. Nothing scrolls sideways and nothing is cut off, on a phone or
+  anywhere else. The currency is stated once beneath the figures rather than
+  repeated on each of them, which is most of the width that was being wasted.
+
+- **"Show native" did not show anything native.** Converting a multi-currency
+  page left the original figures where they were and added a fourth number
+  beside them, while the button offered to switch back to a view you had never
+  left. Converting now converts all three figures and marks them as estimated,
+  with the rate date beside them.
+
 ## [0.9.1] - 2026-09-22
 
 **Two things Firefly III can do that this app could not reach — and one way it
@@ -935,7 +960,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.1...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.2
 [0.9.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.1
 [0.9.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.0
 [0.8.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.8.0

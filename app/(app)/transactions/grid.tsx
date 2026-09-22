@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { FormMessage } from '@/components/auth/form-shell';
 import { rowsToCsv } from '@/components/reports/report-export';
 import { TransactionTable } from './table';
+import { PageTotals, type PageTotalsData } from '@/components/transactions/page-totals';
 import {
   bulkDeleteTransactionsAction,
   bulkUpdateTransactionsAction,
@@ -47,13 +48,14 @@ export function TransactionGrid({
   transactions,
   timezone,
   rangeLabel,
-  summary,
+  totals,
 }: {
   transactions: Transaction[];
   timezone: string;
   rangeLabel: string;
   /** Page totals, rendered beside the export button rather than above it. */
-  summary?: React.ReactNode;
+  /** Page totals, as data. Rendered here so the export button can sit inside them. */
+  totals?: PageTotalsData;
 }) {
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set());
   const [field, setField] = React.useState<string>('category');
@@ -150,6 +152,21 @@ export function TransactionGrid({
     URL.revokeObjectURL(url);
   };
 
+  /* Icon-only on a phone. The word "Export" next to a download glyph is 60px of
+     a 390px line spent saying what the glyph already says. */
+  const exportButton = (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="shrink-0 max-sm:size-9 max-sm:p-0"
+      onClick={exportCsv}
+      aria-label={count > 0 ? `Export ${count} selected` : 'Export CSV'}
+    >
+      <Download className="size-4" aria-hidden="true" />
+      <span className="max-sm:sr-only">Export {count > 0 ? count : 'CSV'}</span>
+    </Button>
+  );
+
   return (
     // The bottom padding is what stops the floating bar from covering the last
     // rows once the page is scrolled to the end.
@@ -157,22 +174,27 @@ export function TransactionGrid({
       {/* The hint that used to live here ("Tick a row to edit…") is gone: a
           column of checkboxes explains itself, and the count now lives in the
           selection bar. That is one less band before the data on a phone. */}
-      <div className="flex items-center justify-between gap-3">
-        {summary ?? <span />}
-        {/* Icon-only on a phone. The word "Export" next to a download glyph is
-            60px of a 390px line spent saying what the glyph already says, and
-            the line it shares carries three figures that matter more. */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0 max-sm:size-9 max-sm:p-0"
-          onClick={exportCsv}
-          aria-label={count > 0 ? `Export ${count} selected` : 'Export CSV'}
-        >
-          <Download className="size-4" aria-hidden="true" />
-          <span className="max-sm:sr-only">Export {count > 0 ? count : 'CSV'}</span>
-        </Button>
-      </div>
+      {/*
+        `PageTotals` is rendered HERE, from plain data, rather than handed in as
+        an element from the page.
+
+        It needs the export button inside it: the button belongs on the tiles'
+        row from `sm` and on the caption's row below that, because sharing the
+        tiles' row on a phone left them 69px of content each at 360px and the
+        figures truncated — "274,697...." — and a truncated amount is a wrong
+        amount. Neither way of getting the button in there from outside works
+        across the Server/Client boundary. A render prop is refused outright
+        ("Functions cannot be passed directly to Client Components"), and
+        `cloneElement` fails more quietly: a server-serialised element is not
+        `isValidElement` here, so the guard around it silently took the fallback
+        branch and the whole summary disappeared from the page. Data crosses the
+        boundary without either problem.
+      */}
+      {totals ? (
+        <PageTotals {...totals} action={exportButton} />
+      ) : (
+        <div className="flex justify-end">{exportButton}</div>
+      )}
 
       {/* Outside the selection block on purpose. A successful bulk action clears
           the selection, which unmounts the toolbar — leaving the result message

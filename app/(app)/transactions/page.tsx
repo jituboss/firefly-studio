@@ -16,14 +16,12 @@ import { add, toDecimal } from '@/lib/money';
 import { buildRates, convertTotal, type RateTable } from '@/lib/fx';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { HideBalancesToggle } from '@/components/hide-balances';
-import { CurrencyTotals } from '@/components/transactions/currency-totals';
 import { TransactionFilters } from './filters';
 import { TransactionGrid } from './grid';
 import { AddTransactionSheet } from '@/components/transactions/add-sheet';
 import { Pagination } from './pagination';
 import { SavedViews } from './saved-views';
 import { listSavedViews } from '@/server/saved-views';
-import { Amount } from '@/components/ui/amount';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -345,54 +343,20 @@ export default async function TransactionsPage({
             transactions={data}
             timezone={session.user.timezone}
             rangeLabel={search ? `search-${search}` : range.label}
-            /* Handed in as a slot so the page totals and the export button share
-               one line instead of stacking into two bands — on a phone those two
-               rows cost ~90px before any transaction is visible. */
-            summary={
-              /* One line at any width. It used to wrap into two or three
-                 fragments on a phone, which put 40px of chrome between the
-                 filters and the first row for information that fits in one. */
-              <div className="text-muted-foreground flex min-w-0 items-center gap-x-3 overflow-x-auto text-xs whitespace-nowrap sm:gap-x-4">
-                <span className="hidden font-medium tracking-wide uppercase sm:inline">
-                  On this page
-                </span>
-                <span className="flex items-center gap-1.5">
-                  In
-                  <Amount
-                    value={totals.inflow}
-                    currency={totals.currency}
-                    size="sm"
-                    showSign={false}
-                    tone="income"
-                  />
-                </span>
-                <span className="flex items-center gap-1.5">
-                  Out
-                  <Amount
-                    value={totals.outflow}
-                    currency={totals.currency}
-                    size="sm"
-                    showSign={false}
-                    tone="expense"
-                  />
-                </span>
-                <span className="flex items-center gap-1.5">
-                  Net
-                  <Amount value={totals.net} currency={totals.currency} size="sm" tone="auto" />
-                </span>
-                <span className="hidden sm:inline">transfers excluded</span>
-                {totals.otherCurrencies.length > 0 ? (
-                  <CurrencyTotals
-                    native={{
-                      currency: totals.currency,
-                      otherCurrencies: totals.otherCurrencies,
-                    }}
-                    converted={totals.converted}
-                    asOf={rates?.asOf ?? null}
-                  />
-                ) : null}
-              </div>
-            }
+            /* Passed as data, not as rendered markup: the grid renders the
+               totals itself so the export button can sit inside them, on a
+               different row at each breakpoint. */
+            totals={{
+              native: {
+                currency: totals.currency,
+                inflow: totals.inflow,
+                outflow: totals.outflow,
+                net: totals.net,
+              },
+              otherCurrencies: totals.otherCurrencies,
+              converted: totals.converted,
+              asOf: rates?.asOf ?? null,
+            }}
           />
         </>
       )}

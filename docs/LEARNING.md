@@ -5,7 +5,7 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-22, at `v0.9.1`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-22, at `v0.9.2`. Written by an outgoing AI coding assistant for whoever continues this work.
 
 **What changed since the previous note:** 0.7.0 closed E21-01 (the last five primitives) and E8-07,
 and added transaction type conversion, a dashboard quick-add, reachable date ranges and an HTTP
