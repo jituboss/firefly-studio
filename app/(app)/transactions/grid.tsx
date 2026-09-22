@@ -49,6 +49,7 @@ export function TransactionGrid({
   timezone,
   rangeLabel,
   totals,
+  accountId,
 }: {
   transactions: Transaction[];
   timezone: string;
@@ -56,6 +57,8 @@ export function TransactionGrid({
   /** Page totals, rendered beside the export button rather than above it. */
   /** Page totals, as data. Rendered here so the export button can sit inside them. */
   totals?: PageTotalsData;
+  /** Set when the list is filtered to one account; makes rows read from its side. */
+  accountId?: string;
 }) {
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set());
   const [field, setField] = React.useState<string>('category');
@@ -357,6 +360,7 @@ export function TransactionGrid({
       <TransactionTable
         transactions={transactions}
         timezone={timezone}
+        accountId={accountId}
         selected={selected}
         onToggle={toggle}
         onToggleDay={toggleDay}

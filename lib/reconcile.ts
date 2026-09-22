@@ -1,10 +1,12 @@
 import { add, compare, isZero, subtract, toApiString, toDecimal, type MoneyInput } from './money';
-import type {
-  Account,
-  Transaction,
-  TransactionSplit,
-  TransactionType,
-} from '@/server/firefly/types';
+/*
+ * `splitEffect` moved to `lib/account-flow.ts`. Which side of a split an
+ * account sits on is not a reconciliation question — the transactions page
+ * needs the same answer, and was getting it wrong in the same way. Re-exported
+ * so this module still reads as the one place reconciliation is defined.
+ */
+import { splitEffect } from './account-flow';
+import type { Account, Transaction, TransactionType } from '@/server/firefly/types';
 
 /**
  * E4-06 — reconciliation.
@@ -49,6 +51,8 @@ import type {
  *     account already exists, which `correctionPlan` reports rather than
  *     guesses at.
  */
+
+export { splitEffect };
 
 /** Firefly's own template: `firefly.reconciliation_account_name`. */
 export function reconciliationAccountName(accountName: string, currencyCode: string): string {
@@ -107,44 +111,6 @@ export interface ReconcileRow {
    * writes are its own bookkeeping. Both are shown, neither is editable here.
    */
   system: boolean;
-}
-
-/**
- * The signed effect one split has on one account, in that account's currency.
- *
- * Firefly reports `amount` as a positive magnitude and expresses direction
- * through `source_id`/`destination_id`, so the sign has to be derived. When the
- * split is denominated in another currency but carries a foreign amount in
- * ours, the foreign amount is the one that moved this account — the same choice
- * Firefly's `processJournal` makes. A split with neither side in our currency
- * contributes nothing rather than a wrong number; `unconvertible` reports it so
- * the page can say so out loud instead of quietly under-counting.
- */
-export function splitEffect(
-  split: TransactionSplit,
-  accountId: string,
-  currencyCode: string,
-  decimals = 2,
-): { effect: string; amount: string; unconvertible: boolean } {
-  const direction = split.source_id === accountId ? -1 : split.destination_id === accountId ? 1 : 0;
-  if (direction === 0) return { effect: '0', amount: '0', unconvertible: false };
-
-  const magnitude =
-    split.currency_code === currencyCode
-      ? split.amount
-      : split.foreign_currency_code === currencyCode && split.foreign_amount !== null
-        ? split.foreign_amount
-        : null;
-
-  if (magnitude === null)
-    return { effect: '0', amount: toApiString(split.amount, decimals), unconvertible: true };
-
-  const positive = toDecimal(magnitude).abs();
-  return {
-    effect: toApiString(direction === -1 ? positive.negated() : positive, decimals),
-    amount: toApiString(positive, decimals),
-    unconvertible: false,
-  };
 }
 
 export interface ReconcileRowsResult {

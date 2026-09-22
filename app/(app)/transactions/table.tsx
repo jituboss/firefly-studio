@@ -55,9 +55,30 @@ const DAY_HEIGHT = 38;
  */
 const ROW_HEIGHT = 64;
 
-/** A withdrawal leaves the account, so it counts against the day's net. */
-const signedAmount = (split: TransactionSplit) =>
-  split.type === 'withdrawal' ? toDecimal(split.amount).negated() : toDecimal(split.amount);
+/**
+ * Which way this split points, and by how much.
+ *
+ * With no account in view the transaction type is the right answer: a
+ * withdrawal is money leaving the ledger and a deposit is money arriving.
+ *
+ * Filtered to ONE account it is not, and a credit card is where that comes
+ * apart. Firefly records paying the card off from a current account as a
+ * `withdrawal` — it allows ASSET → DEBT for withdrawals and no transfer between
+ * them at all — so the card's own list holds two withdrawals moving money in
+ * opposite directions. Typed as spending, a 168,000 payment INTO the card
+ * rendered as "−168,000" in red, directly under totals that now correctly call
+ * it money in. Which side of the split the account sits on is the only thing
+ * that answers it.
+ */
+const signedAmount = (split: TransactionSplit, accountId?: string) => {
+  const magnitude = toDecimal(split.amount).abs();
+  if (accountId) {
+    if (split.source_id === accountId) return magnitude.negated();
+    if (split.destination_id === accountId) return magnitude;
+    return toDecimal(0);
+  }
+  return split.type === 'withdrawal' ? magnitude.negated() : magnitude;
+};
 
 /**
  * E5-01 — virtualised transaction grid.
@@ -81,6 +102,7 @@ const signedAmount = (split: TransactionSplit) =>
 export function TransactionTable({
   transactions,
   timezone,
+  accountId,
   selected,
   onToggle,
   onToggleDay,
@@ -88,6 +110,12 @@ export function TransactionTable({
 }: {
   transactions: Transaction[];
   timezone: string;
+  /**
+   * Set when the list is filtered to one account. Amounts, tones and the named
+   * counterparty are then all relative to THAT account rather than to the
+   * transaction's type — see `signedAmount`.
+   */
+  accountId?: string;
   /** E5-11 — selected GROUP ids. Selection is per group, not per split:
    *  Firefly's PUT operates on the group, so selecting one leg of a split and
    *  not the others is not a thing the API can express. */
@@ -126,7 +154,10 @@ export function TransactionTable({
       // day reports its count instead of a number that means nothing.
       const net =
         currencies.size === 1
-          ? buffer.reduce((sum, entry) => add(sum, signedAmount(entry.split)), toDecimal(0))
+          ? buffer.reduce(
+              (sum, entry) => add(sum, signedAmount(entry.split, accountId)),
+              toDecimal(0),
+            )
           : null;
       out.push({
         kind: 'day',
@@ -151,7 +182,10 @@ export function TransactionTable({
     flush();
 
     return out;
-  }, [transactions]);
+    // `accountId` belongs here: the day headers carry a net that is computed
+    // from the account's side of each split, so it has to be recomputed when
+    // the account in view changes.
+  }, [transactions, accountId]);
 
   // Selection state for the header checkbox. Counted over GROUPS, matching what
   // selection actually operates on — counting split rows would make a
@@ -344,19 +378,30 @@ export function TransactionTable({
             }
 
             const { split, groupId, splitCount } = row;
-            const outgoing = split.type === 'withdrawal';
+            const signed = signedAmount(split, accountId);
+            const outgoing = signed.isNegative();
             /*
-             * Which account the narrow row names.
+             * Which account the narrow row names: always the OTHER one.
              *
-             * A withdrawal and a transfer both LEAVE an account you own, so the
-             * informative half is where the money went; a deposit arrives, so it
-             * is where it came from. Keying this off `outgoing` alone showed a
-             * transfer's source — "Everyday Current" — which is the account you
-             * were already looking at and never the thing you wanted to know.
+             * With an account in view that is whichever side is not it — on a
+             * card payment the row should say where the money came from, not
+             * name the card you are already looking at. Without one, a
+             * withdrawal and a transfer both leave an account you own, so the
+             * informative half is where the money went; a deposit arrives, so
+             * it is where it came from.
              */
-            const counterparty =
-              split.type === 'deposit' ? split.source_name : split.destination_name;
-            const tone = TYPE_TONE[split.type as keyof typeof TYPE_TONE] ?? 'neutral';
+            const counterparty = accountId
+              ? split.source_id === accountId
+                ? split.destination_name
+                : split.source_name
+              : split.type === 'deposit'
+                ? split.source_name
+                : split.destination_name;
+            const tone = accountId
+              ? outgoing
+                ? 'expense'
+                : 'income'
+              : (TYPE_TONE[split.type as keyof typeof TYPE_TONE] ?? 'neutral');
 
             const isSelected = selected?.has(groupId) ?? false;
 
@@ -453,7 +498,10 @@ export function TransactionTable({
 
                     <span className="text-right">
                       <Amount
-                        value={outgoing ? `-${split.amount}` : split.amount}
+                        /* `signed`, not a hand-built "-" + amount: one source
+                           of truth for the direction, and it is already correct
+                           when the list is scoped to an account. */
+                        value={signed.toString()}
                         currency={split.currency_code}
                         decimalPlaces={split.currency_decimal_places}
                         tone={tone}

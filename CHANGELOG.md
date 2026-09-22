@@ -10,6 +10,30 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-22
+
+**One account's transactions add up correctly now.**
+
+### Fixed
+
+- **Money in and out was wrong for a single account, and badly wrong for a
+  credit card.** Filtering the transaction list to one account classified every
+  row by Firefly's transaction type rather than by what it did to _that_
+  account. Firefly records paying a credit card off from your current account as
+  a withdrawal — the same type as buying something with the card — so the card's
+  list held two rows moving money in opposite directions and both were counted
+  as spending. A month that ran 168,000 in and 3,653 out reported "in 0, out
+  171,653". The payment row itself also showed in red as though it were a
+  purchase, and named the card you were already looking at as the other party.
+
+  In, out, net, the daily subtotals, each row's sign and colour, and the
+  account named on each row are now all read from the account you are viewing.
+  Transfers count there too — a transfer out of an account is money out of it.
+
+  Nothing changes for the unfiltered list, which still separates income from
+  spending and leaves transfers out of both. The line under the figures says
+  which of the two it is showing.
+
 ## [0.9.3] - 2026-09-22
 
 **The subscription calendar on a phone.**
@@ -983,7 +1007,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.3...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.4
 [0.9.3]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.3
 [0.9.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.2
 [0.9.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.1

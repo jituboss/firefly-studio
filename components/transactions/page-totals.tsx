@@ -54,6 +54,12 @@ export interface ConvertedFigures extends TotalsFigures {
 }
 
 export interface PageTotalsData {
+  /**
+   * What the figures are measuring. `account` means the list is filtered to one
+   * account, where in and out are relative to THAT account and transfers count
+   * — a transfer out of it is money out of it. See `pageTotals`.
+   */
+  scope?: 'page' | 'account';
   native: TotalsFigures;
   /** Currencies on this page that the native figures do not include. */
   otherCurrencies: string[];
@@ -62,6 +68,7 @@ export interface PageTotalsData {
 }
 
 export function PageTotals({
+  scope = 'page',
   native,
   otherCurrencies,
   converted,
@@ -175,7 +182,7 @@ export function PageTotals({
             </span>
           ) : null}
 
-          {caption({ figures, estimated, converted, otherCurrencies, asOf })}
+          {caption({ scope, figures, estimated, converted, otherCurrencies, asOf })}
 
           {canConvert ? (
             <button
@@ -277,19 +284,31 @@ function Figure({
  * put a scrollbar under the filters.
  */
 function caption({
+  scope,
   figures,
   estimated,
   converted,
   otherCurrencies,
   asOf,
 }: {
+  scope: 'page' | 'account';
   figures: TotalsFigures;
   estimated: boolean;
   converted: ConvertedFigures | null;
   otherCurrencies: string[];
   asOf: string | null;
 }): string {
-  const sentences = [`On this page, in ${figures.currency}.`, 'Transfers excluded.'];
+  const sentences = [
+    `On this page, in ${figures.currency}.`,
+    /*
+     * Transfers are excluded from a whole-ledger total because moving money
+     * between your own accounts is neither income nor spending — and counted
+     * in an account-scoped one because a transfer out of THIS account is money
+     * out of it. The sentence has to say which, or the same two words describe
+     * two different sums.
+     */
+    scope === 'account' ? 'In and out of this account, transfers included.' : 'Transfers excluded.',
+  ];
 
   if (estimated && converted) {
     const without =

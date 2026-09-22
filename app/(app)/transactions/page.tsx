@@ -26,6 +26,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
+import { accountFlowTotals } from '@/lib/account-flow';
 import type { Paged, Transaction, TransactionSplit } from '@/server/firefly/types';
 
 export const metadata: Metadata = { title: 'Transactions' };
@@ -37,8 +38,29 @@ export const metadata: Metadata = { title: 'Transactions' };
  * Firefly's list endpoints carry no totals, and summing only page one while
  * labelling it "this period" would state a number that is simply wrong. One
  * currency at a time, as everywhere else.
+ *
+ * **Two different questions, depending on `accountId`.**
+ *
+ * With no account filter the list is "everything that happened", and the
+ * meaningful split is income against spending: deposits in, withdrawals out,
+ * transfers excluded because moving money between your own accounts is neither.
+ *
+ * Filtered to ONE account the question changes to "what moved through this
+ * account", and transaction type stops being able to answer it. Firefly names a
+ * transaction for what it is to the ledger, not for what it is to the account
+ * you are looking at, and on a credit card the two come apart completely:
+ * paying the card off from a current account is a `withdrawal`, and so is
+ * buying something with the card. Counting both as spending reported a card
+ * month of 168,000 in and 3,653 out as "out 171,653, net −171,653". In that
+ * mode the totals come from which SIDE of each split the account sits on, and
+ * transfers count, because a transfer out of this account is money out of it.
  */
-function pageTotals(transactions: Transaction[], preferred: string, rates?: RateTable) {
+function pageTotals(
+  transactions: Transaction[],
+  preferred: string,
+  rates?: RateTable,
+  accountId?: string,
+) {
   const splits = transactions.flatMap((group) => group.attributes.transactions);
   const currencies = new Map<string, TransactionSplit[]>();
   for (const split of splits) {
@@ -51,13 +73,21 @@ function pageTotals(transactions: Transaction[], preferred: string, rates?: Rate
     ? preferred
     : ([...currencies.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? preferred);
 
+  const own = currencies.get(currency) ?? [];
   let inflow = toDecimal(0);
   let outflow = toDecimal(0);
-  for (const split of currencies.get(currency) ?? []) {
-    // Transfers move money between the user's own accounts; counting them as
-    // either income or spending would double the day's activity.
-    if (split.type === 'deposit') inflow = add(inflow, split.amount);
-    else if (split.type === 'withdrawal') outflow = add(outflow, split.amount);
+
+  if (accountId) {
+    const totals = accountFlowTotals(own, accountId, currency);
+    inflow = toDecimal(totals.inflow);
+    outflow = toDecimal(totals.outflow);
+  } else {
+    for (const split of own) {
+      // Transfers move money between the user's own accounts; counting them as
+      // either income or spending would double the day's activity.
+      if (split.type === 'deposit') inflow = add(inflow, split.amount);
+      else if (split.type === 'withdrawal') outflow = add(outflow, split.amount);
+    }
   }
 
   const otherCurrencies = [...currencies.keys()].filter((code) => code !== currency).sort();
@@ -83,17 +113,23 @@ function pageTotals(transactions: Transaction[], preferred: string, rates?: Rate
   } | null = null;
 
   if (rates && otherCurrencies.length > 0) {
-    const bucketsFor = (type: 'deposit' | 'withdrawal') =>
+    // The converted view answers the same question as the native one, so it
+    // has to bucket by the same rule — otherwise flipping the toggle on a
+    // credit card would silently switch between two different definitions of
+    // "out".
+    const bucketsFor = (side: 'in' | 'out') =>
       [...currencies.entries()].map(([code, list]) => ({
         currency: code,
-        amount: list
-          .filter((split) => split.type === type)
-          .reduce((sum, split) => add(sum, split.amount), toDecimal(0))
-          .toString(),
+        amount: accountId
+          ? accountFlowTotals(list, accountId, code)[side === 'in' ? 'inflow' : 'outflow']
+          : list
+              .filter((split) => split.type === (side === 'in' ? 'deposit' : 'withdrawal'))
+              .reduce((sum, split) => add(sum, split.amount), toDecimal(0))
+              .toString(),
       }));
 
-    const inTotal = convertTotal(bucketsFor('deposit'), currency, rates);
-    const outTotal = convertTotal(bucketsFor('withdrawal'), currency, rates);
+    const inTotal = convertTotal(bucketsFor('in'), currency, rates);
+    const outTotal = convertTotal(bucketsFor('out'), currency, rates);
     convertedTotals = {
       currency,
       inflow: inTotal.total,
@@ -233,7 +269,7 @@ export default async function TransactionsPage({
         })),
       )
     : undefined;
-  const totals = pageTotals(data, connection.primaryCurrency, rates);
+  const totals = pageTotals(data, connection.primaryCurrency, rates, accountId);
   const savedViewsList = await listSavedViews(session.user.id, 'transactions');
 
   const filtered = Boolean(search) || Boolean(accountId) || Boolean(scopeName) || type !== 'all';
@@ -343,10 +379,12 @@ export default async function TransactionsPage({
             transactions={data}
             timezone={session.user.timezone}
             rangeLabel={search ? `search-${search}` : range.label}
+            accountId={accountId}
             /* Passed as data, not as rendered markup: the grid renders the
                totals itself so the export button can sit inside them, on a
                different row at each breakpoint. */
             totals={{
+              scope: accountId ? 'account' : 'page',
               native: {
                 currency: totals.currency,
                 inflow: totals.inflow,
