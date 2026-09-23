@@ -10,6 +10,36 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-23
+
+**The row menu in the admin user list.**
+
+### Fixed
+
+- **The ⋯ menu on a user row was cut off, and reaching it meant scrolling
+  inside the table.** The list sat in a horizontal scroll container so it could
+  hold six columns on a narrow screen — but CSS computes a `visible` overflow
+  axis to `auto` when the other one is clipped, so asking for sideways
+  scrolling had quietly made the table a **vertical** scroll container as well.
+  The menu is positioned inside it, so on the lower rows it was clipped at the
+  table's bottom edge. Measured on the last row: 4px of a 115px menu visible,
+  the rest reachable only by scrolling the table.
+
+  The table does not scroll sideways any more. Narrow screens drop columns
+  instead, and fold what they drop under the account name, so nothing is
+  withheld — only the column alignment, which is what there is no room for. That
+  also fixes something that was wrong before any menu opened: on a phone the
+  actions column sat off screen entirely, so reaching any of these operations
+  meant scrolling the table sideways first.
+
+### Changed
+
+- **A popover now opens above its trigger when it does not fit below it.** The
+  row menus near the bottom of a long list rendered past the fold, so choosing
+  an action meant scrolling the page with the menu open. It flips only when
+  there is genuinely less room below than above, and the horizontal alignment is
+  unchanged.
+
 ## [0.10.1] - 2026-09-23
 
 **Administrators, and a page for them.**
@@ -1113,7 +1143,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.10.1...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.11.0
 [0.10.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.10.1
 [0.10.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.10.0
 [0.9.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.4

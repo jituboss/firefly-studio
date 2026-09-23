@@ -24,11 +24,16 @@ import { FOCUSABLE, useDismissOnOutside, useReturnFocus } from './focus';
  * way to close it was to click the bell again, which is not discoverable and
  * is impossible to guess from the keyboard.
  *
- * Positioning is CSS, not measurement. Every call site anchors to a control in
- * the header or a table row, where "below, aligned to an edge" is correct and a
- * collision engine is 3 kB to solve a problem nobody has. `max-h` + scroll
- * keeps a long panel inside the viewport vertically; if a call site ever needs
- * true flipping, that is the point to reach for a positioning library, not now.
+ * Positioning is CSS, not measurement — with ONE exception, added when a call
+ * site finally needed it. The admin page puts this on every row of a long
+ * table, and a menu opened on the last row rendered below the fold: reaching
+ * "Delete account" meant scrolling the page while the menu was open. So the
+ * panel now flips above its trigger when it does not fit below and there is
+ * more room above. That is a dozen lines of measurement rather than a
+ * positioning library, because flipping on one axis is the whole of the problem
+ * anyone here has actually had — horizontal alignment is still `left-0` or
+ * `right-0`, and no call site anchors near enough to a side edge for that to
+ * matter.
  */
 
 const ALIGN = {
@@ -66,6 +71,7 @@ export function Popover({
   contentClassName?: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [placement, setPlacement] = React.useState<'bottom' | 'top'>('bottom');
   const panelRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const panelId = React.useId();
@@ -104,6 +110,37 @@ export function Popover({
     panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
   }, [open]);
 
+  /*
+   * Flip above the trigger when the panel does not fit below it.
+   *
+   * `useLayoutEffect` so the decision is made before the browser paints —
+   * measuring in a passive effect shows the panel in the wrong place for a
+   * frame, which on a menu reads as a flicker.
+   *
+   * It re-measures on every open rather than caching: the same row's menu fits
+   * below when the page is scrolled to the top and does not when it is scrolled
+   * to the bottom, and the panel's own height changes with its contents (a
+   * refusal line adds ~30px).
+   */
+  React.useLayoutEffect(() => {
+    if (!open) {
+      setPlacement('bottom');
+      return;
+    }
+    const trigger = triggerRef.current;
+    const panel = panelRef.current;
+    if (!trigger || !panel) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const height = panel.offsetHeight;
+    const gap = 8;
+    const below = window.innerHeight - rect.bottom;
+    const above = rect.top;
+
+    // Only flip when it genuinely helps: no room below AND more room above.
+    setPlacement(below < height + gap && above > below ? 'top' : 'bottom');
+  }, [open]);
+
   return (
     <div className={cn('relative', className)}>
       {trigger({
@@ -122,8 +159,9 @@ export function Popover({
           aria-label={label}
           data-slot="popover"
           className={cn(
-            'bg-popover text-popover-foreground absolute top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)]',
+            'bg-popover text-popover-foreground absolute z-50 w-80 max-w-[calc(100vw-2rem)]',
             'overflow-hidden rounded-lg border shadow-lg',
+            placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
             ALIGN[align],
             contentClassName,
           )}

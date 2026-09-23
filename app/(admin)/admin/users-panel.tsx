@@ -92,65 +92,65 @@ export function UsersPanel({
       <Card className="min-w-0">
         <CardContent className="min-w-0 p-0">
           {/*
-            A real table, and it scrolls on a narrow screen rather than
-            collapsing to cards. Six columns of short facts about one person is
-            the shape a table is for, and an operator comparing rows — who is an
-            admin, who never confirmed their address — is doing the thing that
-            only works when the columns line up.
-          */}
-          {/*
-            `relative` is load-bearing, not decoration.
+            A real table, and NO scroll container around it.
 
-            The last header cell holds a `sr-only` label for the actions column,
-            and `sr-only` is `position: absolute`. With no positioned ancestor
-            its containing block resolves all the way up to the initial one, so
-            it is NOT clipped by this scroll container — it lands at the far
-            right edge of the 46rem table, in viewport coordinates, and drags
-            the page with it. Measured on a 390px screen: `body.scrollWidth`
-            stayed 390 and every element tested as "inside a scroller", while
-            the viewport scrolled sideways by 362px. The offender was a 1px
-            span. Making this the containing block clips it here, where
-            everything else in the table already is.
+            It used to be `overflow-x-auto` with a `min-w-[46rem]` table inside,
+            which broke the row menu: `overflow-x: auto` computes the other axis
+            to `auto` too — a `visible` axis cannot pair with a clipped one — so
+            the wrapper became a VERTICAL scroll container as well. The ⋯ menu
+            is absolutely positioned inside it, so on the lower rows it was
+            clipped and had to be scrolled into view inside the table. Measured
+            on the last row: the panel ran to y=954 against a wrapper ending at
+            y=843, leaving 4px of a 115px menu visible. That is rule 7 in
+            LEARNING.md, met from the other direction — the earlier note is
+            about `overflow-x-hidden` breaking sticky, and this is the same
+            single-axis-clipping rule breaking a popover.
+
+            Narrow screens drop columns instead of scrolling, which also fixes
+            something that was wrong before the menu ever opened: on a phone the
+            actions column sat ~400px off-screen, so reaching any of these
+            operations meant scrolling a table sideways first. The facts that
+            leave the header at each breakpoint are folded under the account
+            name, so nothing is actually lost — only the column alignment, which
+            is what you give up when there is no room for columns.
           */}
-          <div className="relative min-w-0 overflow-x-auto">
-            <table className="w-full min-w-[46rem] text-sm">
-              <thead>
-                <tr className="text-muted-foreground border-b text-left text-xs tracking-wide uppercase">
-                  <th scope="col" className="px-4 py-2.5 font-medium">
-                    Account
-                  </th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">
-                    Role
-                  </th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">
-                    Connections
-                  </th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">
-                    Last seen
-                  </th>
-                  <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <UserRow
-                    key={user.id}
-                    user={user}
-                    isSelf={user.id === currentUserId}
-                    context={context}
-                    timezone={timezone}
-                    locale={locale}
-                    send={send}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-muted-foreground border-b text-left text-xs tracking-wide uppercase">
+                <th scope="col" className="px-4 py-2.5 font-medium">
+                  Account
+                </th>
+                <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+                  Role
+                </th>
+                <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+                  Status
+                </th>
+                <th scope="col" className="hidden px-4 py-2.5 font-medium xl:table-cell">
+                  Connections
+                </th>
+                <th scope="col" className="hidden px-4 py-2.5 font-medium lg:table-cell">
+                  Last seen
+                </th>
+                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <UserRow
+                  key={user.id}
+                  user={user}
+                  isSelf={user.id === currentUserId}
+                  context={context}
+                  timezone={timezone}
+                  locale={locale}
+                  send={send}
+                />
+              ))}
+            </tbody>
+          </table>
         </CardContent>
       </Card>
 
@@ -193,37 +193,51 @@ function UserRow({
 
   return (
     <tr className="border-b last:border-b-0">
-      <td className="px-4 py-3">
+      <td className="min-w-0 px-4 py-3">
         <div className="flex min-w-0 flex-col">
-          <span className="flex items-center gap-1.5 font-medium">
+          <span className="flex min-w-0 items-center gap-1.5 font-medium">
             <span className="truncate">{user.displayName ?? user.email}</span>
             {isSelf ? (
-              <span className="text-muted-foreground text-xs font-normal">(you)</span>
+              <span className="text-muted-foreground shrink-0 text-xs font-normal">(you)</span>
             ) : null}
             {user.isDemo ? <Badge variant="outline">Demo</Badge> : null}
           </span>
           {user.displayName ? (
             <span className="text-muted-foreground truncate text-xs">{user.email}</span>
           ) : null}
+
+          {/*
+            Everything the header drops at this width, folded under the name.
+
+            A column that disappears without its value reappearing somewhere is
+            a fact quietly withheld, and "is this person an administrator" is
+            not a fact to withhold on a phone. Each line here is hidden again at
+            exactly the breakpoint where its own column comes back.
+          */}
+          <span className="mt-1 flex flex-wrap items-center gap-1.5 sm:hidden">
+            <RoleTag role={user.role} />
+            <StatusCell user={user} />
+          </span>
+          <span className="text-muted-foreground mt-1 text-xs lg:hidden">
+            <span className="xl:hidden">
+              {user.connections} connection{user.connections === 1 ? '' : 's'}
+              {user.activeSessions > 0 ? ` · ${user.activeSessions} signed in` : ''}
+              {' · '}
+            </span>
+            {user.lastLoginAt ? when(user.lastLoginAt, timezone, locale) : 'Never signed in'}
+          </span>
         </div>
       </td>
 
-      <td className="px-4 py-3">
-        {user.role === 'admin' ? (
-          <Badge variant="secondary">
-            <Shield className="size-3" aria-hidden="true" />
-            Admin
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground text-xs">User</span>
-        )}
+      <td className="hidden px-4 py-3 sm:table-cell">
+        <RoleTag role={user.role} />
       </td>
 
-      <td className="px-4 py-3">
+      <td className="hidden px-4 py-3 sm:table-cell">
         <StatusCell user={user} />
       </td>
 
-      <td className="tabular px-4 py-3">
+      <td className="tabular hidden px-4 py-3 xl:table-cell">
         {user.connections}
         {user.activeSessions > 0 ? (
           <span className="text-muted-foreground ml-1.5 text-xs">
@@ -232,7 +246,7 @@ function UserRow({
         ) : null}
       </td>
 
-      <td className="text-muted-foreground px-4 py-3 text-xs">
+      <td className="text-muted-foreground hidden px-4 py-3 text-xs lg:table-cell">
         {user.lastLoginAt ? when(user.lastLoginAt, timezone, locale) : 'Never'}
       </td>
 
@@ -316,6 +330,17 @@ function UserRow({
         </Popover>
       </td>
     </tr>
+  );
+}
+
+function RoleTag({ role }: { role: AdminUserRow['role'] }) {
+  return role === 'admin' ? (
+    <Badge variant="secondary">
+      <Shield className="size-3" aria-hidden="true" />
+      Admin
+    </Badge>
+  ) : (
+    <span className="text-muted-foreground text-xs">User</span>
   );
 }
 
