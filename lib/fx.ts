@@ -21,6 +21,13 @@ import { divide, multiply, toDecimal } from '@/lib/money';
  * here is EUR→x — so converting GBP→PLN means going GBP→EUR→PLN. `buildRates`
  * inverts and chains for exactly that reason; without it, two currencies that
  * both had rates would still report "no rate available".
+ *
+ * **Nothing renders this today.** Its only caller was a "Convert to BDT" toggle
+ * under the transaction list's totals, removed in 0.10.0 because the strip it
+ * sat in was spending two rows of a phone screen on a qualifier. The module is
+ * kept — tested, and the arithmetic is the hard part — for the next surface
+ * that wants one comparable figure. If a year goes by and none does, delete it
+ * rather than leaving it to look load-bearing.
  */
 
 export interface RateRow {

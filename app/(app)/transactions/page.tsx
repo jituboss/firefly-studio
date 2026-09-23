@@ -3,24 +3,19 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getPreferences } from '@/server/preferences';
 import { getActiveConnection, fireflyGetSafe } from '@/server/firefly/api';
-import {
-  getAccount,
-  getAccountsSafe,
-  getBudget,
-  getCategory,
-  getExchangeRates,
-} from '@/server/firefly/queries';
+import { getAccount, getAccountsSafe, getBudget, getCategory } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { now, toApiDate } from '@/lib/date';
 import { add, toDecimal } from '@/lib/money';
-import { buildRates, convertTotal, type RateTable } from '@/lib/fx';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { HideBalancesToggle } from '@/components/hide-balances';
 import { TransactionFilters } from './filters';
 import { TransactionGrid } from './grid';
 import { AddTransactionSheet } from '@/components/transactions/add-sheet';
-import { Pagination } from './pagination';
 import { SavedViews } from './saved-views';
+import { ExportMenu } from './export-menu';
+import { SelectionProvider } from './selection';
+import { PageTotals } from '@/components/transactions/page-totals';
 import { listSavedViews } from '@/server/saved-views';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,12 +50,7 @@ export const metadata: Metadata = { title: 'Transactions' };
  * mode the totals come from which SIDE of each split the account sits on, and
  * transfers count, because a transfer out of this account is money out of it.
  */
-function pageTotals(
-  transactions: Transaction[],
-  preferred: string,
-  rates?: RateTable,
-  accountId?: string,
-) {
+function pageTotals(transactions: Transaction[], preferred: string, accountId?: string) {
   const splits = transactions.flatMap((group) => group.attributes.transactions);
   const currencies = new Map<string, TransactionSplit[]>();
   for (const split of splits) {
@@ -90,63 +80,17 @@ function pageTotals(
     }
   }
 
-  const otherCurrencies = [...currencies.keys()].filter((code) => code !== currency).sort();
-
-  /*
-   * E13-05 — the converted view.
-   *
-   * Without rates the honest answer is the one above: one currency's figures,
-   * and a note naming what was left out. With rates we can answer the question
-   * people were actually asking — "what did I spend, in total?" — provided the
-   * answer says it is converted and as of when. It is computed here and shown
-   * only when the reader asks for it; the native figures stay the default,
-   * because a counted number and an estimated one should never swap places
-   * without the reader choosing.
-   */
-  let convertedTotals: {
-    currency: string;
-    inflow: string;
-    outflow: string;
-    net: string;
-    converted: string[];
-    unconvertible: string[];
-  } | null = null;
-
-  if (rates && otherCurrencies.length > 0) {
-    // The converted view answers the same question as the native one, so it
-    // has to bucket by the same rule — otherwise flipping the toggle on a
-    // credit card would silently switch between two different definitions of
-    // "out".
-    const bucketsFor = (side: 'in' | 'out') =>
-      [...currencies.entries()].map(([code, list]) => ({
-        currency: code,
-        amount: accountId
-          ? accountFlowTotals(list, accountId, code)[side === 'in' ? 'inflow' : 'outflow']
-          : list
-              .filter((split) => split.type === (side === 'in' ? 'deposit' : 'withdrawal'))
-              .reduce((sum, split) => add(sum, split.amount), toDecimal(0))
-              .toString(),
-      }));
-
-    const inTotal = convertTotal(bucketsFor('in'), currency, rates);
-    const outTotal = convertTotal(bucketsFor('out'), currency, rates);
-    convertedTotals = {
-      currency,
-      inflow: inTotal.total,
-      outflow: outTotal.total,
-      net: toDecimal(inTotal.total).minus(toDecimal(outTotal.total)).toString(),
-      converted: [...new Set([...inTotal.converted, ...outTotal.converted])].sort(),
-      unconvertible: [...new Set([...inTotal.unconvertible, ...outTotal.unconvertible])].sort(),
-    };
-  }
-
   return {
     currency,
     inflow: inflow.toString(),
     outflow: outflow.toString(),
     net: inflow.minus(outflow).toString(),
-    otherCurrencies,
-    converted: convertedTotals,
+    /*
+     * Named rather than dropped: a total that quietly omits a currency is a
+     * wrong total wearing the clothes of a right one. The page subtitle says
+     * so — see the header below.
+     */
+    otherCurrencies: [...currencies.keys()].filter((code) => code !== currency).sort(),
   };
 }
 
@@ -256,20 +200,7 @@ export default async function TransactionsPage({
       : result.data;
 
   const pagination = result.meta.pagination;
-  const mixedCurrency =
-    new Set(data.flatMap((g) => g.attributes.transactions.map((t) => t.currency_code))).size > 1;
-  const rateRows = mixedCurrency ? await getExchangeRates() : null;
-  const rates = rateRows
-    ? buildRates(
-        rateRows.data.map((row) => ({
-          from: row.attributes.from_currency_code,
-          to: row.attributes.to_currency_code,
-          rate: row.attributes.rate,
-          date: row.attributes.date,
-        })),
-      )
-    : undefined;
-  const totals = pageTotals(data, connection.primaryCurrency, rates, accountId);
+  const totals = pageTotals(data, connection.primaryCurrency, accountId);
   const savedViewsList = await listSavedViews(session.user.id, 'transactions');
 
   const filtered = Boolean(search) || Boolean(accountId) || Boolean(scopeName) || type !== 'all';
@@ -312,100 +243,123 @@ export default async function TransactionsPage({
             />
           </div>
         </div>
+        {/*
+          The page number is no longer here. It is on the pager directly above
+          the table and on the one below it, which is where someone who wants to
+          move between pages is looking; repeating it up here wrapped the
+          subtitle onto a second line on a phone to say it twice.
+
+          The excluded currency IS here, because the totals strip no longer
+          carries its own caption and a total that quietly omits a currency is a
+          wrong total wearing the clothes of a right one.
+        */}
         <p className="text-muted-foreground text-sm">
           {pagination
-            ? // "page 1 of 1" is noise that wrapped the subtitle onto a
-              // second line on a phone to say there is nothing to page to.
-              `${pagination.total.toLocaleString()} match${pagination.total === 1 ? '' : 'es'}${
-                pagination.total_pages > 1
-                  ? ` · page ${pagination.current_page} of ${pagination.total_pages}`
-                  : ''
-              }`
+            ? `${pagination.total.toLocaleString()} match${pagination.total === 1 ? '' : 'es'}`
             : `${data.length} shown`}
           {search
             ? ` · searching “${search}” in ${range.label.toLowerCase()}`
             : ` · ${range.label}`}
           {pinnedAccount ? ` · ${pinnedAccount}` : ''}
           {scopeName ? ` · ${scopeName}` : ''}
+          {totals.otherCurrencies.length > 0
+            ? ` · totals exclude ${totals.otherCurrencies.join(', ')}`
+            : ''}
         </p>
       </header>
 
-      {/* One toolbar rather than two stacked bands. On a 390px phone the page
-          previously spent ~800px on chrome before the first transaction; every
-          row removed here is a row of data gained. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <TransactionFilters
-          type={type}
-          search={search}
-          accountId={accountId}
-          scopeLabel={scopeName}
-          trailing={
-            <SavedViews
-              views={savedViewsList}
-              currentQuery={{
-                q: search || undefined,
-                type: type === 'all' ? undefined : type,
-                account: accountId,
-              }}
-            />
-          }
-        />
-      </div>
+      {/*
+        One toolbar row, at every width: search, then three menus that shrink to
+        their glyphs on a phone. It previously spent ~800px on chrome before the
+        first transaction on a 390px screen; every row removed here is a row of
+        data gained.
 
-      {data.length === 0 ? (
-        <Card>
-          <CardContent className="space-y-3 p-12 text-center">
-            <p className="text-sm font-medium">
-              {filtered
-                ? 'No transactions match these filters.'
-                : `Nothing recorded in ${range.label.toLowerCase()}.`}
-            </p>
-            <p className="text-muted-foreground text-sm">
-              {filtered
-                ? 'Try a wider date range, or clear the filters above.'
-                : 'Pick a different date range, or add the first one.'}
-            </p>
-            <Button asChild size="sm" variant="outline">
-              <Link href="/transactions/new">
-                <Plus className="size-4" aria-hidden="true" />
-                New transaction
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <TransactionGrid
-            transactions={data}
-            timezone={session.user.timezone}
-            rangeLabel={search ? `search-${search}` : range.label}
+        The provider wraps the toolbar AND the grid because Export reads the
+        same selection the row checkboxes write — see `selection.tsx`.
+      */}
+      <SelectionProvider>
+        <div className="min-w-0">
+          <TransactionFilters
+            type={type}
+            search={search}
             accountId={accountId}
-            /* Passed as data, not as rendered markup: the grid renders the
-               totals itself so the export button can sit inside them, on a
-               different row at each breakpoint. */
-            totals={{
-              scope: accountId ? 'account' : 'page',
-              native: {
+            accountLabel={pinnedAccount}
+            scopeLabel={scopeName}
+            trailing={
+              <>
+                <SavedViews
+                  views={savedViewsList}
+                  currentQuery={{
+                    q: search || undefined,
+                    type: type === 'all' ? undefined : type,
+                    account: accountId,
+                  }}
+                />
+                <ExportMenu
+                  transactions={data}
+                  rangeLabel={search ? `search-${search}` : range.label}
+                />
+              </>
+            }
+          />
+        </div>
+
+        {data.length === 0 ? (
+          <Card>
+            <CardContent className="space-y-3 p-12 text-center">
+              <p className="text-sm font-medium">
+                {filtered
+                  ? 'No transactions match these filters.'
+                  : `Nothing recorded in ${range.label.toLowerCase()}.`}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                {filtered
+                  ? 'Try a wider date range, or clear the filters above.'
+                  : 'Pick a different date range, or add the first one.'}
+              </p>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/transactions/new">
+                  <Plus className="size-4" aria-hidden="true" />
+                  New transaction
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* A Server Component again. It only lived inside the grid so the
+                export button could be placed within it, and export is a
+                toolbar menu now — so nothing in here holds state. */}
+            <PageTotals
+              scope={accountId ? 'account' : 'page'}
+              native={{
                 currency: totals.currency,
                 inflow: totals.inflow,
                 outflow: totals.outflow,
                 net: totals.net,
-              },
-              otherCurrencies: totals.otherCurrencies,
-              converted: totals.converted,
-              asOf: rates?.asOf ?? null,
-            }}
-          />
-        </>
-      )}
+              }}
+              otherCurrencies={totals.otherCurrencies}
+            />
 
-      {pagination && pagination.total_pages > 1 ? (
-        <Pagination
-          page={pagination.current_page}
-          totalPages={pagination.total_pages}
-          total={pagination.total}
-        />
-      ) : null}
+            <TransactionGrid
+              transactions={data}
+              timezone={session.user.timezone}
+              accountId={accountId}
+              /* As data, not as markup: the grid renders the pager twice, above
+                 the table and below it. */
+              pagination={
+                pagination
+                  ? {
+                      page: pagination.current_page,
+                      totalPages: pagination.total_pages,
+                      total: pagination.total,
+                    }
+                  : null
+              }
+            />
+          </>
+        )}
+      </SelectionProvider>
     </div>
   );
 }

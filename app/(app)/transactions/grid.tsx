@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { ChevronUp, Download, Pencil, Trash2, X } from 'lucide-react';
+import { ChevronUp, Pencil, Trash2, X } from 'lucide-react';
 import { ConfirmButton } from '@/components/ui/confirm';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
@@ -11,9 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 import { FormMessage } from '@/components/auth/form-shell';
-import { rowsToCsv } from '@/components/reports/report-export';
 import { TransactionTable } from './table';
-import { PageTotals, type PageTotalsData } from '@/components/transactions/page-totals';
+import { Pagination, PaginationButtons, PaginationSummary } from './pagination';
+import { useSelection } from './selection';
 import {
   bulkDeleteTransactionsAction,
   bulkUpdateTransactionsAction,
@@ -22,11 +22,13 @@ import {
 import type { Transaction } from '@/server/firefly/types';
 
 /**
- * E5-11 / E5-16 — selection, bulk edit and export around the virtualised grid.
+ * E5-11 — selection, bulk edit and paging around the virtualised grid.
  *
- * Selection lives here rather than in `table.tsx` so the table stays a pure
- * renderer: it is virtualised, and hoisting state into it would re-run the
- * virtualiser on every checkbox click.
+ * Selection is read from `SelectionProvider` rather than held here, because
+ * the export menu in the toolbar needs it too — see `selection.tsx`. It is
+ * still not held in `table.tsx`: that stays a pure renderer, and it is
+ * virtualised, so state in it would re-run the virtualiser on every checkbox
+ * click.
  */
 
 const FIELDS = [
@@ -47,20 +49,26 @@ function ApplyButton({ count }: { count: number }) {
 export function TransactionGrid({
   transactions,
   timezone,
-  rangeLabel,
-  totals,
+  pagination,
   accountId,
 }: {
   transactions: Transaction[];
   timezone: string;
-  rangeLabel: string;
-  /** Page totals, rendered beside the export button rather than above it. */
-  /** Page totals, as data. Rendered here so the export button can sit inside them. */
-  totals?: PageTotalsData;
+  /**
+   * Firefly's `meta.pagination`, as plain data.
+   *
+   * Passed as data rather than as a rendered `<Pagination>` element because the
+   * grid renders it TWICE — once on the bar above the table, sharing that line
+   * with the export button, and once below the last row. An element handed in
+   * from the server could not be placed in two spots, and the totals strip
+   * already learned what happens when you try to reposition server-serialised
+   * markup from a client component.
+   */
+  pagination?: { page: number; totalPages: number; total: number } | null;
   /** Set when the list is filtered to one account; makes rows read from its side. */
   accountId?: string;
 }) {
-  const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set());
+  const { selected, setSelected } = useSelection();
   const [field, setField] = React.useState<string>('category');
   /** The editor is opt-in: the bar has to fit one line on a phone. */
   const [editing, setEditing] = React.useState(false);
@@ -83,121 +91,75 @@ export function TransactionGrid({
       setValue('');
       setEditing(false);
     }
-  }, [update, removed]);
+    // `setSelected` comes from the provider's `useState` and is stable; it is
+    // listed because the linter cannot see that through the context.
+  }, [update, removed, setSelected]);
 
-  const toggle = React.useCallback((groupId: string) => {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
-  }, []);
+  const toggle = React.useCallback(
+    (groupId: string) => {
+      setSelected((current) => {
+        const next = new Set(current);
+        if (next.has(groupId)) next.delete(groupId);
+        else next.add(groupId);
+        return next;
+      });
+    },
+    [setSelected],
+  );
 
-  const toggleDay = React.useCallback((groupIds: string[], select: boolean) => {
-    setSelected((current) => {
-      const next = new Set(current);
-      for (const id of groupIds) {
-        if (select) next.add(id);
-        else next.delete(id);
-      }
-      return next;
-    });
-  }, []);
+  const toggleDay = React.useCallback(
+    (groupIds: string[], select: boolean) => {
+      setSelected((current) => {
+        const next = new Set(current);
+        for (const id of groupIds) {
+          if (select) next.add(id);
+          else next.delete(id);
+        }
+        return next;
+      });
+    },
+    [setSelected],
+  );
 
   const toggleAll = React.useCallback(
     (select: boolean) => {
       setSelected(select ? new Set(transactions.map((group) => group.id)) : new Set());
     },
-    [transactions],
+    [transactions, setSelected],
   );
 
   const ids = [...selected];
   const count = ids.length;
 
-  /**
-   * E5-16 — export what is on screen.
-   *
-   * Built from the rows already rendered, so the file always matches the view
-   * that produced it. One line per SPLIT, because a split transaction that
-   * exported as a single row would not reconcile against anything.
-   */
-  const exportCsv = () => {
-    const chosen =
-      count > 0 ? transactions.filter((group) => selected.has(group.id)) : transactions;
-    const rows = chosen.flatMap((group) =>
-      group.attributes.transactions.map((split) => ({
-        date: split.date.slice(0, 10),
-        type: split.type,
-        description: split.description,
-        amount: split.type === 'withdrawal' ? `-${split.amount}` : split.amount,
-        currency: split.currency_code,
-        source: split.source_name ?? '',
-        destination: split.destination_name ?? '',
-        category: split.category_name ?? '',
-        budget: split.budget_name ?? '',
-        bill: split.bill_name ?? '',
-        tags: (split.tags ?? []).join('|'),
-        notes: split.notes ?? '',
-        reconciled: split.reconciled ? 'yes' : 'no',
-        group_id: group.id,
-      })),
-    );
-
-    const blob = new Blob(['﻿', rowsToCsv(rows)], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `transactions-${rangeLabel.toLowerCase().replace(/\s+/g, '-')}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  /* Icon-only on a phone. The word "Export" next to a download glyph is 60px of
-     a 390px line spent saying what the glyph already says. */
-  const exportButton = (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="shrink-0 max-sm:size-9 max-sm:p-0"
-      onClick={exportCsv}
-      aria-label={count > 0 ? `Export ${count} selected` : 'Export CSV'}
-    >
-      <Download className="size-4" aria-hidden="true" />
-      <span className="max-sm:sr-only">Export {count > 0 ? count : 'CSV'}</span>
-    </Button>
-  );
+  const paged = pagination && pagination.totalPages > 1 ? pagination : null;
 
   return (
     // The bottom padding is what stops the floating bar from covering the last
     // rows once the page is scrolled to the end.
     <div className={cn('min-w-0 space-y-3', count > 0 && (editing ? 'pb-56 sm:pb-40' : 'pb-24'))}>
-      {/* The hint that used to live here ("Tick a row to edit…") is gone: a
-          column of checkboxes explains itself, and the count now lives in the
-          selection bar. That is one less band before the data on a phone. */}
       {/*
-        `PageTotals` is rendered HERE, from plain data, rather than handed in as
-        an element from the page.
+        The pager above the table.
 
-        It needs the export button inside it: the button belongs on the tiles'
-        row from `sm` and on the caption's row below that, because sharing the
-        tiles' row on a phone left them 69px of content each at 360px and the
-        figures truncated — "274,697...." — and a truncated amount is a wrong
-        amount. Neither way of getting the button in there from outside works
-        across the Server/Client boundary. A render prop is refused outright
-        ("Functions cannot be passed directly to Client Components"), and
-        `cloneElement` fails more quietly: a server-serialised element is not
-        `isValidElement` here, so the guard around it silently took the fallback
-        branch and the whole summary disappeared from the page. Data crosses the
-        boundary without either problem.
+        Repeated below the last row as well. Fifty rows is about four phone
+        screens, so a reader who has finished the page is nowhere near the top
+        control, and a reader who has just arrived cannot see the bottom one —
+        page two has to be reachable from both ends.
+
+        It renders nothing at all on a single page. The export button used to
+        share this line, which meant the row existed on every list whether or
+        not there was anything to page to; it lives in the toolbar with Filters
+        and Views now, and a band that says "1 of 1" and nothing else is exactly
+        the chrome this pass was spending.
       */}
-      {totals ? (
-        <PageTotals {...totals} action={exportButton} />
-      ) : (
-        <div className="flex justify-end">{exportButton}</div>
-      )}
+      {paged ? (
+        <nav
+          className="flex items-center justify-between gap-2"
+          aria-label="Pagination, above the list"
+        >
+          <PaginationSummary page={paged.page} totalPages={paged.totalPages} total={paged.total} />
+          <PaginationButtons page={paged.page} totalPages={paged.totalPages} />
+        </nav>
+      ) : null}
 
       {/* Outside the selection block on purpose. A successful bulk action clears
           the selection, which unmounts the toolbar — leaving the result message
@@ -366,6 +328,16 @@ export function TransactionGrid({
         onToggleDay={toggleDay}
         onToggleAll={toggleAll}
       />
+
+      {paged ? (
+        <Pagination
+          page={paged.page}
+          totalPages={paged.totalPages}
+          total={paged.total}
+          label="Pagination, below the list"
+          className="border-t pt-3"
+        />
+      ) : null}
     </div>
   );
 }

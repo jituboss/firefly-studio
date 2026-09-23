@@ -10,6 +10,58 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-23
+
+**The transaction list, with the chrome cut back.**
+
+The page spent five bands on controls before the first transaction, and on a
+phone that was most of the screen. It spends two now — a search row and the
+totals — and the grid starts where the toolbar used to end.
+
+### Changed
+
+- **The filter bar is one row at every width.** A full-width search box, a type
+  dropdown, a saved-view chip, a "Save view" button, a "Load view…" picker and a
+  "Delete view…" picker wrapped onto three rows on a phone. It is now a search
+  box and three menus — Filters, Views and Export — that shrink to their glyphs
+  on a narrow screen.
+
+- **Saved views are one menu instead of four controls.** Views are applied from
+  a list, deleted from the row they are on rather than from a second picker, and
+  saved from the same menu. When the filters on screen match a saved view, the
+  button names it.
+
+- **The transaction type filter moved into the Filters menu**, which also shows
+  how many filters are applied and offers to clear them. An account or a report
+  drill-through that scoped the list is listed there too, with a way to remove
+  it — landing on a pre-filtered list with no visible way out made a short list
+  look like a bug.
+
+- **Export is a menu, grouped with Filters and Views.** It names the format and
+  says what it is about to export — the rows you ticked, or the page — instead
+  of a button that silently changed meaning with the selection.
+
+- **Pagination sits above the table as well as below it.** Fifty rows is about
+  four phone screens, so page two is now reachable from either end of the list
+  instead of only from the bottom. The page number left the subtitle, where it
+  was being said twice.
+
+- **The totals tiles name their currency in the label** ("OUT · EUR"), and the
+  whole strip is a Server Component again.
+
+### Removed
+
+- **The caption under the totals** — "On this page, in BDT. Transfers excluded.
+  USD not included." — which was two rows of qualifier sitting between the
+  filters and the first row. The currency is on the tiles, the scoping is in the
+  strip's accessible name, and a currency the figures leave out is named in the
+  page subtitle.
+
+- **The "Convert to <currency>" toggle** on the transaction list, and with it
+  the exchange-rate fetch that every mixed-currency page was making to offer it.
+  The arithmetic is still in `lib/fx.ts` if it earns a place somewhere the space
+  is cheaper.
+
 ## [0.9.4] - 2026-09-22
 
 **One account's transactions add up correctly now.**
@@ -1007,7 +1059,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.9.4...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.10.0
 [0.9.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.4
 [0.9.3]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.3
 [0.9.2]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.2

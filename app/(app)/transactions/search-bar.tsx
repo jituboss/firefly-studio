@@ -138,7 +138,9 @@ export function SearchBar({ initialQuery }: { initialQuery: string }) {
   };
 
   return (
-    <div className="relative w-full min-w-0 sm:w-auto sm:max-w-md sm:flex-1">
+    /* `flex-1` at every width, not just from `sm`. Full-width on a phone is
+       what forced every control after it onto a second row. */
+    <div className="relative min-w-0 flex-1 sm:max-w-md">
       <div className="relative">
         <Search
           className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
