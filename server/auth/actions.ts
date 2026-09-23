@@ -15,6 +15,7 @@ import { consumeToken, issueToken } from './tokens';
 import { getLandingPage } from '@/server/preferences';
 import { consumeRateLimit, EMAIL_LIMIT, LOGIN_LIMIT } from './rate-limit';
 import { recordAudit } from '@/server/audit';
+import { bootstrapFirstAdmin } from './roles';
 import { passwordResetMail, sendMail, verificationMail } from '@/server/mail';
 
 /**
@@ -93,6 +94,20 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   const userId = created!.id;
   await db.insert(userPreferences).values({ userId }).onConflictDoNothing();
 
+  /*
+   * The first account registered on a fresh instance administers it.
+   *
+   * Someone has to, and there is nobody to ask: a self-hosted deployment has no
+   * out-of-band channel through which an operator could be anointed. Whoever
+   * reaches the sign-up form first is the person who just stood the server up.
+   *
+   * It happens here rather than after email confirmation so that a deployment
+   * with no mail transport — the default, see `server/mail` — still ends up with
+   * an administrator. The account cannot sign in until it is verified either
+   * way, so the role grants nothing before then.
+   */
+  const promoted = await bootstrapFirstAdmin(userId);
+
   const token = await issueToken(userId, 'verify_email');
   await sendMail(
     verificationMail(
@@ -102,6 +117,15 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   );
 
   await recordAudit({ userId, action: 'auth.signup', ...meta });
+  if (promoted) {
+    await recordAudit({
+      userId,
+      action: 'admin.role.bootstrapped',
+      entity: 'user',
+      entityId: userId,
+      ...meta,
+    });
+  }
 
   return { notice: 'Check your email to confirm your address.' };
 }

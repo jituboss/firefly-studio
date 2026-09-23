@@ -23,6 +23,10 @@ const TARGETS = [
   { entry: 'server/db/migrate.ts', out: 'dist/migrate.cjs' },
   { entry: 'scripts/demo-seed.ts', out: 'dist/demo-seed.cjs' },
   { entry: 'scripts/demo-account.ts', out: 'dist/demo-account.cjs' },
+  // The admin-role escape hatch. It has to be here rather than in `scripts/`
+  // alone, because the case it exists for — an instance with no administrator —
+  // is one an operator can only fix from inside the running container.
+  { entry: 'scripts/user-admin.ts', out: 'dist/user-admin.cjs' },
 ];
 
 async function main() {

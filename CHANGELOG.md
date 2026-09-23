@@ -10,6 +10,60 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-09-23
+
+**Administrators, and a page for them.**
+
+### Added
+
+- **An administrator role, and an Admin section in the sidebar for whoever has
+  it.** Three tabs: who is on this deployment, what the deployment is running,
+  and the security trail for all of it.
+
+  **Nobody's ledger is visible there.** Firefly III holds the financial
+  records, and this app only ever reaches them with the account holder's own
+  token — an administrator of Firefly Studio is not an administrator of anyone's
+  Firefly instance, and nothing on the page can unseal another account's
+  credentials.
+
+- **The first account to register becomes the administrator.** On an instance
+  that already had accounts, the upgrade promotes the oldest one, so nobody ends
+  up with an admin page they cannot open. The shared demo account is never
+  promoted — its password is published, and that would hand every visitor every
+  other account on the instance.
+
+- **Users tab.** Every account with its role, status, Firefly connections and
+  last sign-in. Grant or revoke the administrator role, suspend and reactivate,
+  confirm an email address without a mail provider, and delete an account.
+  Suspending revokes the session immediately.
+
+  Each of those refuses the cases that would lock the instance out of itself —
+  removing the last administrator, suspending yourself — and says why on the
+  disabled control rather than failing after you press it. Deleting your own
+  account is still only possible from Settings → Security, behind your password.
+
+- **Overview tab.** Account, session and connection counts, plus the version,
+  Node version, cache mode, mail transport and the two SSRF policy flags — the
+  things a support question starts with.
+
+- **Activity tab.** The audit trail for the whole deployment, filterable by
+  event. It includes the events no per-user view can show, such as a failed
+  sign-in against an address that does not exist here.
+
+- **`pnpm user:admin`, and `node dist/user-admin.cjs` inside a container.**
+  Grant, revoke and list from a shell, for the instance whose only administrator
+  deleted themselves, or a demo-only deployment that was deliberately left
+  without one. It refuses to remove the last administrator unless forced, and
+  will not promote the demo account at all.
+
+### Fixed
+
+- **The security trail was showing raw event identifiers.** The label map had
+  drifted from the events actually recorded: it named three that nothing writes
+  and was missing eleven that fire, so `auth.login` and `auth.signup` rendered
+  as themselves on Settings → Security. Both lists are now pinned together by a
+  test.
+
 ## [0.10.0] - 2026-09-23
 
 **The transaction list, with the chrome cut back.**
@@ -1059,7 +1113,8 @@ a ledger you cannot afford to have written to by mistake.
 - Reports (M5) and automation — rules, recurring transactions, webhooks — are
   not built yet; those pages are marked in the navigation.
 
-[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.10.0...HEAD
+[unreleased]: https://github.com/jituboss/firefly-studio/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/jituboss/firefly-studio/releases/tag/v0.10.1
 [0.10.0]: https://github.com/jituboss/firefly-studio/releases/tag/v0.10.0
 [0.9.4]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.4
 [0.9.3]: https://github.com/jituboss/firefly-studio/releases/tag/v0.9.3

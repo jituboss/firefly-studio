@@ -38,6 +38,16 @@ const timestamps = {
 // ---------------------------------------------------------------------------
 
 export const userStatusEnum = pgEnum('user_status', ['active', 'suspended', 'deleted']);
+/**
+ * Who may administer this deployment.
+ *
+ * Deliberately two values and not a permission system. This is a self-hosted
+ * app for a household or a small team: the only distinction anyone has needed
+ * is "can see and manage every account on this instance" against "can see their
+ * own". A role table with grants would be more machinery than the question
+ * deserves, and it is far easier to widen this later than to narrow it.
+ */
+export const userRoleEnum = pgEnum('user_role', ['user', 'admin']);
 export const mfaTypeEnum = pgEnum('mfa_type', ['totp', 'webauthn']);
 export const emailTokenPurposeEnum = pgEnum('email_token_purpose', [
   'verify_email',
@@ -82,6 +92,14 @@ export const users = pgTable(
     locale: text('locale').notNull().default('en-US'),
     timezone: text('timezone').notNull().default('UTC'),
     status: userStatusEnum('status').notNull().default('active'),
+    /**
+     * `admin` unlocks /admin and every action behind it. Defaults to `user`,
+     * including for every account that existed before this column — the
+     * migration promotes exactly one of them, the first ever registered, so an
+     * upgrade does not leave a deployment nobody can administer. After that it
+     * is granted by an existing admin or by `pnpm user:admin`.
+     */
+    role: userRoleEnum('role').notNull().default('user'),
     onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
     /**
      * E2-21 — wizard progress, so a reload or a new device resumes where the
@@ -113,6 +131,9 @@ export const users = pgTable(
       .on(table.email)
       .where(sql`${table.deletedAt} is null`),
     index('users_status_idx').on(table.status),
+    // Read on every sign-up ("is there an admin yet?") and on every render of
+    // the admin page's user list.
+    index('users_role_idx').on(table.role),
   ],
 );
 
@@ -449,6 +470,8 @@ export type UserPreferences = typeof userPreferences.$inferSelect;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type ManagedFireflyUser = typeof managedFireflyUsers.$inferSelect;
 export type ConnectionStatus = (typeof connectionStatusEnum.enumValues)[number];
+export type UserRole = (typeof userRoleEnum.enumValues)[number];
+export type UserStatus = (typeof userStatusEnum.enumValues)[number];
 
 /**
  * The permanent link between an app user and their account on the managed

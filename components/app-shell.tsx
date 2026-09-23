@@ -19,6 +19,7 @@ import {
   Repeat,
   Settings,
   Shapes,
+  ShieldCheck,
   Tags,
   Wallet,
   Workflow,
@@ -51,6 +52,19 @@ interface NavItem {
   /** Set until the milestone that implements the route lands. */
   milestone?: string;
 }
+
+/**
+ * The administrator's section, appended to the nav only for an administrator.
+ *
+ * Hiding it is a courtesy, not a control — `requireAdmin()` on the page is what
+ * makes /admin unreachable, and it 404s rather than redirecting. A link that
+ * everyone can see and only some can open is a worse experience than no link,
+ * which is the only reason this is conditional at all.
+ */
+const ADMIN_SECTION: { heading: string; items: NavItem[] } = {
+  heading: 'Administer',
+  items: [{ href: '/admin', label: 'Admin', icon: ShieldCheck }],
+};
 
 const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
   {
@@ -92,12 +106,21 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
  */
 const SOURCE_URL = 'https://github.com/jituboss/firefly-studio';
 
-function SidebarNav({ onNavigate, version }: { onNavigate?: () => void; version?: string }) {
+function SidebarNav({
+  onNavigate,
+  version,
+  isAdmin = false,
+}: {
+  onNavigate?: () => void;
+  version?: string;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
+  const sections = isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS;
 
   return (
     <nav aria-label="Main" className="flex flex-1 flex-col gap-6 p-3">
-      {NAV_SECTIONS.map((section) => (
+      {sections.map((section) => (
         <div key={section.heading}>
           <p className="text-muted-foreground px-3 pb-1.5 text-[0.6875rem] font-semibold tracking-wider uppercase">
             {section.heading}
@@ -173,6 +196,7 @@ export function AppShell({
   notifications,
   version,
   isDemo = false,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   userName?: string;
@@ -183,6 +207,8 @@ export function AppShell({
   notifications?: NotificationRow[];
   /** The running build, from server/version.ts. */
   version?: string;
+  /** Shows the Administer section. The page guards itself regardless. */
+  isAdmin?: boolean;
 }): React.JSX.Element {
   const active = connections.find((entry) => entry.isDefault) ?? connections[0] ?? null;
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -211,7 +237,7 @@ export function AppShell({
           <Flame className="text-primary size-5" aria-hidden="true" />
           <span className="font-semibold tracking-tight">Firefly Studio</span>
         </div>
-        <SidebarNav version={version} />
+        <SidebarNav version={version} isAdmin={isAdmin} />
       </aside>
 
       {/*
@@ -236,7 +262,7 @@ export function AppShell({
           </div>
         }
       >
-        <SidebarNav onNavigate={() => setMobileOpen(false)} version={version} />
+        <SidebarNav onNavigate={() => setMobileOpen(false)} version={version} isAdmin={isAdmin} />
       </Sheet>
 
       <div className="min-w-0 lg:pl-60">

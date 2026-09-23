@@ -196,6 +196,31 @@ pnpm firefly:seed                         # realistic multi-account data
 to the server log, which is enough to finish sign-up while evaluating. See
 [Mail](#mail) for real delivery.
 
+### Administrators
+
+**The first account to register becomes the administrator.** It gets an **Admin** section
+in the sidebar: every account on the deployment, what the instance is running, and the
+security trail for all of it. Nobody's ledger is visible there — Firefly III holds the
+financial records, and this app only ever reaches them with the account holder's own
+token.
+
+On an instance that already had accounts before this feature existed, the upgrade
+promotes the oldest one. Grant and revoke the role from the Users tab, or from a shell
+when there is nobody left who can open the page:
+
+```bash
+# in a running container
+docker compose exec app node dist/user-admin.cjs --list
+docker compose exec app node dist/user-admin.cjs grant you@example.com
+docker compose exec app node dist/user-admin.cjs revoke someone@example.com
+
+# from a source checkout
+pnpm user:admin grant you@example.com
+```
+
+It refuses to remove the last administrator unless you pass `--force`, and it will not
+promote the shared demo account at all.
+
 ## Configuration
 
 Everything is environment variables; [`.env.example`](.env.example) documents all of

@@ -52,7 +52,12 @@ describe('scorePassword', () => {
 
 describe('describeAuditAction', () => {
   it('turns a recorded action into something a person reads', () => {
-    expect(describeAuditAction('auth.sign_in.failed')).toBe('Failed sign-in attempt');
+    // `auth.login.failed`, not `auth.sign_in.failed`. This assertion used to
+    // name the latter, which nothing in the app has ever written — so it passed
+    // against a label that could never be reached, and the event that DOES fire
+    // rendered as its own raw key. `tests/unit/audit-labels.test.ts` now pins
+    // the whole set in both directions.
+    expect(describeAuditAction('auth.login.failed')).toBe('Failed sign-in attempt');
   });
 
   it('falls back to the raw action, so a new event type is still legible', () => {
