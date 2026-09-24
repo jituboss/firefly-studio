@@ -457,6 +457,12 @@ this codebase the code reads correctly and the rendered result is wrong.
   pinned in `.github/dependabot.yml` with the reason; **if you loosen one, build and boot the image
   before merging.** The lesson generalises: a bump that disables a gate is worse than one that
   breaks a feature, because nothing goes red.
+- **A PDF has to be looked at, not just downloaded.** The first PDF export passed every
+  check — typecheck, tests, a successful download from all ten pages — and every table in it
+  was broken: a per-cell `cellPadding: undefined` in jspdf-autotable REPLACES the table's
+  padding with zero instead of inheriting it, and a bar drawn in `willDrawCell` leaks its fill
+  colour into the zebra background. Render the pages (pdf.js in Playwright; there is no
+  poppler here) and read them.
 - **Rebuild the container before you believe a screenshot.** An hour went into investigating a
   "missing" feature that was simply not in the running image.
 
@@ -725,7 +731,7 @@ Use this map before assuming a feature still needs to be built.
 | Cash-flow Sankey                                                                             | `app/(app)/reports/cash-flow/page.tsx`, `lib/sankey.ts`, `components/charts/sankey-flow.tsx`                                                                                                                       |
 | Custom report builder + saved reports                                                        | `app/(app)/reports/custom/page.tsx`, `app/(app)/reports/custom/builder-form.tsx`, `lib/custom-report.ts`, `server/reports.ts`, `server/reports-actions.ts`                                                         |
 | Reporting arithmetic + scoped queries                                                        | `lib/reports.ts`, `lib/report-scope.ts`, `server/firefly/report-queries.ts`                                                                                                                                        |
-| Report export (CSV, print-to-PDF)                                                            | `components/reports/report-export.tsx`                                                                                                                                                                             |
+| Export menu, CSV + PDF (every export)                                                        | `components/export/export-menu.tsx`, `components/export/pdf-renderer.ts`, `lib/pdf/spec.ts`, `lib/statement.ts`, `components/reports/report-export.tsx`                                                            |
 | Settings → connections manager                                                               | `app/(settings)/settings/connections/page.tsx`, `app/(settings)/settings/connections/connection-card.tsx`                                                                                                          |
 | Navigation progress bar                                                                      | `components/navigation-progress.tsx`                                                                                                                                                                               |
 | Checkbox primitive (indeterminate)                                                           | `components/ui/checkbox.tsx`                                                                                                                                                                                       |

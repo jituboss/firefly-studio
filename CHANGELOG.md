@@ -10,6 +10,41 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-24
+
+**Every export now offers a PDF alongside the CSV.**
+
+### Added
+
+- **PDF export, everywhere there is an export.** The transactions list and all
+  nine reports share one Export menu with two choices: CSV for a spreadsheet,
+  and PDF for a document you can file, print or send. Each PDF carries a
+  coloured header with the period and when it was generated, the report's
+  headline figures, its tables with totals, and a page number on every page.
+  Amounts print with grouped digits and the currency named in each column
+  header, the way a bank statement does it.
+- **The transactions PDF is a statement.** Lines run oldest first, with money
+  in and money out in their own columns and transfers kept separate. Filter the
+  list to one account and it becomes an account statement: when the page holds
+  that account's whole period it shows the opening balance, a running balance on
+  every line, and the closing balance.
+- **Charts in the report PDFs.** Income vs expense and net worth include their
+  chart, drawn into the document so it stays sharp at any zoom; breakdown tables
+  show each row's share as a bar.
+
+### Changed
+
+- **The reports' Print button is gone.** It handed the page to the browser's
+  print dialog, which is what the PDF option now does better, on any device.
+  Printing a page with the browser's own shortcut still uses the print
+  stylesheet.
+
+### Notes
+
+- The PDF library loads only when someone asks for a PDF, so no page got
+  heavier. It embeds the Inter font (SIL Open Font License, in `public/fonts`)
+  so names in Latin, Greek and Cyrillic scripts print correctly.
+
 ## [0.11.0] - 2026-09-23
 
 **The row menu in the admin user list.**

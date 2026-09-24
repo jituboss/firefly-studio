@@ -107,6 +107,57 @@ export default async function BudgetReportPage({
           <ReportExportButton
             rows={exportRows}
             filename={`budgets-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title: 'Budget report',
+              subtitle: scope.label,
+              description:
+                'What each budget planned against what was actually spent. Usage above 100% means the budget was overspent.',
+              period: { start: scope.start, end: scope.end },
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              currency: report.currency,
+              accent: 'green',
+              stats: [
+                {
+                  label: 'Budgeted',
+                  value: report.totalBudgeted,
+                  currency: report.currency,
+                  tone: 'accent',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Spent',
+                  value: report.totalSpent,
+                  currency: report.currency,
+                  tone: 'expense',
+                  hint: `${report.rows.length} budget${report.rows.length === 1 ? '' : 's'}`,
+                },
+                {
+                  label: toDecimal(remaining).isNegative() ? 'Over budget by' : 'Remaining',
+                  value: toDecimal(remaining).abs().toString(),
+                  currency: report.currency,
+                  tone: toDecimal(remaining).isNegative() ? 'expense' : 'income',
+                  hint: `${overBudgetCount} budget${overBudgetCount === 1 ? '' : 's'} over`,
+                },
+                {
+                  label: 'Unbudgeted spend',
+                  value: unbudgetedTotal,
+                  currency: scope.currency,
+                  tone: 'expense',
+                  hint: 'Spending with no budget set',
+                },
+              ],
+              tableTitle: 'Planned against actual',
+              totalLabel: 'All budgets',
+              columns: [
+                { key: 'budget', header: 'Budget', width: 2 },
+                { key: 'budgeted', header: 'Budgeted', kind: 'money', total: true },
+                { key: 'spent', header: 'Spent', kind: 'money', tone: 'expense', total: true },
+                { key: 'remaining', header: 'Left', kind: 'money', tone: 'income', total: true },
+                { key: 'overspent', header: 'Over', kind: 'money', tone: 'expense', total: true },
+                { key: 'usage_percent', header: 'Used', kind: 'percent', bar: true, width: 0.9 },
+              ],
+            }}
           />
         }
       >

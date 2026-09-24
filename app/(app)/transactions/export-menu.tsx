@@ -1,40 +1,51 @@
 'use client';
 
-import { Download, FileText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Popover } from '@/components/ui/popover';
-import { rowsToCsv } from '@/components/reports/report-export';
+import {
+  ExportMenu as Menu,
+  downloadCsv,
+  downloadPdfDocument,
+} from '@/components/export/export-menu';
+import { buildStatement, type StatementInput } from '@/lib/statement';
 import { useSelection } from './selection';
 import type { Transaction } from '@/server/firefly/types';
 
 /**
- * E5-16 — export what is on screen.
+ * E5-16 — export what is on screen, as CSV or as a PDF statement.
  *
  * **A menu, not a bare button, and it sits with Filters and Views.** As a lone
  * ghost button above the table it owned a band of the page to offer one file
  * format, and on a phone that band was 40px of scrolling before the first row.
  * Grouped with the other two toolbar menus it costs the width of a glyph, and
  * the format it produces is named in the menu rather than guessed from an icon.
+ * The same menu now serves every export in the app — see
+ * `components/export/export-menu.tsx`.
  *
  * It also states its scope. The button used to switch silently between "all
  * rows on this page" and "the rows you ticked" depending on the selection,
  * which is the right behaviour told in the wrong place — a label that changes
- * under you is not a label. The menu item says which it is about to do.
+ * under you is not a label. Each item says which it is about to do.
  *
- * The file is built from the rows already rendered, so it always matches the
- * view that produced it. One line per SPLIT, because a split transaction
+ * Both files are built from the rows already rendered, so they always match the
+ * view that produced them. One line per SPLIT, because a split transaction
  * exported as a single row would not reconcile against anything.
+ *
+ * The PDF is a statement (`lib/statement.ts`): oldest first, money in and out
+ * in their own columns, and — when one account is pinned and the export holds
+ * its whole period — opening, running and closing balances.
  */
 export function ExportMenu({
   transactions,
   rangeLabel,
+  statement,
 }: {
   transactions: Transaction[];
   rangeLabel: string;
+  statement: Omit<StatementInput, 'transactions' | 'selected'>;
 }) {
   const { selected } = useSelection();
   const count = [...selected].length;
   const chosen = count > 0 ? transactions.filter((group) => selected.has(group.id)) : transactions;
+  const slug = `transactions-${rangeLabel.toLowerCase().replace(/\s+/g, '-')}`;
 
   const exportCsv = () => {
     const rows = chosen.flatMap((group) =>
@@ -55,19 +66,23 @@ export function ExportMenu({
         group_id: group.id,
       })),
     );
-
-    // The BOM is what makes Excel open a UTF-8 file as UTF-8 rather than as
-    // the local codepage, which mangles every non-ASCII payee name.
-    const blob = new Blob(['﻿', rowsToCsv(rows)], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `transactions-${rangeLabel.toLowerCase().replace(/\s+/g, '-')}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    downloadCsv(`${slug}.csv`, rows);
   };
+
+  const exportPdf = () =>
+    downloadPdfDocument(
+      buildStatement({
+        ...statement,
+        transactions: chosen,
+        selected: count > 0 ? count : undefined,
+        // A running balance is only true of the complete period; a selection
+        // leaves lines out, so it drops the opening figure the page supplied.
+        account: statement.account
+          ? { ...statement.account, opening: count > 0 ? null : statement.account.opening }
+          : null,
+      }),
+      `${statement.account ? 'statement' : 'transactions'}-${slug.replace(/^transactions-/, '')}`,
+    );
 
   const splits = chosen.reduce((sum, group) => sum + group.attributes.transactions.length, 0);
   const scope =
@@ -76,47 +91,23 @@ export function ExportMenu({
       : `${transactions.length} transaction${transactions.length === 1 ? '' : 's'} on this page`;
 
   return (
-    <Popover
-      align="end"
-      label="Export"
-      contentClassName="w-64"
-      trigger={(props) => (
-        <Button
-          {...props}
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-9 shrink-0 max-sm:w-9 max-sm:px-0"
-          disabled={transactions.length === 0}
-        >
-          <Download className="size-4 shrink-0" aria-hidden="true" />
-          <span className="max-sm:sr-only">Export</span>
-        </Button>
-      )}
-    >
-      {(close) => (
-        <div className="p-1">
-          <button
-            type="button"
-            onClick={() => {
-              exportCsv();
-              close();
-            }}
-            className="hover:bg-accent flex w-full items-start gap-2 rounded px-2 py-1.5 text-left"
-          >
-            <FileText className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium">CSV</span>
-              {/* The row count is the split count, not the group count: a
-                  three-way split is three lines in the file, and someone
-                  reconciling against a bank statement is counting lines. */}
-              <span className="text-muted-foreground block text-xs leading-relaxed">
-                {scope} — {splits} row{splits === 1 ? '' : 's'}
-              </span>
-            </span>
-          </button>
-        </div>
-      )}
-    </Popover>
+    <Menu
+      disabled={transactions.length === 0}
+      options={[
+        {
+          format: 'csv',
+          // The row count is the split count, not the group count: a
+          // three-way split is three lines in the file, and someone
+          // reconciling against a bank statement is counting lines.
+          detail: `${scope} — ${splits} row${splits === 1 ? '' : 's'}`,
+          run: exportCsv,
+        },
+        {
+          format: 'pdf',
+          detail: `${statement.account ? 'Account statement' : 'Statement'} of ${scope}`,
+          run: exportPdf,
+        },
+      ]}
+    />
   );
 }

@@ -3,8 +3,14 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getPreferences } from '@/server/preferences';
 import { getActiveConnection, fireflyGetSafe } from '@/server/firefly/api';
-import { getAccount, getAccountsSafe, getBudget, getCategory } from '@/server/firefly/queries';
-import { resolveRangeFromParams } from '@/lib/date-range';
+import {
+  getAccount,
+  getAccountBalanceOn,
+  getAccountsSafe,
+  getBudget,
+  getCategory,
+} from '@/server/firefly/queries';
+import { previousDay, resolveRangeFromParams } from '@/lib/date-range';
 import { now, toApiDate } from '@/lib/date';
 import { add, toDecimal } from '@/lib/money';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -167,7 +173,7 @@ export default async function TransactionsPage({
             ? `/v1/tags/${encodeURIComponent(tag)}/transactions?${query.toString()}`
             : `/v1/transactions?${query.toString()}`;
 
-  const [result, assetAccounts, pinnedAccount, scopeName] = await Promise.all([
+  const [result, assetAccounts, pinnedAccountInfo, scopeName] = await Promise.all([
     fireflyGetSafe<Paged<Transaction>>(basePath, { data: [], meta: {} }),
     // For the add panel: it opens with an account already chosen, so the
     // common case needs no lookup.
@@ -176,7 +182,10 @@ export default async function TransactionsPage({
     // list looked mysteriously short with no visible reason.
     accountId
       ? getAccount(accountId)
-          .then((response) => response.data.attributes.name)
+          .then((response) => ({
+            name: response.data.attributes.name,
+            currency: response.data.attributes.currency_code,
+          }))
           .catch(() => null)
       : Promise.resolve(null),
     // Same problem for a report drill-through: the header has to name what the
@@ -200,6 +209,21 @@ export default async function TransactionsPage({
       : result.data;
 
   const pagination = result.meta.pagination;
+  const pinnedAccount = pinnedAccountInfo?.name ?? null;
+
+  // The PDF statement carries a running balance only when this page IS the
+  // account's whole period: one account, no search or type filter, one page.
+  // Anything less and a balance carried past a missing line is wrong from that
+  // line on. The opening figure is the balance at the end of the day BEFORE the
+  // range, the same one reconciliation uses (`getAccountBalanceOn`).
+  const completePeriod =
+    Boolean(accountId) && !search && type === 'all' && (pagination?.total_pages ?? 1) <= 1;
+  const openingBalance =
+    accountId && completePeriod
+      ? await getAccountBalanceOn(accountId, previousDay(range.start))
+          .then((response) => response.data.attributes.current_balance)
+          .catch(() => null)
+      : null;
   const totals = pageTotals(data, connection.primaryCurrency, accountId);
   const savedViewsList = await listSavedViews(session.user.id, 'transactions');
 
@@ -298,6 +322,25 @@ export default async function TransactionsPage({
                 <ExportMenu
                   transactions={data}
                   rangeLabel={search ? `search-${search}` : range.label}
+                  statement={{
+                    currency: connection.primaryCurrency,
+                    range: { start: range.start, end: range.end, label: range.label },
+                    account:
+                      accountId && pinnedAccountInfo
+                        ? {
+                            id: accountId,
+                            name: pinnedAccountInfo.name,
+                            currency: pinnedAccountInfo.currency,
+                            opening: openingBalance,
+                          }
+                        : null,
+                    scopeLabel: scopeName,
+                    search: search || undefined,
+                    page: pagination?.current_page ?? page,
+                    totalPages: pagination?.total_pages ?? 1,
+                    locale: session.user.locale,
+                    timezone: session.user.timezone,
+                  }}
                 />
               </>
             }

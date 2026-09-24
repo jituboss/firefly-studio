@@ -30,7 +30,7 @@ const FEATURES = [
   {
     icon: BarChart3,
     title: 'Reports that answer questions',
-    body: 'Net worth over time, income against spending, a cash-flow Sankey, and a builder for the report nobody thought to ship. Export any of it to CSV or print it.',
+    body: 'Net worth over time, income against spending, a cash-flow Sankey, and a builder for the report nobody thought to ship. Export any of it to CSV or a formatted PDF.',
   },
   {
     icon: Zap,

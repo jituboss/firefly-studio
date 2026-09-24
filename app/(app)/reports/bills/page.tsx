@@ -99,6 +99,71 @@ export default async function BillReportPage({
           <ReportExportButton
             rows={exportRows}
             filename={`subscriptions-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title: 'Subscriptions',
+              subtitle: scope.label,
+              description:
+                'Every subscription with its expected amount, what it costs over a year, and what was actually paid in the period. Firefly stores a subscription as a min/max band; the expected figure is its midpoint.',
+              period: { start: scope.start, end: scope.end },
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              currency: report.currency,
+              accent: 'amber',
+              stats: [
+                {
+                  label: 'Annualised cost',
+                  value: report.totalAnnualised,
+                  currency: report.currency,
+                  tone: 'expense',
+                  hint: 'Active subscriptions only',
+                },
+                {
+                  label: 'Per month',
+                  value: monthly,
+                  currency: report.currency,
+                  tone: 'expense',
+                  hint: 'Annualised, spread evenly',
+                },
+                {
+                  label: 'Paid this period',
+                  value: report.totalActual,
+                  currency: report.currency,
+                  tone: 'expense',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Subscriptions',
+                  value: report.activeCount,
+                  kind: 'count',
+                  tone: 'accent',
+                  hint:
+                    report.inactiveCount > 0
+                      ? `${report.inactiveCount} inactive, not counted`
+                      : 'All active',
+                },
+              ],
+              tableTitle: 'Recurring cost',
+              columns: [
+                { key: 'subscription', header: 'Subscription', width: 2.2 },
+                { key: 'expected', header: 'Expected', kind: 'money' },
+                { key: 'frequency', header: 'Every', width: 0.9 },
+                {
+                  key: 'annualised',
+                  header: 'Per year',
+                  kind: 'money',
+                  tone: 'expense',
+                  total: true,
+                },
+                {
+                  key: 'paid_in_period',
+                  header: 'Paid',
+                  kind: 'money',
+                  tone: 'expense',
+                  total: true,
+                },
+                { key: 'active', header: 'Active', width: 0.7 },
+              ],
+            }}
           />
         }
       >

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { CalendarDays, Check, ChevronDown, Columns2, Printer, Wallet } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Columns2, Wallet } from 'lucide-react';
 import { RANGE_PRESETS } from '@/lib/date-range';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -209,11 +209,6 @@ export function ReportScopeBar({
       >
         <Columns2 className="size-4" aria-hidden="true" />
         <span className="hidden sm:inline">Compare</span>
-      </Button>
-
-      <Button variant="outline" size="sm" onClick={() => window.print()}>
-        <Printer className="size-4" aria-hidden="true" />
-        <span className="sr-only sm:not-sr-only">Print</span>
       </Button>
     </div>
   );

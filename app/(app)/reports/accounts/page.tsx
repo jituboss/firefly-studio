@@ -90,6 +90,62 @@ export default async function AccountReportPage({
           <ReportExportButton
             rows={exportRows}
             filename={`accounts-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title: 'Account report',
+              subtitle: scope.label,
+              description:
+                'Money in, money out and transfers for each asset account. Transfers keep their direction, so an account that funded another shows a negative figure.',
+              period: { start: scope.start, end: scope.end },
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              currency: report.currency,
+              accent: 'indigo',
+              stats: [
+                {
+                  label: 'Money in',
+                  value: report.totalIncome,
+                  currency: report.currency,
+                  tone: 'income',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Money out',
+                  value: report.totalExpense,
+                  currency: report.currency,
+                  tone: 'expense',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Net',
+                  value: net,
+                  currency: report.currency,
+                  tone: 'auto',
+                  hint: 'Across all accounts',
+                },
+                {
+                  label: 'Accounts active',
+                  value: report.rows.length,
+                  kind: 'count',
+                  tone: 'accent',
+                  hint: 'With movement this period',
+                },
+              ],
+              tableTitle: 'Per-account movement',
+              totalLabel: 'All accounts',
+              columns: [
+                { key: 'account', header: 'Account', width: 2.2 },
+                { key: 'income', header: 'In', kind: 'money', tone: 'income', total: true },
+                { key: 'expense', header: 'Out', kind: 'money', tone: 'expense', total: true },
+                {
+                  key: 'transfers_net',
+                  header: 'Transfers',
+                  kind: 'money',
+                  tone: 'auto',
+                  total: true,
+                },
+                { key: 'net', header: 'Net', kind: 'money', tone: 'auto', total: true },
+              ],
+            }}
           />
         }
       >
