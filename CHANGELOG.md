@@ -10,7 +10,7 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
-## [0.12.0] - 2026-09-24
+## [0.11.1] - 2026-09-24
 
 **Every export now offers a PDF alongside the CSV.**
 
