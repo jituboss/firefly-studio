@@ -121,8 +121,12 @@ export function middleware(request: NextRequest) {
 // to /sign-in produces no error anywhere — the app simply never becomes
 // installable, and /offline.html would be replaced by the sign-in page at
 // exactly the moment there is no network to reach it with.
+//
+// `fonts/` holds the TTFs the PDF export embeds. They are public (OFL) and
+// carry no user data, so they are served as plain static files rather than
+// routed through a session check on every export.
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|monitoring|favicon.ico|robots.txt|icon.png|icon.svg|apple-icon.png|manifest.webmanifest|sw.js|offline.html).*)',
+    '/((?!api|_next/static|_next/image|monitoring|favicon.ico|robots.txt|icon.png|icon.svg|apple-icon.png|manifest.webmanifest|sw.js|offline.html|fonts/).*)',
   ],
 };

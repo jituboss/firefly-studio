@@ -114,6 +114,58 @@ export default async function CashFlowReportPage({
           <ReportExportButton
             rows={exportRows}
             filename={`cash-flow-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title: 'Cash flow',
+              subtitle: scope.label,
+              description:
+                'Where the money flowed: from income sources into your accounts, and from your accounts out to spending. Each line is one ribbon of the diagram.',
+              period: { start: scope.start, end: scope.end },
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              currency: diagram.currency,
+              accent: 'violet',
+              stats: [
+                {
+                  label: 'Income',
+                  value: earned,
+                  currency: scope.currency,
+                  tone: 'income',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Expenses',
+                  value: spent,
+                  currency: scope.currency,
+                  tone: 'expense',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Net',
+                  value: subtract(earned, spent).toString(),
+                  currency: scope.currency,
+                  tone: 'auto',
+                  hint: 'Income less expenses',
+                },
+                {
+                  label: 'Flows',
+                  value: diagram.links.length,
+                  kind: 'count',
+                  tone: 'accent',
+                  hint: `${diagram.nodes.length} nodes`,
+                },
+              ],
+              tableTitle: 'Flows',
+              notes: truncated
+                ? [
+                    `Drawn from the first ${FLOW_SAMPLE_LIMIT} transactions in the period; later ones are not included.`,
+                  ]
+                : [],
+              columns: [
+                { key: 'from', header: 'From', width: 2 },
+                { key: 'to', header: 'To', width: 2 },
+                { key: 'amount', header: 'Amount', kind: 'money', tone: 'accent' },
+              ],
+            }}
           />
         }
       >

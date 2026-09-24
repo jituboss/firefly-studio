@@ -100,7 +100,75 @@ export default async function TagReportPage({
         title="Spend by tag"
         description={`${scope.label} · tags are how one-off projects and trips get tracked across categories`}
         actions={
-          <ReportExportButton rows={exportRows} filename={`tags-${scope.start}-to-${scope.end}`} />
+          <ReportExportButton
+            rows={exportRows}
+            filename={`tags-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title: 'Tag report',
+              subtitle: scope.label,
+              description:
+                'Spending and income grouped by tag. Tags cut across categories, so they are how one-off projects and trips get tracked.',
+              period: { start: scope.start, end: scope.end },
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              currency: spending.currency,
+              accent: 'violet',
+              stats: [
+                {
+                  label: 'Tagged spend',
+                  value: spending.total,
+                  currency: spending.currency,
+                  tone: 'expense',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Tags used',
+                  value: spending.rows.length,
+                  kind: 'count',
+                  tone: 'accent',
+                  hint: 'With spending this period',
+                },
+                {
+                  label: 'Tagged income',
+                  value: earning.total,
+                  currency: earning.currency,
+                  tone: 'income',
+                  hint: `${earning.rows.length} tag${earning.rows.length === 1 ? '' : 's'}`,
+                },
+                {
+                  label: 'Largest tag',
+                  value: spending.rows[0]?.amount ?? '0',
+                  currency: spending.currency,
+                  tone: 'expense',
+                  hint: spending.rows[0]?.name ?? 'No tagged spending',
+                },
+              ],
+              tableTitle: 'Spend by tag',
+              tableDescription: 'Ranked, largest first.',
+              columns: [
+                { key: 'tag', header: 'Tag', width: 2.4 },
+                { key: 'spent', header: 'Spent', kind: 'money', tone: 'expense', total: true },
+                { key: 'share_percent', header: 'Share', kind: 'percent', bar: true },
+              ],
+              tables: [
+                {
+                  title: 'Income by tag',
+                  currency: earning.currency,
+                  rows: earning.rows.map((row) => ({
+                    tag: row.name,
+                    earned: row.amount,
+                    share: row.percent,
+                  })),
+                  columns: [
+                    { key: 'tag', header: 'Tag', width: 2.4 },
+                    { key: 'earned', header: 'Earned', kind: 'money', tone: 'income', total: true },
+                    { key: 'share', header: 'Share', kind: 'percent', bar: true },
+                  ],
+                  emptyMessage: 'No tagged income in this period.',
+                },
+              ],
+            }}
+          />
         }
       >
         <CategoryBars

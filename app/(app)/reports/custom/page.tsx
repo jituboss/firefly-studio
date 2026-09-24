@@ -146,6 +146,62 @@ export default async function CustomReportPage({
           <ReportExportButton
             rows={exportRows}
             filename={`${config.metric}-by-${config.dimension}-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title,
+              subtitle: scope.label,
+              description: `A custom report: ${title.toLowerCase()}, ranked largest first, with each group’s share of the total.`,
+              period: { start: scope.start, end: scope.end },
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              currency: breakdown.currency,
+              accent: isExpense ? 'rose' : 'green',
+              stats: [
+                {
+                  label: 'Total',
+                  value: breakdown.total,
+                  currency: breakdown.currency,
+                  tone: isExpense ? 'expense' : 'income',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Groups',
+                  value: breakdown.rows.length,
+                  kind: 'count',
+                  tone: 'accent',
+                  hint: title,
+                },
+                {
+                  label: 'Largest',
+                  value: breakdown.rows[0]?.amount ?? '0',
+                  currency: breakdown.currency,
+                  tone: isExpense ? 'expense' : 'income',
+                  hint: breakdown.rows[0]?.name ?? 'Nothing in this period',
+                },
+                {
+                  label: 'Top share',
+                  value: breakdown.rows[0]?.percent ?? null,
+                  kind: 'percent',
+                  tone: 'accent',
+                  hint: 'Of the total',
+                },
+              ],
+              tableTitle: title,
+              columns: [
+                {
+                  key: config.dimension,
+                  header: config.dimension.charAt(0).toUpperCase() + config.dimension.slice(1),
+                  width: 2.4,
+                },
+                {
+                  key: 'amount',
+                  header: isExpense ? 'Spent' : 'Earned',
+                  kind: 'money',
+                  tone: isExpense ? 'expense' : 'income',
+                  total: true,
+                },
+                { key: 'share_percent', header: 'Share', kind: 'percent', bar: true },
+              ],
+            }}
           />
         }
       >

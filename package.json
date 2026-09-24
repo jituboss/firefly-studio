@@ -62,6 +62,8 @@
     "decimal.js": "^10.6.0",
     "drizzle-orm": "^0.45.2",
     "ioredis": "^6.0.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.47.0",
     "next": "^15.5.25",
     "next-themes": "^0.4.6",

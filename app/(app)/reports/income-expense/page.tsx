@@ -116,6 +116,101 @@ export default async function IncomeExpenseReportPage({
           <ReportExportButton
             rows={exportRows}
             filename={`income-expense-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title: 'Income vs expense',
+              subtitle: scope.label,
+              description:
+                'What came in against what went out, month by month, with the running net. Headline figures are Firefly’s own insight totals, so they match its reports to the cent.',
+              period: { start: scope.start, end: scope.end },
+              currency: cashFlow.currency,
+              accent: 'blue',
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              stats: [
+                { label: 'Income', value: earned, currency, tone: 'income', hint: scope.label },
+                { label: 'Expenses', value: spent, currency, tone: 'expense', hint: scope.label },
+                { label: 'Net', value: net, currency, tone: 'auto', hint: 'Income less expenses' },
+                {
+                  label: 'Savings rate',
+                  value: cashFlow.savingsRate === null ? null : cashFlow.savingsRate,
+                  kind: 'percent',
+                  tone: 'accent',
+                  hint: 'Share of income kept',
+                },
+              ],
+              charts: [
+                {
+                  title: 'Month by month',
+                  description: 'Income and expenses per month.',
+                  labelKey: 'month',
+                  rows: exportRows,
+                  series: [
+                    { key: 'income', label: 'Income', tone: 'income' },
+                    { key: 'expenses', label: 'Expenses', tone: 'expense' },
+                  ],
+                },
+              ],
+              tableTitle: 'Monthly detail',
+              tableDescription: 'The figures behind the chart.',
+              totalLabel: 'Period total',
+              columns: [
+                { key: 'month', header: 'Month', width: 1.4 },
+                { key: 'income', header: 'Income', kind: 'money', tone: 'income', total: true },
+                {
+                  key: 'expenses',
+                  header: 'Expenses',
+                  kind: 'money',
+                  tone: 'expense',
+                  total: true,
+                },
+                { key: 'net', header: 'Net', kind: 'money', tone: 'auto', total: true },
+                { key: 'running_net', header: 'Running net', kind: 'money', tone: 'neutral' },
+              ],
+              tables: [
+                {
+                  title: 'Top income sources',
+                  description: 'Revenue accounts money arrived from.',
+                  currency: topSources.currency,
+                  rows: topSources.rows.map((row) => ({
+                    name: row.name,
+                    amount: row.amount,
+                    share: row.percent,
+                  })),
+                  columns: [
+                    { key: 'name', header: 'Source', width: 2.4 },
+                    { key: 'amount', header: 'Amount', kind: 'money', tone: 'income', total: true },
+                    { key: 'share', header: 'Share', kind: 'percent', bar: true },
+                  ],
+                  emptyMessage: 'No income recorded in this period.',
+                },
+                {
+                  title: 'Top expenses',
+                  description: 'Expense accounts money went to.',
+                  currency: topSinks.currency,
+                  rows: topSinks.rows.map((row) => ({
+                    name: row.name,
+                    amount: row.amount,
+                    share: row.percent,
+                  })),
+                  columns: [
+                    { key: 'name', header: 'Destination', width: 2.4 },
+                    {
+                      key: 'amount',
+                      header: 'Amount',
+                      kind: 'money',
+                      tone: 'expense',
+                      total: true,
+                    },
+                    { key: 'share', header: 'Share', kind: 'percent', bar: true },
+                  ],
+                  emptyMessage: 'Nothing spent in this period.',
+                },
+              ],
+              notes:
+                cashFlow.otherCurrencies.length > 0
+                  ? [`Amounts in ${cashFlow.otherCurrencies.join(', ')} are not included.`]
+                  : [],
+            }}
           />
         }
       >

@@ -10,6 +10,9 @@ allowBuilds:
   # anyway. Approve it in the release job that uploads, not for every
   # developer install (see E1-16).
   '@sentry/cli': false
+  # core-js arrives through jspdf's optional canvg path; its postinstall only
+  # prints a funding banner, so there is nothing to build.
+  core-js: false
 
 # next 15.5.25 pins postcss at 8.4.31, which carries two high advisories
 # (GHSA-6g55-p6wh-862q, GHSA-r28c-9q8g-f849) plus two moderate ones, all of

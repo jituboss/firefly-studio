@@ -119,6 +119,71 @@ export default async function CategoryReportPage({
           <ReportExportButton
             rows={exportRows}
             filename={`categories-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title: 'Category report',
+              subtitle: scope.label,
+              description:
+                'Where the money went, by category, with each category’s share of total spending, followed by income grouped the same way.',
+              period: { start: scope.start, end: scope.end },
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              currency: spending.currency,
+              accent: 'rose',
+              stats: [
+                {
+                  label: 'Categorised spend',
+                  value: spending.total,
+                  currency: spending.currency,
+                  tone: 'expense',
+                  hint: scope.label,
+                },
+                {
+                  label: 'Categories used',
+                  value: spending.rows.length,
+                  kind: 'count',
+                  tone: 'accent',
+                  hint: 'With spending this period',
+                },
+                {
+                  label: 'Uncategorised',
+                  value: uncategorisedTotal,
+                  currency,
+                  tone: 'expense',
+                  hint: 'Spending with no category',
+                },
+                {
+                  label: 'Category income',
+                  value: earning.total,
+                  currency: earning.currency,
+                  tone: 'income',
+                  hint: `${earning.rows.length} categor${earning.rows.length === 1 ? 'y' : 'ies'}`,
+                },
+              ],
+              tableTitle: 'Spending by category',
+              tableDescription: 'Ranked, largest first.',
+              columns: [
+                { key: 'category', header: 'Category', width: 2.4 },
+                { key: 'spent', header: 'Spent', kind: 'money', tone: 'expense', total: true },
+                { key: 'share_percent', header: 'Share', kind: 'percent', bar: true },
+              ],
+              tables: [
+                {
+                  title: 'Income by category',
+                  currency: earning.currency,
+                  rows: earning.rows.map((row) => ({
+                    category: row.name,
+                    earned: row.amount,
+                    share: row.percent,
+                  })),
+                  columns: [
+                    { key: 'category', header: 'Category', width: 2.4 },
+                    { key: 'earned', header: 'Earned', kind: 'money', tone: 'income', total: true },
+                    { key: 'share', header: 'Share', kind: 'percent', bar: true },
+                  ],
+                  emptyMessage: 'No categorised income in this period.',
+                },
+              ],
+            }}
           />
         }
       >

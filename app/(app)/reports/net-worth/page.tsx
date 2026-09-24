@@ -143,6 +143,107 @@ export default async function NetWorthReportPage({
           <ReportExportButton
             rows={exportRows}
             filename={`net-worth-${scope.start}-to-${scope.end}`}
+            pdf={{
+              title: 'Net worth',
+              subtitle: scope.label,
+              description:
+                'Everything you own less everything you owe, over the period. Accounts marked “exclude from net worth” are left out.',
+              period: { start: scope.start, end: scope.end },
+              currency: report.currency,
+              accent: 'teal',
+              locale: session.user.locale,
+              timezone: session.user.timezone,
+              stats: [
+                {
+                  label: 'Net worth',
+                  value: report.closingNet,
+                  currency: report.currency,
+                  tone: 'accent',
+                  hint: 'At the end of the period',
+                },
+                {
+                  label: 'Assets',
+                  value: report.closingAssets,
+                  currency: report.currency,
+                  tone: 'income',
+                  hint: `${assetRows.length} account${assetRows.length === 1 ? '' : 's'}`,
+                },
+                {
+                  label: 'Liabilities',
+                  value: report.closingLiabilities,
+                  currency: report.currency,
+                  tone: 'expense',
+                  hint: `${liabilityRows.length} account${liabilityRows.length === 1 ? '' : 's'}`,
+                },
+                {
+                  label: 'Change',
+                  value: report.change.absolute,
+                  currency: report.currency,
+                  tone: 'auto',
+                  hint: scope.label,
+                },
+              ],
+              balance: {
+                opening: report.openingNet,
+                closing: report.closingNet,
+                currency: report.currency,
+                openingLabel: 'Opening net worth',
+                closingLabel: 'Closing net worth',
+              },
+              charts: [
+                {
+                  title: 'Assets and liabilities over time',
+                  labelKey: 'date',
+                  labelKind: 'date',
+                  rows: exportRows,
+                  series: [
+                    { key: 'assets', label: 'Assets', tone: 'income' },
+                    { key: 'liabilities', label: 'Liabilities', tone: 'expense' },
+                    { key: 'net_worth', label: 'Net worth', tone: 'accent' },
+                  ],
+                },
+              ],
+              tableTitle: 'Balances over time',
+              columns: [
+                { key: 'date', header: 'Date', kind: 'date', width: 1.3 },
+                { key: 'assets', header: 'Assets', kind: 'money', tone: 'income' },
+                { key: 'liabilities', header: 'Liabilities', kind: 'money', tone: 'expense' },
+                { key: 'net_worth', header: 'Net worth', kind: 'money', tone: 'auto' },
+              ],
+              tables: [
+                {
+                  title: 'Per-account contribution',
+                  description: 'Opening and closing balance of every account in the total.',
+                  currency: report.currency,
+                  rows: report.accounts.map((row) => ({
+                    name: row.name,
+                    kind: row.kind === 'asset' ? 'Asset' : 'Liability',
+                    opening: row.opening,
+                    closing: row.closing,
+                    change: row.change,
+                    share: row.percent,
+                  })),
+                  columns: [
+                    { key: 'name', header: 'Account', width: 2.2 },
+                    { key: 'kind', header: 'Type', width: 0.9 },
+                    { key: 'opening', header: 'Opening', kind: 'money' },
+                    { key: 'closing', header: 'Closing', kind: 'money' },
+                    { key: 'change', header: 'Change', kind: 'money', tone: 'auto' },
+                    { key: 'share', header: 'Share', kind: 'percent', bar: true, width: 0.9 },
+                  ],
+                },
+              ],
+              notes: [
+                ...(report.otherCurrencies.length > 0
+                  ? [`Balances in ${report.otherCurrencies.join(', ')} are not included.`]
+                  : []),
+                ...(report.excludedAccounts > 0
+                  ? [
+                      `${report.excludedAccounts} account${report.excludedAccounts === 1 ? ' is' : 's are'} excluded from net worth.`,
+                    ]
+                  : []),
+              ],
+            }}
           />
         }
       >
