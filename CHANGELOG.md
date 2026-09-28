@@ -10,6 +10,31 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-09-28
+
+**Budgets now convert foreign-currency spending to your primary currency.**
+
+### Fixed
+
+- **Multi-currency budgets now show everything in BDT (or your primary
+  currency).** Previously, a budget with a BDT limit and USD transactions
+  showed the USD amount directly (`$62.04 of $20,000.00`) — wrong currency,
+  wrong comparison. The first fix (0.11.2) only matched currencies and skipped
+  mismatches, which hid USD spending entirely. This fix actually converts
+  foreign-currency spending using Firefly's exchange rates, so every budget
+  shows one consistent figure in your primary currency.
+  - **New `lib/budget-currency.ts`** — `convertSpent()` sums all spent entries
+    into one primary-currency figure using the existing `lib/fx.ts` rate tables.
+    Reports converted and unconvertible currencies for disclosure.
+  - **Budget list page** — fetches exchange rates, converts all spending to
+    primary currency. One set of BDT summary tiles (no more USD KPI boxes).
+    Each budget row shows converted BDT spent against BDT limit.
+  - **Budget detail page** — shows converted BDT total with a disclosure note
+    ("Includes $62.04 USD converted to BDT, rates as of 2026-09-28").
+  - **Dashboard budget widget** — same conversion, all in primary currency.
+  - **14 unit tests** covering single-currency, multi-currency with rates,
+    multi-currency without rates, empty arrays, and mixed conversion scenarios.
+
 ## [0.11.3] - 2026-09-28
 
 **Dependency updates — safe minor and patch bumps.**
