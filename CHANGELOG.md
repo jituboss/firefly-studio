@@ -10,6 +10,22 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.11.5] - 2026-09-28
+
+**Dashboard and mobile accounts fixes.**
+
+### Fixed
+
+- **Dashboard Accounts widget no longer shows inactive/archived accounts.**
+  The widget took `accounts.data.slice(0, 6)` without filtering, so archived
+  accounts appeared on the dashboard. Now only active accounts are shown.
+- **Add Transaction sheet on dashboard only lists active asset accounts.**
+  You can't add transactions to inactive accounts, so they're now filtered out.
+- **Accounts page search input broken on mobile.** The account type tabs and
+  search input shared a `flex-wrap` row, squeezing the search to a sliver on
+  narrow screens. They now stack vertically on mobile and sit side-by-side
+  from `sm` up.
+
 ## [0.11.4] - 2026-09-28
 
 **Budgets now convert foreign-currency spending to your primary currency.**

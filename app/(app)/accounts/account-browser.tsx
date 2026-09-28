@@ -123,7 +123,12 @@ export function AccountBrowser({
 
   return (
     <div className="min-w-0 space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      {/*
+         On mobile the tabs and search bar compete for the same narrow row,
+         squeezing the search input to a sliver. Stack them vertically below
+         the tab bar on small screens; sit them side-by-side from `sm` up.
+      */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <div
           role="tablist"
           aria-label="Account category"

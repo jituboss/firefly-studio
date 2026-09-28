@@ -193,10 +193,12 @@ export default async function DashboardPage({
           <AddTransactionSheet
             today={toApiDate(now(session.user.timezone), session.user.timezone)}
             currency={currency}
-            assetAccounts={accounts.data.map((account) => ({
-              id: account.id,
-              name: account.attributes.name,
-            }))}
+            assetAccounts={accounts.data
+              .filter((a) => a.attributes.active)
+              .map((account) => ({
+                id: account.id,
+                name: account.attributes.name,
+              }))}
           />
         </div>
       </header>
@@ -296,7 +298,9 @@ export default async function DashboardPage({
 
           <div className="grid min-w-0 gap-6 lg:grid-cols-2">
             <WidgetCard title="Accounts" href="/accounts">
-              <AccountBalanceList accounts={accounts.data.slice(0, 6)} />
+              <AccountBalanceList
+                accounts={accounts.data.filter((a) => a.attributes.active).slice(0, 6)}
+              />
             </WidgetCard>
 
             <WidgetCard title="Recent transactions" href="/transactions">
