@@ -10,6 +10,32 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-09-28
+
+**Dependency updates — safe minor and patch bumps.**
+
+### Changed
+
+- **Production dependencies:**
+  - `@tanstack/react-query` 5.103.1 → 5.103.2 (patch)
+  - `drizzle-orm` 0.45.2 → 0.45.3 (patch)
+  - `lucide-react` 1.47.0 → 1.48.0 (minor)
+  - `next` 15.5.25 → 15.5.26 (patch)
+- **Development dependencies:**
+  - `dotenv` 18.0.1 → 18.0.3 (patch)
+  - `drizzle-kit` 0.31.10 → 0.31.11 (patch)
+  - `eslint-config-next` 15.5.25 → 15.5.26 (patch)
+  - `prettier` 3.9.8 → 3.9.9 (patch)
+  - `tsx` 4.23.13 → 4.23.15 (patch)
+
+### Skipped
+
+- `@sentry/nextjs` 10 → 11 (major) — breaking changes require manual migration
+  (renamed span attributes, removed `--require` init, OpenTelemetry setup changes).
+  Deferred to a dedicated migration.
+- `docker/build-push-action` 6 → 7 (major) — requires Actions Runner v2.327.1+.
+  Deferred until runner compatibility is verified.
+
 ## [0.11.2] - 2026-09-28
 
 **Budgets with multi-currency spending no longer show wrong amounts.**
