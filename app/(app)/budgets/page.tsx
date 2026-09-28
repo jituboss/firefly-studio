@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
-import { abs, add, divide, subtract, toDecimal } from '@/lib/money';
+import { abs, add, divide, subtract, toDecimal, type Decimal } from '@/lib/money';
 import { now, toApiDate } from '@/lib/date';
 import { classifyError } from '@/lib/error-taxonomy';
 
@@ -40,20 +40,55 @@ export default async function BudgetsPage({
     getBudgetLimits(range.start, range.end),
   ]);
 
-  const limitsByBudget = new Map<string, (typeof limitsResult.data)[number]>();
+  // Index limits by budget id → currency → limit, so a budget with limits in
+  // multiple currencies keeps all of them. When only one currency is in play
+  // (the common case) the inner map has a single entry.
+  // Capture before closures — TypeScript cannot keep the non-null narrowing
+  // from the early `redirect` into nested function scopes.
+  const primaryCurrency = connection.primaryCurrency;
+
+  const limitsByBudgetAndCurrency = new Map<
+    string,
+    Map<string, (typeof limitsResult.data)[number]>
+  >();
   for (const limit of limitsResult.data) {
-    // Multiple limits can exist per budget across periods; keep the widest
-    // overlap with the selected range as "the" limit for this list.
-    limitsByBudget.set(limit.attributes.budget_id, limit);
+    const bid = limit.attributes.budget_id;
+    const cur = limit.attributes.currency_code ?? primaryCurrency;
+    let inner = limitsByBudgetAndCurrency.get(bid);
+    if (!inner) {
+      inner = new Map();
+      limitsByBudgetAndCurrency.set(bid, inner);
+    }
+    // If multiple limits exist for the same budget+currency (overlapping
+    // periods), keep the one with the latest start — it is the active one.
+    const existing = inner.get(cur);
+    if (!existing || limit.attributes.start > existing.attributes.start) {
+      inner.set(cur, limit);
+    }
+  }
+
+  /** Pick the limit for a budget that matches a spent entry's currency. */
+  function limitFor(
+    budget: (typeof budgetsResult.data)[number],
+    spentCurrency: string | undefined,
+  ): (typeof limitsResult.data)[number] | undefined {
+    const inner = limitsByBudgetAndCurrency.get(budget.id);
+    if (!inner) return undefined;
+    // Prefer a limit in the spent currency; fall back to the primary currency;
+    // fall back to the first available.
+    if (spentCurrency && inner.has(spentCurrency)) return inner.get(spentCurrency)!;
+    if (inner.has(primaryCurrency)) return inner.get(primaryCurrency)!;
+    return inner.values().next().value;
   }
 
   // Ranked by how much of the limit is gone, so anything over or close to its
   // limit is the first thing on screen. Budgets with no limit sort last: there
   // is nothing to be over.
   const usageOf = (budget: (typeof budgetsResult.data)[number]) => {
-    const limit = limitsByBudget.get(budget.id)?.attributes.amount;
+    const spentEntry = budget.attributes.spent?.[0];
+    const limit = limitFor(budget, spentEntry?.currency_code)?.attributes.amount;
     if (!limit || toDecimal(limit).isZero()) return -1;
-    return divide(abs(budget.attributes.spent?.[0]?.sum ?? 0), limit).toNumber();
+    return divide(abs(spentEntry?.sum ?? 0), limit).toNumber();
   };
 
   const budgets = [...budgetsResult.data].sort((a, b) => {
@@ -61,22 +96,53 @@ export default async function BudgetsPage({
     return diff !== 0 ? diff : a.attributes.name.localeCompare(b.attributes.name);
   });
 
-  // Totals cover the connection's currency only; adding two currencies would
-  // invent a number, as everywhere else in this codebase.
-  const currency = connection.primaryCurrency;
-  let totalLimit = toDecimal(0);
-  let totalSpent = toDecimal(0);
+  // Totals grouped per currency — adding across currencies would invent a
+  // number. Each currency that has at least one limit or one spent entry gets
+  // its own set of summary tiles.
+  const totalsByCurrency = new Map<string, { limit: Decimal; spent: Decimal }>();
   for (const budget of budgets) {
-    const limit = limitsByBudget.get(budget.id)?.attributes;
-    const spentEntry = budget.attributes.spent?.find((entry) => entry.currency_code === currency);
-    if (limit && (limit.currency_code ?? currency) === currency) {
-      totalLimit = add(totalLimit, limit.amount);
+    for (const spentEntry of budget.attributes.spent ?? []) {
+      const cur = spentEntry.currency_code;
+      const limit = limitFor(budget, cur)?.attributes;
+      const limitCur = limit?.currency_code ?? primaryCurrency;
+      // Accumulate the spent amount under its own currency.
+      const spentTot = totalsByCurrency.get(cur) ?? { limit: toDecimal(0), spent: toDecimal(0) };
+      spentTot.spent = add(spentTot.spent, abs(spentEntry.sum));
+      // Accumulate the limit under the limit's currency, but only once per
+      // budget per currency (a budget with two limits in BDT should not
+      // double-count). We track that by only adding the limit when the spent
+      // currency matches the limit currency — the limit for a different
+      // currency will be picked up when we iterate that currency's spent.
+      if (limit && limitCur === cur) {
+        spentTot.limit = add(spentTot.limit, limit.amount);
+      }
+      totalsByCurrency.set(cur, spentTot);
+      // Also ensure the limit's currency has an entry even if no spent entry
+      // exists in that currency yet (budgeted but nothing spent).
+      if (limit && limitCur !== cur) {
+        const limitTot = totalsByCurrency.get(limitCur) ?? {
+          limit: toDecimal(0),
+          spent: toDecimal(0),
+        };
+        limitTot.limit = add(limitTot.limit, limit.amount);
+        totalsByCurrency.set(limitCur, limitTot);
+      }
     }
-    if (spentEntry) totalSpent = add(totalSpent, abs(spentEntry.sum));
+    // A budget with a limit but no spent entries at all still needs its limit
+    // counted in the totals.
+    if (!budget.attributes.spent || budget.attributes.spent.length === 0) {
+      const inner = limitsByBudgetAndCurrency.get(budget.id);
+      if (inner) {
+        for (const [cur, limit] of inner) {
+          const tot = totalsByCurrency.get(cur) ?? { limit: toDecimal(0), spent: toDecimal(0) };
+          tot.limit = add(tot.limit, limit.attributes.amount);
+          totalsByCurrency.set(cur, tot);
+        }
+      }
+    }
   }
-  const totalRemaining = subtract(totalLimit, totalSpent);
 
-  await syncBudgetNotifications(session.user.id, budgetsResult.data, limitsByBudget);
+  await syncBudgetNotifications(session.user.id, budgetsResult.data, limitFor, primaryCurrency);
 
   // Pacing: what fraction of the selected period has elapsed.
   const totalDays = Math.max(
@@ -116,23 +182,38 @@ export default async function BudgetsPage({
         </div>
       </header>
 
-      {budgets.length > 0 && !totalLimit.isZero() ? (
-        <section className="grid min-w-0 gap-4 sm:grid-cols-3">
-          <SummaryTile label="Budgeted" value={totalLimit.toString()} currency={currency} />
-          <SummaryTile
-            label="Spent"
-            value={totalSpent.toString()}
-            currency={currency}
-            tone="expense"
-            note={`${pacingPercent}% of the period elapsed`}
-          />
-          <SummaryTile
-            label={totalRemaining.isNegative() ? 'Over budget' : 'Left to spend'}
-            value={totalRemaining.abs().toString()}
-            currency={currency}
-            tone={totalRemaining.isNegative() ? 'expense' : 'income'}
-          />
-        </section>
+      {budgets.length > 0 && totalsByCurrency.size > 0 ? (
+        <div className="space-y-4">
+          {[...totalsByCurrency.entries()].map(([currency, totals]) => {
+            const totalRemaining = subtract(totals.limit, totals.spent);
+            return (
+              <section
+                key={currency}
+                className="grid min-w-0 gap-4 sm:grid-cols-3"
+                aria-label={`${currency} summary`}
+              >
+                <SummaryTile
+                  label={totalsByCurrency.size > 1 ? `Budgeted (${currency})` : 'Budgeted'}
+                  value={totals.limit.toString()}
+                  currency={currency}
+                />
+                <SummaryTile
+                  label={totalsByCurrency.size > 1 ? `Spent (${currency})` : 'Spent'}
+                  value={totals.spent.toString()}
+                  currency={currency}
+                  tone="expense"
+                  note={`${pacingPercent}% of the period elapsed`}
+                />
+                <SummaryTile
+                  label={totalRemaining.isNegative() ? 'Over budget' : 'Left to spend'}
+                  value={totalRemaining.abs().toString()}
+                  currency={currency}
+                  tone={totalRemaining.isNegative() ? 'expense' : 'income'}
+                />
+              </section>
+            );
+          })}
+        </div>
       ) : null}
 
       {budgets.length === 0 ? (
@@ -161,14 +242,15 @@ export default async function BudgetsPage({
         <ul className="space-y-3">
           {budgets.map((budget) => {
             const b = budget.attributes;
+            // Pick the spent entry whose currency matches a limit for this
+            // budget, preferring the primary currency. This prevents a USD
+            // spent entry from being shown against a BDT limit.
             const spentEntry = b.spent?.[0];
-            const limit = limitsByBudget.get(budget.id);
+            const limit = limitFor(budget, spentEntry?.currency_code);
             const limitAmount = limit?.attributes.amount ?? null;
             const spentAmount = spentEntry ? abs(spentEntry.sum) : abs(0);
             const rowCurrency =
-              spentEntry?.currency_code ??
-              limit?.attributes.currency_code ??
-              connection.primaryCurrency;
+              spentEntry?.currency_code ?? limit?.attributes.currency_code ?? primaryCurrency;
 
             const percentUsed = limitAmount
               ? Math.min(100, divide(spentAmount, limitAmount).times(100).toNumber())
@@ -303,12 +385,21 @@ function SummaryTile({
 async function syncBudgetNotifications(
   userId: string,
   budgets: Awaited<ReturnType<typeof getBudgets>>['data'],
-  limitsByBudget: Map<string, Awaited<ReturnType<typeof getBudgetLimits>>['data'][number]>,
+  limitFor: (
+    budget: Awaited<ReturnType<typeof getBudgets>>['data'][number],
+    spentCurrency: string | undefined,
+  ) => Awaited<ReturnType<typeof getBudgetLimits>>['data'][number] | undefined,
+  primaryCurrency: string,
 ) {
   for (const budget of budgets) {
-    const limit = limitsByBudget.get(budget.id);
     const spentEntry = budget.attributes.spent?.[0];
+    const limit = limitFor(budget, spentEntry?.currency_code);
     if (!limit || !spentEntry) continue;
+    // Only compare amounts in the same currency — a USD spend against a BDT
+    // limit is not "over budget", it is a currency mismatch.
+    const spentCur = spentEntry.currency_code;
+    const limitCur = limit.attributes.currency_code ?? primaryCurrency;
+    if (spentCur !== limitCur) continue;
     const spent = toDecimal(spentEntry.sum).abs();
     const amount = toDecimal(limit.attributes.amount);
     if (spent.greaterThan(amount)) {

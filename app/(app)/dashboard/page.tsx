@@ -362,16 +362,42 @@ function BudgetProgressWidget({
   limits: BudgetLimit[];
   defaultCurrency: string;
 }) {
-  const limitsByBudget = new Map<string, BudgetLimit>();
+  // Index limits by budget id → currency → limit, so a budget with limits in
+  // multiple currencies keeps all of them (same fix as the budgets list page).
+  const limitsByBudgetAndCurrency = new Map<string, Map<string, BudgetLimit>>();
   for (const limit of limits) {
-    limitsByBudget.set(limit.attributes.budget_id, limit);
+    const bid = limit.attributes.budget_id;
+    const cur = limit.attributes.currency_code ?? defaultCurrency;
+    let inner = limitsByBudgetAndCurrency.get(bid);
+    if (!inner) {
+      inner = new Map();
+      limitsByBudgetAndCurrency.set(bid, inner);
+    }
+    const existing = inner.get(cur);
+    if (!existing || limit.attributes.start > existing.attributes.start) {
+      inner.set(cur, limit);
+    }
+  }
+
+  /** Pick the limit for a budget that matches a spent entry's currency. */
+  function limitFor(budget: Budget, spentCurrency?: string): BudgetLimit | undefined {
+    const inner = limitsByBudgetAndCurrency.get(budget.id);
+    if (!inner) return undefined;
+    if (spentCurrency && inner.has(spentCurrency)) return inner.get(spentCurrency)!;
+    if (inner.has(defaultCurrency)) return inner.get(defaultCurrency)!;
+    return inner.values().next().value;
   }
 
   const withProgress = budgets
     .map((budget) => {
-      const limit = limitsByBudget.get(budget.id);
-      if (!limit) return null;
       const spent = budget.attributes.spent?.[0];
+      const limit = limitFor(budget, spent?.currency_code);
+      if (!limit) return null;
+      // Only compare spent against a limit in the same currency — a USD spend
+      // against a BDT limit is a currency mismatch, not a budget overrun.
+      const spentCur = spent?.currency_code;
+      const limitCur = limit.attributes.currency_code ?? defaultCurrency;
+      if (spentCur && spentCur !== limitCur) return null;
       const amount = toDecimal(limit.attributes.amount);
       const spentSum = spent ? toDecimal(spent.sum).abs() : toDecimal(0);
       const pct = amount.greaterThan(0)
