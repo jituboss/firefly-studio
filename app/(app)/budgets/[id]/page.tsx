@@ -11,6 +11,7 @@ import {
 } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { formatDate } from '@/lib/date';
+import { toDecimal } from '@/lib/money';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -52,8 +53,18 @@ export default async function BudgetDetailPage({
   ]);
 
   const a = budget.attributes;
-  const spent = a.spent?.[0];
+  // Show spent in the primary currency when available, falling back to the
+  // first spent entry. A budget can have spending in multiple currencies if
+  // transactions use foreign amounts; picking the primary currency here keeps
+  // the detail page consistent with the limits panel below.
+  const spent =
+    a.spent?.find((entry) => entry.currency_code === connection.primaryCurrency) ?? a.spent?.[0];
   const currency = spent?.currency_code ?? connection.primaryCurrency;
+
+  // Show a secondary spent line if there are other currencies with spending.
+  const otherSpent = a.spent?.filter(
+    (entry) => entry.currency_code !== currency && toDecimal(entry.sum).abs().greaterThan(0),
+  );
 
   return (
     <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
@@ -87,6 +98,23 @@ export default async function BudgetDetailPage({
               ) : (
                 <span className="text-muted-foreground text-sm">Nothing spent</span>
               )}
+              {otherSpent && otherSpent.length > 0 ? (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Also spent{' '}
+                  {otherSpent.map((entry, i) => (
+                    <span key={entry.currency_code}>
+                      {i > 0 ? ', ' : ''}
+                      <Amount
+                        value={entry.sum}
+                        currency={entry.currency_code}
+                        size="sm"
+                        tone="expense"
+                        showSign={false}
+                      />
+                    </span>
+                  ))}
+                </p>
+              ) : null}
             </div>
           </CardContent>
         </Card>
