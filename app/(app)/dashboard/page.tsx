@@ -11,6 +11,7 @@ import {
   getBudgetLimits,
   getBudgets,
   getExpenseByCategory,
+  getExchangeRates,
   getNetWorthAccounts,
   getPiggyBanks,
   getTransactions,
@@ -18,6 +19,7 @@ import {
 import type { Budget, BudgetLimit } from '@/server/firefly/types';
 import { previousPeriod, resolveRangeFromParams } from '@/lib/date-range';
 import { now, toApiDate } from '@/lib/date';
+import { buildRateTable, convertSpent } from '@/lib/budget-currency';
 import { buildBalanceTrend } from '@/lib/balance-trend';
 import { toDecimal } from '@/lib/money';
 import { Card, CardContent } from '@/components/ui/card';
@@ -101,6 +103,7 @@ export default async function DashboardPage({
     piggies,
     budgetsResult,
     limitsResult,
+    ratesResult,
     netWorthAccounts,
   ] = await Promise.all([
     getBasicSummary(range.start, range.end),
@@ -116,6 +119,7 @@ export default async function DashboardPage({
     getPiggyBanks(),
     getBudgets(range.start, range.end),
     getBudgetLimits(range.start, range.end),
+    getExchangeRates(),
     getNetWorthAccounts(),
   ]);
 
@@ -320,6 +324,7 @@ export default async function DashboardPage({
                 budgets={budgetsResult.data}
                 limits={limitsResult.data}
                 defaultCurrency={currency}
+                rateTable={buildRateTable(ratesResult.data)}
               />
             </WidgetCard>
 
@@ -357,60 +362,48 @@ function BudgetProgressWidget({
   budgets,
   limits,
   defaultCurrency,
+  rateTable,
 }: {
   budgets: Budget[];
   limits: BudgetLimit[];
   defaultCurrency: string;
+  rateTable: ReturnType<typeof buildRateTable>;
 }) {
-  // Index limits by budget id → currency → limit, so a budget with limits in
-  // multiple currencies keeps all of them (same fix as the budgets list page).
-  const limitsByBudgetAndCurrency = new Map<string, Map<string, BudgetLimit>>();
+  // Index limits by budget id — prefer the primary currency, fall back to first.
+  const limitForBudget = new Map<string, BudgetLimit>();
   for (const limit of limits) {
     const bid = limit.attributes.budget_id;
     const cur = limit.attributes.currency_code ?? defaultCurrency;
-    let inner = limitsByBudgetAndCurrency.get(bid);
-    if (!inner) {
-      inner = new Map();
-      limitsByBudgetAndCurrency.set(bid, inner);
+    const existing = limitForBudget.get(bid);
+    if (!existing) {
+      limitForBudget.set(bid, limit);
+    } else {
+      const existingCur = existing.attributes.currency_code ?? defaultCurrency;
+      if (cur === defaultCurrency && existingCur !== defaultCurrency) {
+        limitForBudget.set(bid, limit);
+      } else if (cur === existingCur && limit.attributes.start > existing.attributes.start) {
+        limitForBudget.set(bid, limit);
+      }
     }
-    const existing = inner.get(cur);
-    if (!existing || limit.attributes.start > existing.attributes.start) {
-      inner.set(cur, limit);
-    }
-  }
-
-  /** Pick the limit for a budget that matches a spent entry's currency. */
-  function limitFor(budget: Budget, spentCurrency?: string): BudgetLimit | undefined {
-    const inner = limitsByBudgetAndCurrency.get(budget.id);
-    if (!inner) return undefined;
-    if (spentCurrency && inner.has(spentCurrency)) return inner.get(spentCurrency)!;
-    if (inner.has(defaultCurrency)) return inner.get(defaultCurrency)!;
-    return inner.values().next().value;
   }
 
   const withProgress = budgets
     .map((budget) => {
-      const spent = budget.attributes.spent?.[0];
-      const limit = limitFor(budget, spent?.currency_code);
+      const limit = limitForBudget.get(budget.id);
       if (!limit) return null;
-      // Only compare spent against a limit in the same currency — a USD spend
-      // against a BDT limit is a currency mismatch, not a budget overrun.
-      const spentCur = spent?.currency_code;
-      const limitCur = limit.attributes.currency_code ?? defaultCurrency;
-      if (spentCur && spentCur !== limitCur) return null;
+      const converted = convertSpent(budget.attributes.spent, defaultCurrency, rateTable);
       const amount = toDecimal(limit.attributes.amount);
-      const spentSum = spent ? toDecimal(spent.sum).abs() : toDecimal(0);
+      const spentSum = toDecimal(converted.amount);
       const pct = amount.greaterThan(0)
         ? Math.min(100, spentSum.dividedBy(amount).times(100).toNumber())
         : 0;
-      const currency = spent?.currency_code ?? limit.attributes.currency_code ?? defaultCurrency;
       return {
         id: budget.id,
         name: budget.attributes.name,
         percent: pct,
         amount: limit.attributes.amount,
         spent: spentSum.toString(),
-        currency,
+        currency: defaultCurrency,
         over: spentSum.greaterThan(amount),
       };
     })
