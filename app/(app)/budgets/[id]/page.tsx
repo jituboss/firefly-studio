@@ -8,10 +8,11 @@ import {
   getBudget,
   getBudgetLimitsForBudget,
   getBudgetTransactions,
+  getExchangeRates,
 } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { formatDate } from '@/lib/date';
-import { toDecimal } from '@/lib/money';
+import { buildRateTable, convertSpent } from '@/lib/budget-currency';
 import { Amount } from '@/components/ui/amount';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,24 +48,17 @@ export default async function BudgetDetailPage({
     notFound();
   }
 
-  const [limits, transactions] = await Promise.all([
+  const [limits, transactions, ratesResult] = await Promise.all([
     getBudgetLimitsForBudget(id),
     getBudgetTransactions(id, { start: range.start, end: range.end, limit: 25 }),
+    getExchangeRates(),
   ]);
 
   const a = budget.attributes;
-  // Show spent in the primary currency when available, falling back to the
-  // first spent entry. A budget can have spending in multiple currencies if
-  // transactions use foreign amounts; picking the primary currency here keeps
-  // the detail page consistent with the limits panel below.
-  const spent =
-    a.spent?.find((entry) => entry.currency_code === connection.primaryCurrency) ?? a.spent?.[0];
-  const currency = spent?.currency_code ?? connection.primaryCurrency;
-
-  // Show a secondary spent line if there are other currencies with spending.
-  const otherSpent = a.spent?.filter(
-    (entry) => entry.currency_code !== currency && toDecimal(entry.sum).abs().greaterThan(0),
-  );
+  const primaryCurrency = connection.primaryCurrency;
+  const rateTable = buildRateTable(ratesResult.data);
+  const converted = convertSpent(a.spent, primaryCurrency, rateTable);
+  const currency = primaryCurrency;
 
   return (
     <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6">
@@ -93,26 +87,39 @@ export default async function BudgetDetailPage({
               Spent this period
             </p>
             <div className="mt-1.5">
-              {spent ? (
-                <Amount value={spent.sum} currency={spent.currency_code} size="xl" tone="expense" />
+              {converted.amount !== '0' ? (
+                <Amount
+                  value={converted.amount}
+                  currency={primaryCurrency}
+                  size="xl"
+                  tone="expense"
+                />
               ) : (
                 <span className="text-muted-foreground text-sm">Nothing spent</span>
               )}
-              {otherSpent && otherSpent.length > 0 ? (
+              {converted.convertedCurrencies.length > 0 ? (
                 <p className="text-muted-foreground mt-1 text-xs">
-                  Also spent{' '}
-                  {otherSpent.map((entry, i) => (
-                    <span key={entry.currency_code}>
+                  Includes{' '}
+                  {converted.foreignAmounts.map((f, i) => (
+                    <span key={f.currency}>
                       {i > 0 ? ', ' : ''}
                       <Amount
-                        value={entry.sum}
-                        currency={entry.currency_code}
+                        value={f.amount}
+                        currency={f.currency}
                         size="sm"
                         tone="expense"
                         showSign={false}
                       />
                     </span>
-                  ))}
+                  ))}{' '}
+                  converted to {primaryCurrency}
+                  {converted.rateAsOf ? ` (rates as of ${converted.rateAsOf})` : ''}.
+                </p>
+              ) : null}
+              {converted.unconvertible.length > 0 ? (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Could not convert spending in {converted.unconvertible.join(', ')} — no exchange
+                  rate available.
                 </p>
               ) : null}
             </div>

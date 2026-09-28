@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection, readFailure } from '@/server/firefly/api';
-import { getBudgetLimits, getBudgets } from '@/server/firefly/queries';
+import { getBudgetLimits, getBudgets, getExchangeRates } from '@/server/firefly/queries';
 import { createNotification } from '@/server/notifications';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { Amount } from '@/components/ui/amount';
@@ -15,9 +15,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
-import { abs, add, divide, subtract, toDecimal, type Decimal } from '@/lib/money';
+import { abs, add, divide, subtract, toDecimal } from '@/lib/money';
 import { now, toApiDate } from '@/lib/date';
 import { classifyError } from '@/lib/error-taxonomy';
+import { buildRateTable, convertSpent, type ConvertedSpent } from '@/lib/budget-currency';
 
 export const metadata: Metadata = { title: 'Budgets' };
 
@@ -35,60 +36,52 @@ export default async function BudgetsPage({
   const params = await searchParams;
   const range = resolveRangeFromParams(params, session.user.timezone);
 
-  const [budgetsResult, limitsResult] = await Promise.all([
+  const [budgetsResult, limitsResult, ratesResult] = await Promise.all([
     getBudgets(range.start, range.end),
     getBudgetLimits(range.start, range.end),
+    getExchangeRates(),
   ]);
 
-  // Index limits by budget id → currency → limit, so a budget with limits in
-  // multiple currencies keeps all of them. When only one currency is in play
-  // (the common case) the inner map has a single entry.
-  // Capture before closures — TypeScript cannot keep the non-null narrowing
-  // from the early `redirect` into nested function scopes.
   const primaryCurrency = connection.primaryCurrency;
+  const rateTable = buildRateTable(ratesResult.data);
 
-  const limitsByBudgetAndCurrency = new Map<
-    string,
-    Map<string, (typeof limitsResult.data)[number]>
-  >();
+  // Index limits by budget id. Prefer the limit in the primary currency;
+  // fall back to the first available. All spending is converted to the
+  // primary currency, so we display against the primary-currency limit.
+  const limitForBudget = new Map<string, (typeof limitsResult.data)[number]>();
   for (const limit of limitsResult.data) {
     const bid = limit.attributes.budget_id;
     const cur = limit.attributes.currency_code ?? primaryCurrency;
-    let inner = limitsByBudgetAndCurrency.get(bid);
-    if (!inner) {
-      inner = new Map();
-      limitsByBudgetAndCurrency.set(bid, inner);
-    }
-    // If multiple limits exist for the same budget+currency (overlapping
-    // periods), keep the one with the latest start — it is the active one.
-    const existing = inner.get(cur);
-    if (!existing || limit.attributes.start > existing.attributes.start) {
-      inner.set(cur, limit);
+    const existing = limitForBudget.get(bid);
+    if (!existing) {
+      limitForBudget.set(bid, limit);
+    } else {
+      const existingCur = existing.attributes.currency_code ?? primaryCurrency;
+      if (cur === primaryCurrency && existingCur !== primaryCurrency) {
+        limitForBudget.set(bid, limit);
+      } else if (cur === existingCur && limit.attributes.start > existing.attributes.start) {
+        limitForBudget.set(bid, limit);
+      }
     }
   }
 
-  /** Pick the limit for a budget that matches a spent entry's currency. */
-  function limitFor(
-    budget: (typeof budgetsResult.data)[number],
-    spentCurrency: string | undefined,
-  ): (typeof limitsResult.data)[number] | undefined {
-    const inner = limitsByBudgetAndCurrency.get(budget.id);
-    if (!inner) return undefined;
-    // Prefer a limit in the spent currency; fall back to the primary currency;
-    // fall back to the first available.
-    if (spentCurrency && inner.has(spentCurrency)) return inner.get(spentCurrency)!;
-    if (inner.has(primaryCurrency)) return inner.get(primaryCurrency)!;
-    return inner.values().next().value;
+  // Pre-compute converted spent for each budget — all in the primary currency.
+  const convertedByBudget = new Map<string, ConvertedSpent>();
+  for (const budget of budgetsResult.data) {
+    convertedByBudget.set(
+      budget.id,
+      convertSpent(budget.attributes.spent, primaryCurrency, rateTable),
+    );
   }
 
   // Ranked by how much of the limit is gone, so anything over or close to its
-  // limit is the first thing on screen. Budgets with no limit sort last: there
-  // is nothing to be over.
+  // limit is the first thing on screen. Budgets with no limit sort last.
   const usageOf = (budget: (typeof budgetsResult.data)[number]) => {
-    const spentEntry = budget.attributes.spent?.[0];
-    const limit = limitFor(budget, spentEntry?.currency_code)?.attributes.amount;
+    const limit = limitForBudget.get(budget.id)?.attributes.amount;
     if (!limit || toDecimal(limit).isZero()) return -1;
-    return divide(abs(spentEntry?.sum ?? 0), limit).toNumber();
+    const converted = convertedByBudget.get(budget.id);
+    if (!converted) return -1;
+    return divide(converted.amount, limit).toNumber();
   };
 
   const budgets = [...budgetsResult.data].sort((a, b) => {
@@ -96,53 +89,30 @@ export default async function BudgetsPage({
     return diff !== 0 ? diff : a.attributes.name.localeCompare(b.attributes.name);
   });
 
-  // Totals grouped per currency — adding across currencies would invent a
-  // number. Each currency that has at least one limit or one spent entry gets
-  // its own set of summary tiles.
-  const totalsByCurrency = new Map<string, { limit: Decimal; spent: Decimal }>();
+  // Totals in the primary currency — all spending is converted, so one set of
+  // summary tiles is correct.
+  let totalLimit = toDecimal(0);
+  let totalSpent = toDecimal(0);
   for (const budget of budgets) {
-    for (const spentEntry of budget.attributes.spent ?? []) {
-      const cur = spentEntry.currency_code;
-      const limit = limitFor(budget, cur)?.attributes;
-      const limitCur = limit?.currency_code ?? primaryCurrency;
-      // Accumulate the spent amount under its own currency.
-      const spentTot = totalsByCurrency.get(cur) ?? { limit: toDecimal(0), spent: toDecimal(0) };
-      spentTot.spent = add(spentTot.spent, abs(spentEntry.sum));
-      // Accumulate the limit under the limit's currency, but only once per
-      // budget per currency (a budget with two limits in BDT should not
-      // double-count). We track that by only adding the limit when the spent
-      // currency matches the limit currency — the limit for a different
-      // currency will be picked up when we iterate that currency's spent.
-      if (limit && limitCur === cur) {
-        spentTot.limit = add(spentTot.limit, limit.amount);
-      }
-      totalsByCurrency.set(cur, spentTot);
-      // Also ensure the limit's currency has an entry even if no spent entry
-      // exists in that currency yet (budgeted but nothing spent).
-      if (limit && limitCur !== cur) {
-        const limitTot = totalsByCurrency.get(limitCur) ?? {
-          limit: toDecimal(0),
-          spent: toDecimal(0),
-        };
-        limitTot.limit = add(limitTot.limit, limit.amount);
-        totalsByCurrency.set(limitCur, limitTot);
-      }
+    const limit = limitForBudget.get(budget.id);
+    if (limit && (limit.attributes.currency_code ?? primaryCurrency) === primaryCurrency) {
+      totalLimit = add(totalLimit, limit.attributes.amount);
     }
-    // A budget with a limit but no spent entries at all still needs its limit
-    // counted in the totals.
-    if (!budget.attributes.spent || budget.attributes.spent.length === 0) {
-      const inner = limitsByBudgetAndCurrency.get(budget.id);
-      if (inner) {
-        for (const [cur, limit] of inner) {
-          const tot = totalsByCurrency.get(cur) ?? { limit: toDecimal(0), spent: toDecimal(0) };
-          tot.limit = add(tot.limit, limit.attributes.amount);
-          totalsByCurrency.set(cur, tot);
-        }
-      }
-    }
+    const converted = convertedByBudget.get(budget.id);
+    if (converted) totalSpent = add(totalSpent, converted.amount);
   }
+  const totalRemaining = subtract(totalLimit, totalSpent);
+  const hasConversion = [...convertedByBudget.values()].some(
+    (c) => c.convertedCurrencies.length > 0,
+  );
 
-  await syncBudgetNotifications(session.user.id, budgetsResult.data, limitFor, primaryCurrency);
+  await syncBudgetNotifications(
+    session.user.id,
+    budgetsResult.data,
+    limitForBudget,
+    primaryCurrency,
+    convertedByBudget,
+  );
 
   // Pacing: what fraction of the selected period has elapsed.
   const totalDays = Math.max(
@@ -150,7 +120,6 @@ export default async function BudgetsPage({
     (Date.parse(`${range.end}T00:00:00Z`) - Date.parse(`${range.start}T00:00:00Z`)) / 86_400_000 +
       1,
   );
-  // The user's today, not the server's: a budget's pacing is about their days.
   const today = toApiDate(now(session.user.timezone), session.user.timezone);
   const elapsedDays = Math.min(
     totalDays,
@@ -182,38 +151,30 @@ export default async function BudgetsPage({
         </div>
       </header>
 
-      {budgets.length > 0 && totalsByCurrency.size > 0 ? (
-        <div className="space-y-4">
-          {[...totalsByCurrency.entries()].map(([currency, totals]) => {
-            const totalRemaining = subtract(totals.limit, totals.spent);
-            return (
-              <section
-                key={currency}
-                className="grid min-w-0 gap-4 sm:grid-cols-3"
-                aria-label={`${currency} summary`}
-              >
-                <SummaryTile
-                  label={totalsByCurrency.size > 1 ? `Budgeted (${currency})` : 'Budgeted'}
-                  value={totals.limit.toString()}
-                  currency={currency}
-                />
-                <SummaryTile
-                  label={totalsByCurrency.size > 1 ? `Spent (${currency})` : 'Spent'}
-                  value={totals.spent.toString()}
-                  currency={currency}
-                  tone="expense"
-                  note={`${pacingPercent}% of the period elapsed`}
-                />
-                <SummaryTile
-                  label={totalRemaining.isNegative() ? 'Over budget' : 'Left to spend'}
-                  value={totalRemaining.abs().toString()}
-                  currency={currency}
-                  tone={totalRemaining.isNegative() ? 'expense' : 'income'}
-                />
-              </section>
-            );
-          })}
-        </div>
+      {budgets.length > 0 && !totalLimit.isZero() ? (
+        <section className="grid min-w-0 gap-4 sm:grid-cols-3">
+          <SummaryTile label="Budgeted" value={totalLimit.toString()} currency={primaryCurrency} />
+          <SummaryTile
+            label="Spent"
+            value={totalSpent.toString()}
+            currency={primaryCurrency}
+            tone="expense"
+            note={`${pacingPercent}% of the period elapsed`}
+          />
+          <SummaryTile
+            label={totalRemaining.isNegative() ? 'Over budget' : 'Left to spend'}
+            value={totalRemaining.abs().toString()}
+            currency={primaryCurrency}
+            tone={totalRemaining.isNegative() ? 'expense' : 'income'}
+          />
+        </section>
+      ) : null}
+
+      {hasConversion && rateTable.asOf ? (
+        <p className="text-muted-foreground text-xs">
+          Foreign-currency spending converted to {primaryCurrency} using exchange rates as of{' '}
+          {rateTable.asOf}.
+        </p>
       ) : null}
 
       {budgets.length === 0 ? (
@@ -242,15 +203,10 @@ export default async function BudgetsPage({
         <ul className="space-y-3">
           {budgets.map((budget) => {
             const b = budget.attributes;
-            // Pick the spent entry whose currency matches a limit for this
-            // budget, preferring the primary currency. This prevents a USD
-            // spent entry from being shown against a BDT limit.
-            const spentEntry = b.spent?.[0];
-            const limit = limitFor(budget, spentEntry?.currency_code);
+            const limit = limitForBudget.get(budget.id);
             const limitAmount = limit?.attributes.amount ?? null;
-            const spentAmount = spentEntry ? abs(spentEntry.sum) : abs(0);
-            const rowCurrency =
-              spentEntry?.currency_code ?? limit?.attributes.currency_code ?? primaryCurrency;
+            const converted = convertedByBudget.get(budget.id);
+            const spentAmount = converted ? abs(converted.amount) : abs(0);
 
             const percentUsed = limitAmount
               ? Math.min(100, divide(spentAmount, limitAmount).times(100).toNumber())
@@ -277,7 +233,7 @@ export default async function BudgetsPage({
                         <div className="text-right text-sm">
                           <Amount
                             value={spentAmount}
-                            currency={rowCurrency}
+                            currency={primaryCurrency}
                             tone="expense"
                             showSign={false}
                           />
@@ -287,7 +243,7 @@ export default async function BudgetsPage({
                               /{' '}
                               <Amount
                                 value={limitAmount}
-                                currency={rowCurrency}
+                                currency={primaryCurrency}
                                 tone="neutral"
                                 showSign={false}
                                 size="sm"
@@ -310,7 +266,7 @@ export default async function BudgetsPage({
                               <>
                                 <Amount
                                   value={remaining.toString()}
-                                  currency={rowCurrency}
+                                  currency={primaryCurrency}
                                   size="sm"
                                   showSign={false}
                                   tone="neutral"
@@ -322,7 +278,7 @@ export default async function BudgetsPage({
                                 Over by
                                 <Amount
                                   value={abs(remaining ?? 0).toString()}
-                                  currency={rowCurrency}
+                                  currency={primaryCurrency}
                                   size="sm"
                                   showSign={false}
                                   tone="expense"
@@ -385,22 +341,16 @@ function SummaryTile({
 async function syncBudgetNotifications(
   userId: string,
   budgets: Awaited<ReturnType<typeof getBudgets>>['data'],
-  limitFor: (
-    budget: Awaited<ReturnType<typeof getBudgets>>['data'][number],
-    spentCurrency: string | undefined,
-  ) => Awaited<ReturnType<typeof getBudgetLimits>>['data'][number] | undefined,
+  limitForBudget: Map<string, Awaited<ReturnType<typeof getBudgetLimits>>['data'][number]>,
   primaryCurrency: string,
+  convertedByBudget: Map<string, ConvertedSpent>,
 ) {
   for (const budget of budgets) {
-    const spentEntry = budget.attributes.spent?.[0];
-    const limit = limitFor(budget, spentEntry?.currency_code);
-    if (!limit || !spentEntry) continue;
-    // Only compare amounts in the same currency — a USD spend against a BDT
-    // limit is not "over budget", it is a currency mismatch.
-    const spentCur = spentEntry.currency_code;
-    const limitCur = limit.attributes.currency_code ?? primaryCurrency;
-    if (spentCur !== limitCur) continue;
-    const spent = toDecimal(spentEntry.sum).abs();
+    const limit = limitForBudget.get(budget.id);
+    if (!limit) continue;
+    const converted = convertedByBudget.get(budget.id);
+    if (!converted) continue;
+    const spent = toDecimal(converted.amount);
     const amount = toDecimal(limit.attributes.amount);
     if (spent.greaterThan(amount)) {
       await createNotification(userId, 'over_budget', {
@@ -408,7 +358,7 @@ async function syncBudgetNotifications(
         name: budget.attributes.name,
         spent: spent.toString(),
         limit: amount.toString(),
-        currency: spentEntry.currency_code ?? limit.attributes.currency_code,
+        currency: primaryCurrency,
       });
     }
   }
