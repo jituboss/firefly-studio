@@ -10,6 +10,31 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-09-28
+
+**Budgets with multi-currency spending no longer show wrong amounts.**
+
+### Fixed
+
+- **Cross-currency budget display bug.** Firefly III returns spent amounts as an
+  array of `{ sum, currency_code }` entries — one per currency used in that
+  budget's transactions. The code was blindly taking the first entry and
+  comparing it against whatever budget limit was last inserted, so a USD spent
+  entry could render against a BDT limit, producing nonsense percentages and
+  wrong currency symbols (e.g. "$62.04 spent of $20,000.00" when the budget was
+  in BDT). Three surfaces were fixed:
+  - **Budget list page:** replaced the flat per-budget limit map with a nested
+    budget→currency→limit map that preserves all currency limits. A `limitFor()`
+    helper now matches each spent entry's currency to the correct limit.
+    Summary tiles group totals per currency instead of silently dropping
+    non-primary currencies. Over-budget notification sync skips cross-currency
+    comparisons.
+  - **Budget detail page:** prefers the spent entry matching the primary
+    currency instead of `[0]`. Shows secondary-currency spending in a separate
+    "Also spent" line.
+  - **Dashboard budget widget:** same nested map and `limitFor()` pattern.
+    Skips budgets where spent and limit currencies don't match.
+
 ## [0.11.1] - 2026-09-24
 
 **Every export now offers a PDF alongside the CSV.**
