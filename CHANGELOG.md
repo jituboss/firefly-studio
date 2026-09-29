@@ -10,6 +10,27 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.11.7] - 2026-09-29
+
+**Export dropdown overflow on mobile — real fix.**
+
+### Fixed
+
+- **Export button dropdown in report sections overflowed off-screen on mobile.**
+  The `Popover` component (used by the export menu in every report section)
+  positioned its panel with CSS `left-0`/`right-0` and no horizontal collision
+  detection. On mobile, when the export button wrapped to its own line in the
+  card header (after the title took the full width), `align="end"` (`right-0`)
+  anchored the panel's right edge to the button's right edge — a button ~40px
+  from the left of the screen — so the 320px panel extended past the viewport.
+  - **The `Popover` now measures whether the panel fits to the left or right
+  of the trigger** on every open, the same way it already measured vertical
+  fit. It shifts to the side that has room, falling back to centering under
+  the trigger when neither side fits.
+  - This also fixes the v0.11.6 attempt: that release added `collisionPadding`
+  to the Radix `DropdownMenuContent`, which helps the scope bar dropdowns but
+  not the export `Popover`, which is hand-built CSS, not Radix.
+
 ## [0.11.6] - 2026-09-29
 
 **Reports dropdown overflow on mobile.**
