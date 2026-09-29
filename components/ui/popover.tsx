@@ -16,7 +16,7 @@ import { FOCUSABLE, useDismissOnOutside, useReturnFocus } from './focus';
  *     screen reader announces an item count and arrow keys are expected to move
  *     between items. The notification inbox has forms, links and a heading
  *     inside it. Announcing that as a five-item menu describes something the
- *     user cannot operate the way they were just told to.
+ *     user cannot operate the way they were told to.
  *
  * So it is a labelled `<div>` with the three behaviours a panel actually owes:
  * Escape closes, a pointer outside closes, and focus goes back to the trigger.
@@ -29,18 +29,15 @@ import { FOCUSABLE, useDismissOnOutside, useReturnFocus } from './focus';
  * rendered below the fold: reaching "Delete account" meant scrolling the page
  * while the menu was open. So the panel now flips above its trigger when it
  * does not fit below and there is more room above. The second exception is
- * horizontal: the reports scope bar wraps its controls on mobile, so a trigger
- * on the left side of the card with `align="end"` produced a panel whose
- * `right-0` edge sat at the trigger's right edge — 320px wide, extending past
- * the viewport. The panel now measures whether it fits to the right or left
- * and shifts accordingly, falling back to centering under the trigger when
- * neither side fits.
+ * horizontal: on mobile the trigger can sit near a viewport edge (the export
+ * button in a report card wraps to its own line), so a `right-0` panel of
+ * 320px extends past the viewport. The panel now measures its rendered
+ * position and applies a horizontal pixel shift to keep it on-screen.
  */
 
 const ALIGN = {
   start: 'left-0',
   end: 'right-0',
-  center: 'left-1/2 -translate-x-1/2',
 } as const;
 
 export function Popover({
@@ -74,7 +71,7 @@ export function Popover({
 }) {
   const [open, setOpen] = React.useState(false);
   const [placement, setPlacement] = React.useState<'bottom' | 'top'>('bottom');
-  const [hAlign, setHAlign] = React.useState<'start' | 'end' | 'center'>('end');
+  const [shift, setShift] = React.useState(0);
   const panelRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const panelId = React.useId();
@@ -114,69 +111,52 @@ export function Popover({
   }, [open]);
 
   /*
-   * Flip above the trigger when the panel does not fit below it.
+   * Position the panel relative to the viewport after it renders.
    *
-   * `useLayoutEffect` so the decision is made before the browser paints —
-   * measuring in a passive effect shows the panel in the wrong place for a
-   * frame, which on a menu reads as a flicker.
+   * Two adjustments:
    *
-   * It re-measures on every open rather than caching: the same row's menu fits
-   * below when the page is scrolled to the top and does not when it is scrolled
-   * to the bottom, and the panel's own height changes with its contents (a
-   * refusal line adds ~30px).
+   * 1. Vertical flip — if the panel does not fit below the trigger and there
+   *    is more room above, flip it above. Same logic as before.
+   *
+   * 2. Horizontal shift — the panel is anchored with `left-0` or `right-0`
+   *    relative to the trigger's `relative` parent (a narrow button wrapper).
+   *    On mobile the trigger can sit near a viewport edge, so the 320px panel
+   *    overflows. After the browser lays out the panel at its CSS-anchored
+   *    position, measure its actual viewport rect and compute a pixel
+   *    translateX to slide it back on-screen. This is simpler and more robust
+   *    than switching between `left-0`/`right-0`/`center` alignment classes,
+   *    because the shift is relative to the viewport, not the tiny wrapper.
    */
   React.useLayoutEffect(() => {
     if (!open) {
       setPlacement('bottom');
-      setHAlign('end');
+      setShift(0);
       return;
     }
     const trigger = triggerRef.current;
     const panel = panelRef.current;
     if (!trigger || !panel) return;
 
-    const rect = trigger.getBoundingClientRect();
-    const panelWidth = panel.offsetWidth;
+    const triggerRect = trigger.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
     const gap = 8;
-
-    // Vertical flip — same logic as before.
-    const height = panel.offsetHeight;
-    const below = window.innerHeight - rect.bottom;
-    const above = rect.top;
-    setPlacement(below < height + gap && above > below ? 'top' : 'bottom');
-
-    // Horizontal collision detection.
-    //
-    // The panel is absolutely positioned with left-0 (align=start) or
-    // right-0 (align=end) relative to the trigger's `relative` parent. On a
-    // wide screen the trigger sits nowhere near a viewport edge. On mobile,
-    // the trigger can be on the left side of the card (after flex-wrap), so
-    // a right-0 panel of 320px extends past the viewport. Shift to the
-    // alignment that keeps the panel on-screen, falling back to centering
-    // under the trigger when neither side fits cleanly.
-    const leftEdge = rect.left;
-    const rightEdge = rect.right;
-    const viewportW = window.innerWidth;
     const padding = 8;
 
-    // `end` = right-0: panel's right edge at trigger, extends leftward.
-    // `start` = left-0: panel's left edge at trigger, extends rightward.
-    // Pick whichever side has room; fall back to centering under the trigger.
-    const fitsEnd = leftEdge - panelWidth >= padding;
-    const fitsStart = rightEdge + panelWidth <= viewportW - padding;
+    // Vertical flip.
+    const height = panel.offsetHeight;
+    const below = window.innerHeight - triggerRect.bottom;
+    const above = triggerRect.top;
+    setPlacement(below < height + gap && above > below ? 'top' : 'bottom');
 
-    if (align === 'end' && fitsEnd) {
-      setHAlign('end');
-    } else if (align === 'start' && fitsStart) {
-      setHAlign('start');
-    } else if (fitsStart) {
-      setHAlign('start');
-    } else if (fitsEnd) {
-      setHAlign('end');
-    } else {
-      setHAlign('center');
+    // Horizontal shift — clamp the panel into the viewport.
+    let dx = 0;
+    if (panelRect.left < padding) {
+      dx = padding - panelRect.left;
+    } else if (panelRect.right > window.innerWidth - padding) {
+      dx = window.innerWidth - padding - panelRect.right;
     }
-  }, [open, align]);
+    setShift(dx);
+  }, [open]);
 
   return (
     <div className={cn('relative', className)}>
@@ -195,11 +175,12 @@ export function Popover({
           role="dialog"
           aria-label={label}
           data-slot="popover"
+          style={shift !== 0 ? { transform: `translateX(${shift}px)` } : undefined}
           className={cn(
             'bg-popover text-popover-foreground absolute z-50 w-80 max-w-[calc(100vw-2rem)]',
             'overflow-hidden rounded-lg border shadow-lg',
             placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
-            ALIGN[hAlign],
+            ALIGN[align],
             contentClassName,
           )}
         >
