@@ -24,12 +24,12 @@ Each released version is published to Docker Hub as
   anchored the panel's right edge to the button's right edge — a button ~40px
   from the left of the screen — so the 320px panel extended past the viewport.
   - **The `Popover` now measures whether the panel fits to the left or right
-  of the trigger** on every open, the same way it already measured vertical
-  fit. It shifts to the side that has room, falling back to centering under
-  the trigger when neither side fits.
+    of the trigger** on every open, the same way it already measured vertical
+    fit. It shifts to the side that has room, falling back to centering under
+    the trigger when neither side fits.
   - This also fixes the v0.11.6 attempt: that release added `collisionPadding`
-  to the Radix `DropdownMenuContent`, which helps the scope bar dropdowns but
-  not the export `Popover`, which is hand-built CSS, not Radix.
+    to the Radix `DropdownMenuContent`, which helps the scope bar dropdowns but
+    not the export `Popover`, which is hand-built CSS, not Radix.
 
 ## [0.11.6] - 2026-09-29
 
