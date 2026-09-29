@@ -177,7 +177,7 @@ export function ReportScopeBar({
               <ChevronDown className="size-3.5 opacity-60" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent align="end">
             <DropdownMenuLabel>Report in</DropdownMenuLabel>
             {currencies.map((code) => (
               <DropdownMenuItem

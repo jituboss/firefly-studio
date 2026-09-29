@@ -11,6 +11,7 @@ const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 function DropdownMenuContent({
   className,
   sideOffset = 6,
+  collisionPadding = 8,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
@@ -18,8 +19,9 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
         className={cn(
-          'bg-popover text-popover-foreground z-50 min-w-[9rem] overflow-hidden rounded-md border p-1 shadow-md',
+          'bg-popover text-popover-foreground z-50 max-w-[calc(100vw-2rem)] min-w-[9rem] overflow-hidden rounded-md border p-1 shadow-md',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           className,
         )}

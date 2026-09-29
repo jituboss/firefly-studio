@@ -10,6 +10,28 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.11.6] - 2026-09-29
+
+**Reports dropdown overflow on mobile.**
+
+### Fixed
+
+- **Dropdown menus in the reports scope bar overflowed off-screen on mobile.**
+  The Period, Accounts, and Currency dropdowns in the `ReportScopeBar` all
+  used `align="start"`, so when a button sat near the right edge of the screen
+  (due to `flex-wrap`), its dropdown content spilled past the viewport. Two
+  changes fix this across the whole app:
+  - **`DropdownMenuContent` now passes `collisionPadding={8}` to Radix**, so
+    the dropdown automatically shifts when it would overflow any viewport edge.
+    This benefits every dropdown menu in the app, not just the reports scope
+    bar.
+  - **`DropdownMenuContent` has `max-w-[calc(100vw-2rem)]`**, matching what the
+    `Popover` component already did, so content wraps instead of overflowing.
+  - **The Currency dropdown uses `align="end"`** since it is typically the
+    rightmost button in the scope bar on mobile. With `collisionPadding` in
+    place Radix handles repositioning regardless, but the alignment hint means
+    it opens in the right direction the first time.
+
 ## [0.11.5] - 2026-09-28
 
 **Dashboard and mobile accounts fixes.**
