@@ -24,21 +24,23 @@ import { FOCUSABLE, useDismissOnOutside, useReturnFocus } from './focus';
  * way to close it was to click the bell again, which is not discoverable and
  * is impossible to guess from the keyboard.
  *
- * Positioning is CSS, not measurement — with ONE exception, added when a call
- * site finally needed it. The admin page puts this on every row of a long
- * table, and a menu opened on the last row rendered below the fold: reaching
- * "Delete account" meant scrolling the page while the menu was open. So the
- * panel now flips above its trigger when it does not fit below and there is
- * more room above. That is a dozen lines of measurement rather than a
- * positioning library, because flipping on one axis is the whole of the problem
- * anyone here has actually had — horizontal alignment is still `left-0` or
- * `right-0`, and no call site anchors near enough to a side edge for that to
- * matter.
+ * Positioning is CSS, not measurement — with TWO exceptions. The admin page
+ * puts this on every row of a long table, and a menu opened on the last row
+ * rendered below the fold: reaching "Delete account" meant scrolling the page
+ * while the menu was open. So the panel now flips above its trigger when it
+ * does not fit below and there is more room above. The second exception is
+ * horizontal: the reports scope bar wraps its controls on mobile, so a trigger
+ * on the left side of the card with `align="end"` produced a panel whose
+ * `right-0` edge sat at the trigger's right edge — 320px wide, extending past
+ * the viewport. The panel now measures whether it fits to the right or left
+ * and shifts accordingly, falling back to centering under the trigger when
+ * neither side fits.
  */
 
 const ALIGN = {
   start: 'left-0',
   end: 'right-0',
+  center: 'left-1/2 -translate-x-1/2',
 } as const;
 
 export function Popover({
@@ -72,6 +74,7 @@ export function Popover({
 }) {
   const [open, setOpen] = React.useState(false);
   const [placement, setPlacement] = React.useState<'bottom' | 'top'>('bottom');
+  const [hAlign, setHAlign] = React.useState<'start' | 'end' | 'center'>('end');
   const panelRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const panelId = React.useId();
@@ -125,6 +128,7 @@ export function Popover({
   React.useLayoutEffect(() => {
     if (!open) {
       setPlacement('bottom');
+      setHAlign('end');
       return;
     }
     const trigger = triggerRef.current;
@@ -132,14 +136,47 @@ export function Popover({
     if (!trigger || !panel) return;
 
     const rect = trigger.getBoundingClientRect();
-    const height = panel.offsetHeight;
+    const panelWidth = panel.offsetWidth;
     const gap = 8;
+
+    // Vertical flip — same logic as before.
+    const height = panel.offsetHeight;
     const below = window.innerHeight - rect.bottom;
     const above = rect.top;
-
-    // Only flip when it genuinely helps: no room below AND more room above.
     setPlacement(below < height + gap && above > below ? 'top' : 'bottom');
-  }, [open]);
+
+    // Horizontal collision detection.
+    //
+    // The panel is absolutely positioned with left-0 (align=start) or
+    // right-0 (align=end) relative to the trigger's `relative` parent. On a
+    // wide screen the trigger sits nowhere near a viewport edge. On mobile,
+    // the trigger can be on the left side of the card (after flex-wrap), so
+    // a right-0 panel of 320px extends past the viewport. Shift to the
+    // alignment that keeps the panel on-screen, falling back to centering
+    // under the trigger when neither side fits cleanly.
+    const leftEdge = rect.left;
+    const rightEdge = rect.right;
+    const viewportW = window.innerWidth;
+    const padding = 8;
+
+    // `end` = right-0: panel's right edge at trigger, extends leftward.
+    // `start` = left-0: panel's left edge at trigger, extends rightward.
+    // Pick whichever side has room; fall back to centering under the trigger.
+    const fitsEnd = leftEdge - panelWidth >= padding;
+    const fitsStart = rightEdge + panelWidth <= viewportW - padding;
+
+    if (align === 'end' && fitsEnd) {
+      setHAlign('end');
+    } else if (align === 'start' && fitsStart) {
+      setHAlign('start');
+    } else if (fitsStart) {
+      setHAlign('start');
+    } else if (fitsEnd) {
+      setHAlign('end');
+    } else {
+      setHAlign('center');
+    }
+  }, [open, align]);
 
   return (
     <div className={cn('relative', className)}>
@@ -162,7 +199,7 @@ export function Popover({
             'bg-popover text-popover-foreground absolute z-50 w-80 max-w-[calc(100vw-2rem)]',
             'overflow-hidden rounded-lg border shadow-lg',
             placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
-            ALIGN[align],
+            ALIGN[hAlign],
             contentClassName,
           )}
         >
