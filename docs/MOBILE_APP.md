@@ -457,7 +457,8 @@ are useful even if the app never ships.
 
 **After v1 (parity):** port the "opens the web page" column of §8 screen by screen. Each is UI work
 over endpoints that mostly exist by then. **Later (P2):** push notifications for bills and
-over-budget alerts (needs the job runner E14-13 is blocked on), home-screen balance widget,
+over-budget alerts (planned as E27 in `NOTIFICATIONS.md`, which adds the job runner and a
+`push_devices` table the app registers into — E27-34), home-screen balance widget,
 share-sheet "add receipt from Photos", offline outbox for transactions entered with no signal.
 
 ---

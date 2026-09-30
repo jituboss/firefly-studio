@@ -61,6 +61,11 @@ endpoints return HTTP 500 on Firefly 6.5.5), ETag pass-through (Firefly sends no
 verified across six endpoints), OAuth sign-in and Firefly OAuth2 (need registered clients), the demo
 instance, and scheduled reports (needs a job runner).
 
+**Planned next: notifications and push (E27).** The plan is [`NOTIFICATIONS.md`](NOTIFICATIONS.md). Read its
+§2.1 before touching `server/notifications.ts`: the current dedupe is per kind rather than per
+entity, and the budget and bill alerts are produced inside page renders, so a read alert comes
+back on the next visit.
+
 ### The gates you must keep green
 
 There are now six, not one. All of them run in `.github/workflows/release.yml` except the last three:
