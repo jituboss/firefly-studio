@@ -2,7 +2,7 @@
 
 > **Working title:** Firefly Studio
 > **Document status:** v1.0 — living document, use as the backlog of record
-> **Last updated:** 2026-09-30 (at `v0.11.8`)
+> **Last updated:** 2026-09-30 (at `v0.12.0`) — status summary in §8.0
 > **API target:** Firefly III **v6.5.5** API v1 (164 paths / 230 operations, 28 resource groups) — spec generated 2026-03-15
 > **Minimum supported Firefly III:** 6.2.0 (degrade gracefully to 6.1.x)
 
@@ -251,8 +251,8 @@ Admin (if Firefly user is owner) ──► Users, user groups, configuration, cr
 | **M4** | Money management ✅           | Budgets, limits, categories, bills, piggy banks, object groups          | All four resource families CRUD-complete                            | 3 wks |
 | **M5** | Reporting ✅                  | Insight + chart endpoints, 8 standard reports, builder, exports         | Reports match Firefly's own figures to the cent — verified, §15     | 3 wks |
 | **M6** | Automation & the long tail ✅ | Rules, recurring, tags, currencies, exchange rates, links, admin        | 27/28 API groups covered (webhooks dropped, E17)                    | 3 wks |
-| **M7** | Polish                        | A11y audit, i18n, PWA, perf budget, empty/error states, onboarding tour | Lighthouse targets met; axe clean                                   | 2 wks |
-| **M8** | Hardening & launch            | Pen-test fixes, load test, docs, release image, backup/restore          | v1.0 tagged and documented                                          | 2 wks |
+| **M7** | Polish 🟡                     | A11y audit, i18n, PWA, perf budget, empty/error states, onboarding tour | Lighthouse targets met; axe clean                                   | 2 wks |
+| **M8** | Hardening & launch 🟡         | Pen-test fixes, load test, docs, release image, backup/restore          | v1.0 tagged and documented                                          | 2 wks |
 
 ### 6.1 Effort reconciliation
 
@@ -329,6 +329,56 @@ Authoritative list from the v6.5.5 OpenAPI spec. Every row must have a UI home b
 
 Legend — **P0** blocks the milestone · **P1** should ship in the milestone · **P2** nice to have / fast-follow.
 Estimates are ideal engineering days.
+
+### 8.0 Status at `v0.12.0` (2026-09-30)
+
+**187 of 228 items done; 41 open.** M0–M6 are complete. Every product P1 is done
+(0.12.0, §22). What remains is mostly testing and hardening for launch, some
+polish, and P2 nice-to-haves.
+
+**Launch blockers (M8) — the critical path to v1.0:**
+
+- **E24-01…05 test infrastructure**: an MSW mock server from the spec,
+  Playwright end-to-end tests (sign-up → onboard → dashboard, the transaction
+  lifecycle, budgets), unit tests for `server/firefly` and `server/crypto`, a
+  contract test against a real Firefly container, and visual regression.
+  **Recommended next**: it is the highest-value gap left, and it would let the
+  accessibility check (`check:a11y`) run in CI instead of by hand.
+- **E23-05** key rotation for `APP_ENCRYPTION_KEY` (P0).
+- **E23-07** OWASP ASVS L2 pass.
+- **E25-02** rollback runbook (the migration advisory lock is done).
+- **E25-04** backup/restore docs, including the encryption-key caveat.
+- **E25-05** user documentation with screenshots.
+
+**Polish (M7):** E21-07/08 translations and locale-aware number formatting,
+E22-09 k6 load test, E21-12 reduced motion and high contrast. E22-06 (optimistic
+updates) and E21-11 (the responsive table-to-card conversion) are checked but
+only partly done; their notes say what is missing.
+
+**Blocked outside the project:** E19-01/02 export centre (every `/data/export/*`
+endpoint returns HTTP 500 on 6.5.5), E22-02 ETag pass-through (Firefly sends no
+ETag), E2-11/E2-12 OAuth (need registered clients), and E14-13 scheduled reports
+(need a job runner).
+
+**P2 nice-to-haves (≈20):** E1-12, E1-15, E2-07, E3-15, E4-09, E5-18, E6-09,
+E7-06, E9-06, E10-06, E11-07/08, E12-05, E13-06, E14-14, E18-04/05, E19-04/05,
+E22-08, E25-07.
+
+**Open decisions (§11):** Q1 hosted as well as self-host, Q3 OAuth2 or PAT only,
+Q4 email provider.
+
+**Loose ends, not yet backlog items:**
+
+- `check:responsive` measures page overflow with every overlay closed, so it
+  cannot catch a menu or popover that opens off-screen (the 0.11.x bugs, §21.3).
+  It needs a step that opens each overlay and checks its bounding box against
+  the viewport.
+- `scripts/demo-seed.ts` sets `liability_direction: 'credit'` ("I am owed this
+  debt") on the demo mortgage, which is backwards for a mortgage. It should be
+  `debit`.
+- The dev instance's bill 33 has `notes: "x"` left over from probing. Firefly's
+  API cannot clear a bill's notes (§22.1), so it has to be fixed in Firefly's
+  own UI or by reseeding.
 
 ### E1 · Foundation & tooling — M0
 
@@ -748,7 +798,7 @@ working, because Firefly fires them, not us.
 ## 11. Open questions
 
 - [ ] **Q1** Hosted SaaS as well as self-host, or self-host only? Affects E2-11, multi-tenancy, and the SSRF default.
-- [ ] **Q2** Do we support multiple Firefly connections per user in v1 (E2-23), or defer to v1.1?
+- [x] **Q2** Do we support multiple Firefly connections per user in v1 (E2-23), or defer to v1.1? — **Answered by what shipped: yes, in v1.** E2-23 delivered several connections per account with a switcher in the app shell.
 - [ ] **Q3** Is Firefly OAuth2 (E2-12) needed for v1, or is PAT sufficient? PAT is simpler and covers self-hosters.
 - [ ] **Q4** Email delivery provider for verification and scheduled reports — Resend, SES, or bring-your-own SMTP?
 - [x] **Q5** Do we ship a hosted demo instance for evaluation (E2-26)? — **Yes, and it shipped in 0.6.3–0.6.5.** The deployment runs its own rather than depending on `demo.firefly-iii.org` being reachable; `pnpm demo:seed` builds three years of invented history and `pnpm demo:account` creates the shared app account. Hosted at fs.rezaur.xyz. Deliberately not read-only — a demo of an accounting app that cannot record a transaction demonstrates nothing — with the refusals in `lib/demo.ts` covering what a published password would otherwise put at risk.
