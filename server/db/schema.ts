@@ -313,6 +313,8 @@ export const userPreferences = pgTable('user_preferences', {
    * people who already know the app. Parsed by `lib/tour.ts`.
    */
   tourState: jsonb('tour_state').$type<Record<string, unknown>>(),
+  /** The phone bottom bar's two configurable slots. Parsed by `lib/mobile-nav.ts`. */
+  mobileNav: jsonb('mobile_nav').$type<Record<string, unknown>>(),
   hideBalances: boolean('hide_balances').notNull().default(false),
   reducedMotion: boolean('reduced_motion').notNull().default(false),
   ...timestamps,

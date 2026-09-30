@@ -104,10 +104,9 @@ export function AddTransactionSheet({
   /** The desktop button's text. "Add" where the heading already says what of. */
   label?: string;
   /**
-   * Render the mobile floating button. On the dashboard it is the only way in;
-   * on the transactions page the toolbar button is always on screen, and a
-   * second trigger floating over the list would cover rows to duplicate a
-   * control three centimetres away.
+   * Hide this button on a phone, where the bottom bar's Add opens the same
+   * panel. On the transactions page the toolbar button stays visible, because
+   * there it sits beside the filters rather than in the page header.
    */
   floating?: boolean;
 }) {
@@ -120,31 +119,6 @@ export function AddTransactionSheet({
         {label}
       </Button>
 
-      {/*
-        The mobile trigger. `sm:hidden` rather than a second component: one
-        state, one panel, and no chance of the two drifting apart.
-
-        Bottom-right, above the safe-area inset so it clears the home indicator
-        on a notched phone, and `data-print="hide"` because a floating button
-        printed onto a statement is nonsense.
-      */}
-      {floating ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Add transaction"
-          data-print="hide"
-          className={cn(
-            'bg-primary text-primary-foreground fixed right-4 z-40 flex size-14 items-center justify-center',
-            'rounded-full shadow-lg transition-transform active:scale-95 sm:hidden',
-            'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
-          )}
-          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
-        >
-          <Plus className="size-6" aria-hidden="true" />
-        </button>
-      ) : null}
-
       <AddSheet
         open={open}
         onClose={() => setOpen(false)}
@@ -156,18 +130,35 @@ export function AddTransactionSheet({
   );
 }
 
-function AddSheet({
+/** What the phone bar's Add menu can hand the panel: a type, or a whole recent entry to repeat. */
+export interface QuickAddPrefill {
+  type?: 'withdrawal' | 'deposit' | 'transfer';
+  account?: string;
+  counterparty?: string;
+  category?: string;
+  amount?: string;
+  description?: string;
+}
+
+/**
+ * The panel itself, exported for the phone bottom bar. A caller passing
+ * `initial` should key the component on it, so a new prefill starts from a
+ * fresh form rather than one still holding the last entry.
+ */
+export function AddSheet({
   open,
   onClose,
   today,
   currency,
   assetAccounts,
+  initial,
 }: {
   open: boolean;
   onClose: () => void;
   today: string;
   currency: string;
   assetAccounts: AddSheetAccount[];
+  initial?: QuickAddPrefill;
 }) {
   /*
    * The third element. `useFormStatus` in a child reads the enclosing form's
@@ -185,13 +176,20 @@ function AddSheet({
     quickAddTransactionAction,
     {},
   );
-  const [type, setType] = React.useState<string>('withdrawal');
+  const [type, setType] = React.useState<string>(initial?.type ?? 'withdrawal');
   // Pre-filled with the first of the user's own accounts. Most entries come
   // from the same one, and an empty picker means a lookup before every single
   // transaction — the friction this whole panel exists to remove.
-  const [account, setAccount] = React.useState(assetAccounts[0]?.name ?? '');
-  const [counterparty, setCounterparty] = React.useState('');
-  const [category, setCategory] = React.useState('');
+  const [account, setAccount] = React.useState(initial?.account ?? assetAccounts[0]?.name ?? '');
+  const [counterparty, setCounterparty] = React.useState(initial?.counterparty ?? '');
+  const [category, setCategory] = React.useState(initial?.category ?? '');
+
+  // The phone bar loads the accounts after opening, so they can arrive after
+  // this state was seeded. Take the first one then, as the pages do up front.
+  const firstAccount = assetAccounts[0]?.name;
+  React.useEffect(() => {
+    if (!account && firstAccount) setAccount(firstAccount);
+  }, [account, firstAccount]);
   const [saved, setSaved] = React.useState(0);
 
   const router = useRouter();
@@ -307,12 +305,19 @@ function AddSheet({
             currency={currency}
             placeholder="0.00"
             className="h-12 text-lg"
+            defaultValue={initial?.amount}
           />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="qe-description">Description</Label>
-          <Input id="qe-description" name="description" required placeholder="Coffee" />
+          <Input
+            id="qe-description"
+            name="description"
+            required
+            placeholder="Coffee"
+            defaultValue={initial?.description}
+          />
         </div>
 
         <div className="space-y-1.5">

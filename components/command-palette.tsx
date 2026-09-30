@@ -6,14 +6,25 @@ import { Command } from 'cmdk';
 import { useTheme } from 'next-themes';
 import {
   ArrowLeftRight,
+  ChartPie,
+  Compass,
   LayoutDashboard,
+  Monitor,
   Moon,
   Plus,
   Search,
   Settings,
   Sun,
-  Wallet,
 } from 'lucide-react';
+import {
+  COMMAND_GROUPS,
+  highlight,
+  matchText,
+  searchCommands,
+  type CommandGroup,
+  type Range,
+} from '@/lib/command-catalog';
+import { START_TOUR_EVENT } from '@/components/product-tour';
 
 interface SearchHit {
   id: string;
@@ -22,14 +33,58 @@ interface SearchHit {
   href: string;
 }
 
-/** E3-03 — ⌘K palette: navigation plus live transaction search. */
-export function CommandPalette() {
+const GROUP_ICON: Record<CommandGroup, React.ComponentType<{ className?: string }>> = {
+  Pages: LayoutDashboard,
+  Create: Plus,
+  Reports: ChartPie,
+  Settings: Settings,
+};
+
+const THEME_OPTIONS = [
+  { value: 'light', label: 'Light theme', icon: Sun },
+  { value: 'dark', label: 'Dark theme', icon: Moon },
+  { value: 'system', label: 'System theme', icon: Monitor },
+] as const;
+
+const ITEM_CLASS =
+  'data-[selected=true]:bg-accent text-foreground flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm';
+const GROUP_CLASS =
+  'text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium';
+
+/** A label with the matched letters marked, so it is visible WHY a row matched. */
+function Highlighted({ text, ranges }: { text: string; ranges: Range[] }) {
+  return (
+    <>
+      {highlight(text, ranges).map((part, index) =>
+        part.hit ? (
+          <mark key={index} className="text-foreground bg-primary/20 rounded-sm font-semibold">
+            {part.text}
+          </mark>
+        ) : (
+          <React.Fragment key={index}>{part.text}</React.Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * E3-03 — ⌘K palette: every page, create action, report and setting, the
+ * themes and the tour, plus live transaction search.
+ *
+ * cmdk's own filtering stays OFF (`shouldFilter={false}`) because transaction
+ * hits come from the server; the catalogue is filtered and ranked by
+ * `lib/command-catalog.ts` instead, with the matched letters highlighted, and
+ * the top result is selected so Enter goes straight to it.
+ */
+export function CommandPalette({ isAdmin = false }: { isAdmin?: boolean }) {
   const router = useRouter();
   const { setTheme } = useTheme();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [hits, setHits] = React.useState<SearchHit[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [selected, setSelected] = React.useState('');
 
   React.useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -134,11 +189,43 @@ export function CommandPalette() {
     router.push(href);
   }
 
+  const commands = searchCommands(query, isAdmin);
+  const themes = THEME_OPTIONS.map((option) => ({
+    option,
+    match: matchText(query, option.label, 'appearance mode'),
+  })).filter((entry) => entry.match);
+  const tourMatch = matchText(query, 'Take the product tour', 'help guide onboarding');
+
+  // The first row, in display order: commands first (they are instant), then
+  // themes, the tour, and the transaction hits that arrive later.
+  const firstValue =
+    (commands[0] && `cmd:${commands[0].entry.id}`) ??
+    (themes[0] && `theme:${themes[0].option.value}`) ??
+    (tourMatch ? 'help:tour' : undefined) ??
+    (hits[0] && `tx:${hits[0].id}`) ??
+    '';
+
+  // Re-select the top match whenever the query or the results change; without
+  // this cmdk keeps the previous selection, which may no longer be on screen.
+  React.useEffect(() => {
+    setSelected(firstValue);
+  }, [firstValue]);
+
   if (!open) return null;
+
+  const searching = query.trim().length > 0;
+  const grouped = searching
+    ? // Ranked: one flat list, best first, so the highlight on row one is the answer.
+      [{ group: 'Best matches' as const, items: commands }]
+    : COMMAND_GROUPS.map((group) => ({
+        group,
+        items: commands.filter((result) => result.entry.group === group),
+      }));
+  const nothing = commands.length === 0 && themes.length === 0 && !tourMatch && hits.length === 0;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[12vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[8vh] sm:pt-[12vh]"
       onClick={() => setOpen(false)}
     >
       {/*
@@ -154,6 +241,8 @@ export function CommandPalette() {
         aria-label="Command palette"
         label="Command palette"
         shouldFilter={false}
+        value={selected}
+        onValueChange={setSelected}
         onClick={(event) => event.stopPropagation()}
         className="bg-popover w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl"
       >
@@ -163,7 +252,7 @@ export function CommandPalette() {
             autoFocus
             value={query}
             onValueChange={setQuery}
-            placeholder="Search transactions, or jump to a page…"
+            placeholder="Search pages and transactions…"
             className="placeholder:text-muted-foreground h-12 w-full bg-transparent text-sm outline-hidden"
           />
           <kbd className="text-muted-foreground border-border hidden rounded border px-1.5 py-0.5 text-[10px] sm:block">
@@ -171,79 +260,98 @@ export function CommandPalette() {
           </kbd>
         </div>
 
-        <Command.List className="max-h-80 overflow-y-auto p-2">
-          <Command.Empty className="text-muted-foreground py-6 text-center text-sm">
-            {loading ? 'Searching…' : query.length >= 2 ? 'No matches.' : 'Type to search.'}
-          </Command.Empty>
+        <Command.List className="max-h-[min(64vh,34rem)] overflow-y-auto overscroll-contain p-2">
+          {nothing ? (
+            <p className="text-muted-foreground py-6 text-center text-sm">
+              {loading ? 'Searching…' : 'No matches.'}
+            </p>
+          ) : null}
 
-          {hits.length > 0 ? (
-            <Command.Group
-              heading="Transactions"
-              className="text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium"
-            >
-              {hits.map((hit) => (
+          {grouped.map(({ group, items }) =>
+            items.length === 0 ? null : (
+              <Command.Group key={group} heading={group} className={GROUP_CLASS}>
+                {items.map(({ entry, ranges }) => {
+                  const Icon = GROUP_ICON[entry.group];
+                  return (
+                    <Command.Item
+                      key={entry.id}
+                      value={`cmd:${entry.id}`}
+                      onSelect={() => go(entry.href)}
+                      className={ITEM_CLASS}
+                    >
+                      <Icon className="size-4 shrink-0 opacity-60" aria-hidden="true" />
+                      <span className="flex-1 truncate">
+                        <Highlighted text={entry.label} ranges={ranges} />
+                      </span>
+                      {searching ? (
+                        <span className="text-muted-foreground text-xs">{entry.group}</span>
+                      ) : null}
+                    </Command.Item>
+                  );
+                })}
+              </Command.Group>
+            ),
+          )}
+
+          {themes.length > 0 ? (
+            <Command.Group heading="Theme" className={GROUP_CLASS}>
+              {themes.map(({ option, match }) => (
                 <Command.Item
-                  key={hit.id}
-                  value={hit.id}
-                  onSelect={() => go(hit.href)}
-                  className="data-[selected=true]:bg-accent text-foreground flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm"
+                  key={option.value}
+                  value={`theme:${option.value}`}
+                  onSelect={() => {
+                    setTheme(option.value);
+                    setOpen(false);
+                  }}
+                  className={ITEM_CLASS}
                 >
-                  <ArrowLeftRight className="size-4 shrink-0 opacity-60" aria-hidden="true" />
-                  <span className="flex-1 truncate">{hit.title}</span>
-                  <span className="text-muted-foreground text-xs">{hit.subtitle}</span>
+                  <option.icon className="size-4 shrink-0 opacity-60" aria-hidden="true" />
+                  <Highlighted text={option.label} ranges={match!.ranges} />
                 </Command.Item>
               ))}
             </Command.Group>
           ) : null}
 
-          <Command.Group
-            heading="Go to"
-            className="text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium"
-          >
-            {[
-              { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-              { label: 'Accounts', href: '/accounts', icon: Wallet },
-              { label: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
-              { label: 'New transaction', href: '/transactions/new', icon: Plus },
-              { label: 'Connections', href: '/settings/connections', icon: Settings },
-            ].map((item) => (
+          {tourMatch ? (
+            <Command.Group heading="Help" className={GROUP_CLASS}>
               <Command.Item
-                key={item.href}
-                value={`nav ${item.label}`}
-                onSelect={() => go(item.href)}
-                className="data-[selected=true]:bg-accent text-foreground flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm"
+                value="help:tour"
+                onSelect={() => {
+                  setOpen(false);
+                  window.dispatchEvent(new Event(START_TOUR_EVENT));
+                }}
+                className={ITEM_CLASS}
               >
-                <item.icon className="size-4 shrink-0 opacity-60" aria-hidden="true" />
-                {item.label}
+                <Compass className="size-4 shrink-0 opacity-60" aria-hidden="true" />
+                <Highlighted text="Take the product tour" ranges={tourMatch.ranges} />
               </Command.Item>
-            ))}
-          </Command.Group>
+            </Command.Group>
+          ) : null}
 
-          <Command.Group
-            heading="Theme"
-            className="text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium"
-          >
-            <Command.Item
-              value="theme light"
-              onSelect={() => {
-                setTheme('light');
-                setOpen(false);
-              }}
-              className="data-[selected=true]:bg-accent text-foreground flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm"
-            >
-              <Sun className="size-4 shrink-0 opacity-60" aria-hidden="true" /> Light
-            </Command.Item>
-            <Command.Item
-              value="theme dark"
-              onSelect={() => {
-                setTheme('dark');
-                setOpen(false);
-              }}
-              className="data-[selected=true]:bg-accent text-foreground flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm"
-            >
-              <Moon className="size-4 shrink-0 opacity-60" aria-hidden="true" /> Dark
-            </Command.Item>
-          </Command.Group>
+          {hits.length > 0 || (searching && loading) ? (
+            <Command.Group heading="Transactions" className={GROUP_CLASS}>
+              {hits.length === 0 ? (
+                <p className="text-muted-foreground px-2 py-2 text-sm">Searching…</p>
+              ) : null}
+              {hits.map((hit) => (
+                <Command.Item
+                  key={hit.id}
+                  value={`tx:${hit.id}`}
+                  onSelect={() => go(hit.href)}
+                  className={ITEM_CLASS}
+                >
+                  <ArrowLeftRight className="size-4 shrink-0 opacity-60" aria-hidden="true" />
+                  <span className="flex-1 truncate">
+                    <Highlighted
+                      text={hit.title}
+                      ranges={matchText(query, hit.title)?.ranges ?? []}
+                    />
+                  </span>
+                  <span className="text-muted-foreground text-xs">{hit.subtitle}</span>
+                </Command.Item>
+              ))}
+            </Command.Group>
+          ) : null}
         </Command.List>
       </Command>
     </div>

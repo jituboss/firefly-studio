@@ -12,6 +12,8 @@ export function Toaster() {
       theme={theme as 'light' | 'dark' | 'system'}
       className="toaster group"
       position="bottom-right"
+      // Above the phone bottom bar rather than on top of it.
+      mobileOffset={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
       closeButton
       richColors={false}
       toastOptions={{

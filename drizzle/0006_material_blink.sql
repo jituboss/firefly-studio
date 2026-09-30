@@ -1,0 +1,1 @@
+ALTER TABLE "user_preferences" ADD COLUMN "mobile_nav" jsonb;

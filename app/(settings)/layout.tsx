@@ -5,6 +5,7 @@ import { SettingsTabs } from './settings/tabs';
 import { getSession } from '@/server/auth/session';
 import { listConnections } from '@/server/connections';
 import { listUnreadNotifications } from '@/server/notifications';
+import { mobileNavProps } from '@/server/mobile-nav';
 
 /**
  * Settings sits in its own route group so that it is reachable BEFORE
@@ -38,6 +39,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
         isDefault: entry.isDefault,
       }))}
       notifications={notifications}
+      mobileNav={await mobileNavProps(session.user, connections)}
       version={appVersion()}
       isDemo={session.user.isDemo}
       isAdmin={session.user.role === 'admin'}

@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
+import { useHideMobileNav } from '@/components/mobile-nav';
 import { FormMessage } from '@/components/auth/form-shell';
 import { TransactionTable } from './table';
 import { Pagination, PaginationButtons, PaginationSummary } from './pagination';
@@ -130,6 +131,9 @@ export function TransactionGrid({
 
   const ids = [...selected];
   const count = ids.length;
+  // On a phone the selection bar takes the bottom bar's place, rather than
+  // floating over it.
+  useHideMobileNav(count > 0);
 
   const paged = pagination && pagination.totalPages > 1 ? pagination : null;
 
