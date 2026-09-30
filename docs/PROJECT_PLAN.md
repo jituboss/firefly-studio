@@ -148,6 +148,10 @@ Firefly owns all financial data. Our database owns **identity, connections, pref
 | `jobs` / BullMQ       | Background work                    | —                                                                                                                                                                                                                                                                                                                                       |
 | `feature_flags`       | Progressive rollout                | `key`, `enabled`, `rules` (jsonb)                                                                                                                                                                                                                                                                                                       |
 
+> **Planned (E27, [`NOTIFICATIONS.md`](NOTIFICATIONS.md) §6):** `notifications` gains `connection_id`, `category`,
+> `severity`, `dedupe_key`, `archived_at`, `resolved_at`; new tables `notification_preferences`, `push_devices`,
+> `notification_deliveries`, `connection_watermarks` and `job_runs`.
+
 **Invariants**
 
 - No table stores account balances, transaction amounts, or any Firefly financial record. Cached payloads in
@@ -358,11 +362,17 @@ only partly done; their notes say what is missing.
 **Blocked outside the project:** E19-01/02 export centre (every `/data/export/*`
 endpoint returns HTTP 500 on 6.5.5), E22-02 ETag pass-through (Firefly sends no
 ETag), E2-11/E2-12 OAuth (need registered clients), and E14-13 scheduled reports
-(need a job runner).
+(need a job runner — E27-11 in `NOTIFICATIONS.md` plans one).
 
 **P2 nice-to-haves (≈20):** E1-12, E1-15, E2-07, E3-15, E4-09, E5-18, E6-09,
 E7-06, E9-06, E10-06, E11-07/08, E12-05, E13-06, E14-14, E18-04/05, E19-04/05,
 E22-08, E25-07.
+
+**Planned next epic — E27 Notifications & push** ([`NOTIFICATIONS.md`](NOTIFICATIONS.md), ≈44 d, not
+counted in the totals above): an event engine with an in-process scheduler, 36 notification kinds,
+a `/notifications` centre and Firebase push. It also fixes two shipped inbox defects (per-kind
+dedupe drops a second alert; a read alert is re-created on the next page view) and provides the
+job runner E14-13 is blocked on.
 
 **Open decisions (§11):** Q1 hosted as well as self-host, Q3 OAuth2 or PAT only,
 Q4 email provider.
@@ -550,7 +560,7 @@ Firefly III instance.
 - [x] **E6-05** `P1` `1d` `/budgets/transactions-without-budget` view — list page with pagination
 - [x] **E6-06** `P1` `1d` Available budgets (`/available-budgets`) — **already shipped**, reconciled 2026-09-17: `app/(app)/available-budgets/page.tsx`, per-currency aggregation
 - [x] **E6-07** `P1` `2d` Budget performance report — folded into M5 reporting — **already shipped**, reconciled 2026-09-17: shipped as the M5 budget report, `app/(app)/reports/budgets/page.tsx`
-- [x] **E6-08** `P1` `1d` Over-budget warnings in the notification inbox — **already shipped**, reconciled 2026-09-17: `app/(app)/budgets/page.tsx` writes `over_budget` notifications
+- [x] **E6-08** `P1` `1d` Over-budget warnings in the notification inbox — **already shipped**, reconciled 2026-09-17: `app/(app)/budgets/page.tsx` writes `over_budget` notifications. **Superseded by E27-14** — see `NOTIFICATIONS.md` §2.1 for the defects in the current producer
 - [ ] **E6-09** `P2` `2d` Envelope-style drag-to-reallocate
 
 ### E7 · Categories — M4
@@ -573,7 +583,7 @@ Firefly III instance.
 - [x] **E8-03** `P0` `2d` Bill detail: matched transactions, payment history — _linked rules deferred to M6 (rules don't exist yet)_
 - [x] **E8-04** `P1` `2d` Subscription calendar — **already shipped**, reconciled 2026-09-17: `app/(app)/bills/calendar/page.tsx`
 - [x] **E8-05** `P1` `1d` Annualised cost summary / most-expensive ranking — added to subscriptions list
-- [x] **E8-06** `P1` `1d` Unpaid/overdue alerts in the notification inbox — **already shipped**, reconciled 2026-09-17: `app/(app)/bills/page.tsx` writes `unpaid_bill` notifications
+- [x] **E8-06** `P1` `1d` Unpaid/overdue alerts in the notification inbox — **already shipped**, reconciled 2026-09-17: `app/(app)/bills/page.tsx` writes `unpaid_bill` notifications. **Superseded by E27-15** — see `NOTIFICATIONS.md` §2.1
 - [x] **E8-07** `P1` `1d` "Create a matching rule from this bill" — **done.** Was marked "Blocked on M6" long after M6 shipped. Both directions: a subscription gets a Rules tab listing what automates it, with a count on the tab and a button that opens the rule builder pre-filled (`description_contains <name>` → `link_to_bill <name>`); a rule's `link_to_bill` action links back to that subscription, and the rules list carries a badge naming it. `description_contains`, not `description_is` — a bank writes "NETFLIX.COM 866-579-7172" where the subscription is called "Netflix", and an exact match produces a rule that matches nothing and reads as a broken feature. Firefly has no reverse lookup (`/bills/{id}` never mentions rules), so the tab reads every rule and filters; the matching is pure and unit-tested in `lib/bill-rules.ts`.
 
 ### E9 · Piggy banks & object groups — M4
