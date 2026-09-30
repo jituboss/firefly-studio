@@ -5,12 +5,16 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-22, at `v0.9.4`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-30, at `v0.11.8`. Written by an outgoing AI coding assistant for whoever continues this work.
 
-**What changed since the previous note:** 0.7.0 closed E21-01 (the last five primitives) and E8-07,
-and added transaction type conversion, a dashboard quick-add, reachable date ranges and an HTTP
-access log. The full account is `PROJECT_PLAN.md` §18 — read §18.2 and §18.3 before touching
-transactions, overlays or the session guard, because each entry there is a bug that shipped.
+**What changed since the previous note (v0.9.4 → v0.11.8):** a Firefly Studio administrator role
+with an `/admin` section (0.10.1), a two-band transaction list (0.10.0), PDF beside CSV on every
+export (0.11.1), budgets that convert foreign-currency spending to the primary currency (0.11.2–
+0.11.4), inactive accounts hidden from the dashboard (0.11.5), and three rounds of mobile overlay
+positioning fixes (0.11.0, 0.11.6–0.11.8). None of it moved a backlog checkbox except E14-11's PDF
+half. The account is `PROJECT_PLAN.md` §21 and the lessons are §7c below. Read §18.2 and §18.3 before
+touching transactions, overlays or the session guard, because each entry there is a bug that
+shipped.
 
 ## 1. What this project is, in three sentences
 
@@ -103,7 +107,7 @@ a rise is intended, which makes it a reviewable diff rather than a number nobody
 | Charts          | Recharts                                                                                                                                      | `components/charts/`                                                                                                                                                                                                                                                                                                                                                     |
 | Tables          | TanStack Virtual (only for the transaction grid)                                                                                              | `app/(app)/transactions/table.tsx`                                                                                                                                                                                                                                                                                                                                       |
 | Forms           | Native React Server Actions + `useActionState`, no react-hook-form                                                                            | Every write path follows the same pattern — see §6                                                                                                                                                                                                                                                                                                                       |
-| Testing         | Vitest (216 unit tests over `lib/`), a 70 % coverage gate in CI, Playwright for the responsive check and for driving Server Actions           | `lib/` is at ~95 % statements. `server/` and the pages are still uncovered — see §8                                                                                                                                                                                                                                                                                      |
+| Testing         | Vitest (666 unit tests in 40 files), an 80 % coverage gate in CI, Playwright for the responsive check and for driving Server Actions          | `lib/` is at ~95 % statements. Most of `server/` and the pages are still uncovered — see §8                                                                                                                                                                                                                                                                              |
 | Package manager | pnpm                                                                                                                                          | `pnpm-workspace.yaml` has a build-approval allowlist because pnpm 9+ blocks postinstall scripts by default                                                                                                                                                                                                                                                               |
 
 ### ⚠️ Two files are named `types.ts` — they are not the same thing, and one is unused
@@ -521,9 +525,37 @@ cost someone else a day.
   has a precondition Firefly does not enforce, re-read the response and assert
   the change, the way `conversionApplied()` does.
 
+## 7c. Lessons from 0.10–0.11 — mostly about overlays on a phone
+
+- **Position a floating panel by measuring it, not by picking an alignment class.** The Popover
+  took three releases to fit a phone. 0.11.7 chose between `left-0`, `right-0` and a "center"
+  fallback, but `left-1/2 -translate-x-1/2` centres on the trigger's WRAPPER, which on a wrapped
+  card header is a narrow box near one edge. The fallback therefore pushed the panel off the
+  other side of the screen. 0.11.8 lets the panel lay out, reads its `getBoundingClientRect()`
+  and applies a `translateX` that clamps it into the viewport. Radix menus get the same result from
+  `collisionPadding` (0.11.6). Use one of those two mechanisms. Don't add a third.
+- **Rule 7 (§5) struck again, this time on a table.** `overflow-x-auto` on the admin user list
+  made the table a vertical scroll container too, so the row menu on the last row was clipped to
+  4px of 115px. The fix was to stop the table scrolling sideways and to drop columns on narrow
+  screens, folding their content under the name. Any wrapper that clips or scrolls on one axis
+  will clip overlays on the other.
+- **Matching currencies is not the same as handling them.** Budget `spent` is one entry per
+  currency (§7). 0.11.2 stopped comparing a USD spent figure against a BDT limit by matching
+  currencies and skipping mismatches, which fixed the wrong number by hiding the USD spending
+  entirely. 0.11.4 converts it with `lib/budget-currency.ts` on top of `lib/fx.ts`'s rate tables
+  and discloses what was converted and at which date. Anywhere else that reads a per-currency
+  array (category spent/earned, insight rows) has the same choice to make. Skipping a mismatch
+  is not a safe default.
+- **`accounts.data` includes archived accounts.** The dashboard widget and the add-transaction
+  sheet both listed inactive accounts until 0.11.5. Filter on `active` wherever a list is offered
+  for a new write.
+- **Two majors are deliberately held back:** `@sentry/nextjs` 11 (init and span-attribute changes
+  need a real migration) and `docker/build-push-action` 7 (needs Actions runner ≥ 2.327.1). Same
+  rule as the dependabot scars in §7a: build and boot the image before merging either one.
+
 ## 8. Testing approach — what exists and what deliberately doesn't
 
-- **350 Vitest unit tests**, over pure `lib/` modules plus four server modules. Run `pnpm test`, or
+- **666 Vitest unit tests** in 40 files, over pure `lib/` modules plus four server modules. Run `pnpm test`, or
   `pnpm test:cov` for the gate. The newest of them (`rule-vocabulary.test.ts`) pins the
   rule builder's 36 trigger and 21 action keywords against the vendored spec, so a Firefly
   update that adds one reddens CI instead of quietly producing a UI that cannot express it.
@@ -662,6 +694,7 @@ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
   sums balances "per currency shown" but doesn't do FX conversion — if you build M5
   reports, decide deliberately whether to convert to a single display currency (Firefly's
   `/insight/*` endpoints may or may not help here — check before assuming).
+  **Budgets are the exception since 0.11.4:** they convert to the primary currency (§7c).
 - **The dashboard's currency-selection bug** (KPI tiles picking whichever currency
   Firefly listed first, rather than the connection's primary currency) was fixed in
   commit `9a5a159` — but the same class of bug (multiple `-in-<CODE>` suffixed keys in a
@@ -673,22 +706,17 @@ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
   proper pagination (`app/(app)/transactions/page.tsx` + `pagination.tsx`) — copy that
   pattern if this becomes a problem.
 - **No object-group support** (E9-05) — piggy banks and bills can have Firefly object
-  groups but the UI doesn't expose creating/assigning them yet.
-- **Cross-currency arithmetic in list/aggregate views is naive.** Sums are grouped by
-  currency code but not converted, so the dashboard/account totals can look like many
-  separate amounts rather than one consolidated figure.
-- **Auth email is console-only** (§9 above) — needs a real transport (Resend/SES/SMTP)
-  before this could go to real users. This is `PROJECT_PLAN.md` §11 Q4, still open.
-- **Project-plan / learning-doc sync drift:** some items now exist in the UI that are
-  still unchecked in `PROJECT_PLAN.md` (e.g. object-group landing page, bill calendar,
-  available budgets). The plan should be reconciled when the next milestone starts.
+  groups. The landing page lists and creates groups, but a bill's or piggy bank's own
+  form can't assign one yet.
+- **Auth email defaults to the console transport.** SMTP and Resend exist (E2-28, see §9),
+  but `PROJECT_PLAN.md` §11 Q4 (which provider to recommend) is still open.
 - The `pnpm-workspace.yaml` build-approval list may need updating if you add a new
   dependency with a native postinstall step — pnpm will error with a clear message if so.
 
 ## 11. If you're a different AI system continuing this cold, do this first
 
 1. `git log --oneline` and `cat PROJECT_PLAN.md` (skim §6, §8) to confirm this doc is
-   still accurate — it may have drifted if work happened after 2026-09-17.
+   still accurate — it may have drifted if work happened after 2026-09-30 (`v0.11.8`).
 2. `pnpm install && pnpm typecheck && pnpm test` — confirm you're starting from a green
    baseline before changing anything.
 3. Read `PROJECT_PLAN.md` §7 (API inventory) for whichever resource you're about to build
@@ -732,6 +760,8 @@ Use this map before assuming a feature still needs to be built.
 | Custom report builder + saved reports                                                        | `app/(app)/reports/custom/page.tsx`, `app/(app)/reports/custom/builder-form.tsx`, `lib/custom-report.ts`, `server/reports.ts`, `server/reports-actions.ts`                                                         |
 | Reporting arithmetic + scoped queries                                                        | `lib/reports.ts`, `lib/report-scope.ts`, `server/firefly/report-queries.ts`                                                                                                                                        |
 | Export menu, CSV + PDF (every export)                                                        | `components/export/export-menu.tsx`, `components/export/pdf-renderer.ts`, `lib/pdf/spec.ts`, `lib/statement.ts`, `components/reports/report-export.tsx`                                                            |
+| Budget currency conversion (primary-currency spent)                                          | `lib/budget-currency.ts`, `lib/fx.ts`                                                                                                                                                                              |
+| Studio admin section (users, overview, activity)                                             | `app/(admin)/admin/`, `pnpm user:admin` / `dist/user-admin.cjs`                                                                                                                                                    |
 | Settings → connections manager                                                               | `app/(settings)/settings/connections/page.tsx`, `app/(settings)/settings/connections/connection-card.tsx`                                                                                                          |
 | Navigation progress bar                                                                      | `components/navigation-progress.tsx`                                                                                                                                                                               |
 | Checkbox primitive (indeterminate)                                                           | `components/ui/checkbox.tsx`                                                                                                                                                                                       |

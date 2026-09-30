@@ -2,7 +2,7 @@
 
 > **Working title:** Firefly Studio
 > **Document status:** v1.0 — living document, use as the backlog of record
-> **Last updated:** 2026-09-16
+> **Last updated:** 2026-09-30 (at `v0.11.8`)
 > **API target:** Firefly III **v6.5.5** API v1 (164 paths / 230 operations, 28 resource groups) — spec generated 2026-03-15
 > **Minimum supported Firefly III:** 6.2.0 (degrade gracefully to 6.1.x)
 
@@ -1257,7 +1257,8 @@ dangerous kind: a successful response that is silently wrong.
 
 ### 18.4 What is deliberately not done
 
-- **The dashboard quick-add's pending state can stick** — and the diagnosis
+- **The dashboard quick-add's pending state can stick** — _resolved in 0.9.0,
+  see §18.5; kept for the record of how it was misdiagnosed._ The diagnosis
   recorded here in 0.7.0 was WRONG. It said the hang reproduces "only inside a
   Sheet". 0.8.0 put the identical sheet, with the identical action, on
   /transactions, where it resolves in ~450ms at both 1400px and 390px while
@@ -1442,3 +1443,50 @@ worth recording because the obvious assumption is wrong both times:
   end, PHP-style.
 - `'' ~ 1 + 2` is `3`, not `12`. `~` binds LOOSER than `+`, which is the opposite
   of reading it left to right.
+
+## 21. 0.10.0 – 0.11.8 — admin, PDF, budget currencies, mobile overlays
+
+Released 2026-09-23 to 2026-09-30. Most of it was fixes and additions outside
+the §8 backlog. The only checkbox it touched is the PDF half of E14-11, already
+noted on that item. The per-release detail is in `CHANGELOG.md`.
+
+### 21.1 What shipped
+
+| Release       | Change                                                                                                    | Backlog             |
+| ------------- | --------------------------------------------------------------------------------------------------------- | ------------------- |
+| 0.10.0        | Transaction list chrome cut from five bands to two. Filters/Views/Export menus, pagination top and bottom | E5 polish           |
+| 0.10.1        | Firefly Studio administrator role, `/admin` (Users, Overview, Activity), `pnpm user:admin`                | new — not in §8     |
+| 0.11.0        | Admin user list stops clipping its row menu. Popover flips above its trigger when it doesn't fit below    | E21-11 (responsive) |
+| 0.11.1        | PDF beside CSV on every export. The transactions PDF is a statement with running balance                  | E14-11, E5-16       |
+| 0.11.2–0.11.4 | Budgets: per-currency limit matching, then real conversion to primary currency (`lib/budget-currency.ts`) | E6 correctness      |
+| 0.11.3        | Minor/patch dependency bumps. Sentry 11 and build-push-action 7 deferred                                  | —                   |
+| 0.11.5        | Inactive accounts hidden from the dashboard widget and the add sheet. Accounts search usable on mobile    | E3, E21-11          |
+| 0.11.6–0.11.8 | Dropdown `collisionPadding`. Popover clamps itself into the viewport by measuring                         | E21-11              |
+
+The administrator role is separate from E20. E20 administers the connected
+**Firefly** instance through its API. The 0.10.1 role administers **this
+deployment's** accounts and never grants access to anyone's ledger.
+
+### 21.2 Bugs found in our own code
+
+- **A horizontal scroll container is also a vertical one.** `overflow-x-auto`
+  on the admin table clipped the last row's menu to 4px of 115px. This is the
+  same CSS rule as LEARNING.md §5 rule 7.
+- **The first budget-currency fix hid money instead of converting it.** 0.11.2
+  skipped a spent entry whose currency had no matching limit, so USD spending
+  against a BDT budget disappeared. 0.11.4 converts it at Firefly's own rates
+  and discloses the conversion.
+- **Centring a popover on its wrapper centres it on the wrong box.** 0.11.7's
+  `left-1/2 -translate-x-1/2` fallback was relative to a narrow wrapper, not the
+  viewport. 0.11.8 measures the rendered panel and shifts it by pixels.
+- **The audit label map had drifted from the events recorded.** It named three
+  events nothing writes and missed eleven that fire. A test now pins the two
+  lists together.
+
+### 21.3 Not covered by a gate
+
+`check:responsive` measures page-level horizontal overflow with every overlay
+closed. An off-screen popover or menu only exists once it is opened, and the app
+shell's `overflow-x-clip` would hide its overflow anyway. So the gate did not
+catch the 0.11.x overlay bugs and won't catch a regression. It needs a step that
+opens each overlay and asserts its bounding box against the viewport.
