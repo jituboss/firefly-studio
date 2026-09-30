@@ -10,6 +10,18 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-09-30
+
+**One Add button on phones.**
+
+### Fixed
+
+- **The Transactions page no longer shows a second Add button on phones.** The
+  header's Add opened the same panel as the Add in the bottom bar, which is
+  always on screen, so it was the same control twice and crowded the title. It
+  is now hidden below tablet width on every page, as it already was on the
+  dashboard. Tablets and desktops, which have no bottom bar, keep it.
+
 ## [0.13.0] - 2026-09-30
 
 **A bottom navigation bar on phones, and a command palette that actually searches.**

@@ -260,10 +260,6 @@ export default async function TransactionsPage({
                 name: account.attributes.name,
               }))}
               label="Add"
-              /* No floating button here: the toolbar trigger is always on
-                 screen, and a second one hovering over the list would cover
-                 rows to duplicate a control a few centimetres away. */
-              floating={false}
             />
           </div>
         </div>

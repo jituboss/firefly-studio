@@ -95,7 +95,6 @@ export function AddTransactionSheet({
   currency,
   assetAccounts,
   label = 'Add transaction',
-  floating = true,
 }: {
   today: string;
   currency: string;
@@ -103,18 +102,17 @@ export function AddTransactionSheet({
   assetAccounts: AddSheetAccount[];
   /** The desktop button's text. "Add" where the heading already says what of. */
   label?: string;
-  /**
-   * Hide this button on a phone, where the bottom bar's Add opens the same
-   * panel. On the transactions page the toolbar button stays visible, because
-   * there it sits beside the filters rather than in the page header.
-   */
-  floating?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)} className={cn(floating && 'max-sm:hidden')}>
+      {/*
+        Hidden on a phone on every page: the bottom bar's Add is always on
+        screen there and opens this same panel, so a second button in the
+        header is the same control twice, taking room from the title.
+      */}
+      <Button size="sm" onClick={() => setOpen(true)} className="max-sm:hidden">
         <Plus className="size-4" aria-hidden="true" />
         {label}
       </Button>
