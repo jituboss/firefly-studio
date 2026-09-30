@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
-import { getPiggyBank, getPiggyEvents } from '@/server/firefly/queries';
+import { getObjectGroupTitles, getPiggyBank, getPiggyEvents } from '@/server/firefly/queries';
 import { formatDate, parseFireflyDate, now, differenceInCalendarDays } from '@/lib/date';
 import type { PiggyBank } from '@/server/firefly/types';
 import { isNegative } from '@/lib/money';
@@ -67,6 +67,7 @@ export default async function PiggyBankDetailPage({
   }
 
   const events = await getPiggyEvents(id);
+  const groups = tab === 'edit' ? await getObjectGroupTitles() : [];
   const a = piggy.attributes;
   const currency = a.currency_code ?? connection.primaryCurrency;
   const account = a.accounts[0];
@@ -192,7 +193,7 @@ export default async function PiggyBankDetailPage({
         </Card>
       ) : tab === 'edit' ? (
         <div className="space-y-6">
-          <PiggyForm piggy={piggy} />
+          <PiggyForm piggy={piggy} groups={groups} />
           <Card>
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div>

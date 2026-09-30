@@ -5,6 +5,7 @@ import { getSession } from '@/server/auth/session';
 import { listConnections } from '@/server/connections';
 import { refreshStaleConnectionsInBackground } from '@/server/connections/health';
 import { listUnreadNotifications } from '@/server/notifications';
+import { getTourState } from '@/server/dashboard';
 
 /**
  * E2-13 — the authoritative guard. Middleware only checks that a cookie exists;
@@ -23,9 +24,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!session.user.onboardingCompletedAt) redirect('/onboarding');
 
-  const [connections, notifications] = await Promise.all([
+  const [connections, notifications, tour] = await Promise.all([
     listConnections(session.user.id),
     listUnreadNotifications(session.user.id),
+    getTourState(session.user.id),
   ]);
 
   // Connection lifecycle fix — `onboardingCompletedAt` stays true forever
@@ -52,6 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       version={appVersion()}
       isDemo={session.user.isDemo}
       isAdmin={session.user.role === 'admin'}
+      tour={tour}
     >
       {children}
     </AppShell>

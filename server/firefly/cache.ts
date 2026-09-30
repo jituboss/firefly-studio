@@ -45,6 +45,7 @@ export type CacheTag =
   | 'categories'
   | 'bills'
   | 'piggy-banks'
+  | 'object-groups'
   | 'summary'
   | 'insight'
   | 'charts'
@@ -91,7 +92,14 @@ export function tagsForPath(path: string): CacheTag[] {
     tags.push('links', 'transactions');
   if (path.includes('/users') || path.includes('/user-groups') || path.includes('/configuration'))
     tags.push('admin');
-  return tags;
+  // E9-05 — a subscription or piggy-bank write can CREATE a group (an unknown
+  // `object_group_title` makes one) or empty one, and renaming a group changes
+  // the title every member carries. So the three invalidate each other.
+  // Before this, object groups had no tag at all and a new group stayed
+  // invisible on /object-groups for a full TTL.
+  if (path.includes('/object-groups')) tags.push('object-groups', 'bills', 'piggy-banks');
+  if (path.includes('/bills') || path.includes('/piggy')) tags.push('object-groups');
+  return [...new Set(tags)];
 }
 
 const key = (connectionId: string, path: string) => `ff:${connectionId}:${path}`;

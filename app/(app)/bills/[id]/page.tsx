@@ -4,7 +4,12 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Plus, Workflow } from 'lucide-react';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
-import { getBill, getBillTransactions, getRules } from '@/server/firefly/queries';
+import {
+  getBill,
+  getBillTransactions,
+  getRules,
+  getObjectGroupTitles,
+} from '@/server/firefly/queries';
 import { formatDate } from '@/lib/date';
 import { describeRuleMatch, rulesLinkedToBill } from '@/lib/bill-rules';
 import { Amount } from '@/components/ui/amount';
@@ -54,6 +59,7 @@ export default async function BillDetailPage({
    * before anyone points this at an instance that does.
    */
   const rules = await getRules();
+  const groups = tab === 'edit' ? await getObjectGroupTitles() : [];
   const linkedRules = rulesLinkedToBill(rules.data, a.name);
   const currency = a.currency_code ?? connection.primaryCurrency;
 
@@ -230,7 +236,7 @@ export default async function BillDetailPage({
         </div>
       ) : (
         <div className="space-y-6">
-          <BillForm bill={bill} defaultCurrency={connection.primaryCurrency} />
+          <BillForm bill={bill} defaultCurrency={connection.primaryCurrency} groups={groups} />
           <Card>
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div>

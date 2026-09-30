@@ -329,6 +329,26 @@ export const getObjectGroups = () =>
     data: [],
     meta: {},
   });
+/** E9-05 — one group and its members, for the group's own page. */
+export const getObjectGroup = (id: string) =>
+  fireflyGet<{ data: ObjectGroup }>(`/v1/object-groups/${id}`);
+export const getObjectGroupBills = (id: string) =>
+  fireflyGetSafe<Paged<Bill>>(`/v1/object-groups/${id}/bills${qs({ limit: 200 })}`, {
+    data: [],
+    meta: {},
+  });
+export const getObjectGroupPiggyBanks = (id: string) =>
+  fireflyGetSafe<Paged<PiggyBank>>(`/v1/object-groups/${id}/piggy-banks${qs({ limit: 200 })}`, {
+    data: [],
+    meta: {},
+  });
+
+/** E9-05 — every object-group title, sorted, for the form suggestions. */
+export const getObjectGroupTitles = async (): Promise<string[]> =>
+  (await getObjectGroups()).data
+    .map((group) => group.attributes.title)
+    .sort((a, b) => a.localeCompare(b));
+
 export const getCategories = (start?: string, end?: string) =>
   fireflyGetSafe<Paged<Category>>(`/v1/categories${qs({ start, end, limit: 200 })}`, {
     data: [],

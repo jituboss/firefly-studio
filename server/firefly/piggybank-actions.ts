@@ -6,6 +6,7 @@ import { fireflyWrite, FireflyRequestError, fireflyGet } from './api';
 import { add, subtract } from '@/lib/money';
 import { now, toApiDate } from '@/lib/date';
 import type { PiggyBank } from './types';
+import { objectGroupPayload } from '@/lib/object-group';
 
 /** E9-02 / E9-03 — piggy bank writes. */
 
@@ -64,6 +65,7 @@ export async function createPiggyBankAction(
     transaction_currency_code: input.currency_code ?? 'EUR',
   });
   payload.accounts = [{ account_id: input.account_id, current_amount: '0' }];
+  Object.assign(payload, objectGroupPayload(formData, 'create'));
 
   let created: { data: PiggyBank };
   try {
@@ -98,6 +100,7 @@ export async function updatePiggyBankAction(
     notes: input.notes,
     active: input.active,
   });
+  Object.assign(payload, objectGroupPayload(formData, 'update'));
 
   try {
     await fireflyWrite(`/v1/piggy-banks/${id}`, 'PUT', payload);
@@ -108,6 +111,7 @@ export async function updatePiggyBankAction(
 
   revalidatePath('/piggy-banks');
   revalidatePath(`/piggy-banks/${id}`);
+  revalidatePath('/object-groups', 'layout');
   revalidatePath('/dashboard');
   return {};
 }

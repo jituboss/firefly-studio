@@ -16,6 +16,7 @@ import { signOutAction } from '@/server/auth/actions';
 import { Input, Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { FormMessage, SubmitButton } from '@/components/auth/form-shell';
+import { PRESETS } from '@/lib/dashboard-layout';
 
 interface AssetAccount {
   id: string;
@@ -24,7 +25,7 @@ interface AssetAccount {
   currencyCode: string | null;
 }
 
-const STEPS = ['Server', 'Token', 'Preferences'] as const;
+const STEPS = ['Server', 'Token', 'Personalise'] as const;
 
 function Submit({ children }: { children: string }) {
   const { pending } = useFormStatus();
@@ -68,6 +69,12 @@ function Stepper({ current }: { current: number }) {
 export function OnboardingWizard(props: {
   /** E2-23 — true when attaching an extra instance rather than first-run setup. */
   adding?: boolean;
+  /**
+   * E2-19 — onboarding has never been finished. Only then is the dashboard
+   * preset offered: re-running the wizard after removing a connection must not
+   * overwrite a layout the user has since arranged.
+   */
+  firstRun?: boolean;
   initialStep: 1 | 2 | 3;
   initialBaseUrl: string;
   connectionLabel: string | null;
@@ -381,6 +388,40 @@ export function OnboardingWizard(props: {
                   No asset accounts found yet. You can add them in Firefly III and pick favourites
                   later in Settings.
                 </p>
+              )}
+
+              {/* E2-19 — offered on a first run only; see `firstRun`. */}
+              {!props.firstRun ? null : (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">
+                    Dashboard{' '}
+                    <span className="text-muted-foreground font-normal">
+                      — rearrange it any time with Customize
+                    </span>
+                  </legend>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {PRESETS.map((preset, index) => (
+                      <label
+                        key={preset.id}
+                        className="has-[:checked]:border-primary has-[:checked]:bg-primary/5 hover:bg-accent flex cursor-pointer items-start gap-2.5 rounded-md border p-3 text-sm"
+                      >
+                        <input
+                          type="radio"
+                          name="dashboardPreset"
+                          value={preset.id}
+                          defaultChecked={index === 0}
+                          className="mt-0.5 size-4"
+                        />
+                        <span className="min-w-0">
+                          <span className="block font-medium">{preset.label}</span>
+                          <span className="text-muted-foreground block text-xs">
+                            {preset.description}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               )}
 
               <Submit>Finish setup</Submit>

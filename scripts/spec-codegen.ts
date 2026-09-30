@@ -2,14 +2,22 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import openapiTS, { astToString } from 'openapi-typescript';
 import YAML from 'yaml';
+import {
+  collectSchemas,
+  renderRequestSchemas,
+  type RequestBodyRecord,
+  type SpecSchema,
+} from './spec-zod';
 
 /**
  * E1-06 — generate the typed surface from the vendored Firefly III spec.
  *
- * Produces two artefacts:
- *   generated/types.ts      — full request/response types (openapi-typescript)
- *   generated/operations.ts — a path registry used by the proxy for routing,
- *                             allowlisting and cache-tag derivation
+ * Produces three artefacts:
+ *   generated/types.ts           — full request/response types (openapi-typescript)
+ *   generated/operations.ts      — a path registry used by the proxy for routing,
+ *                                  allowlisting and cache-tag derivation
+ *   generated/request-schemas.ts — E1-14: Zod schemas for every JSON request
+ *                                  body, enforced at the proxy (scripts/spec-zod.ts)
  */
 
 const SPEC_PATH = path.resolve('spec/firefly-iii-v1.yaml');
@@ -17,6 +25,11 @@ const OUT_DIR = path.resolve('spec/generated');
 
 const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 type HttpMethod = (typeof HTTP_METHODS)[number];
+
+interface RequestBody {
+  required?: boolean;
+  content?: Record<string, { schema?: SpecSchema }>;
+}
 
 interface OperationRecord {
   path: string;
@@ -55,8 +68,20 @@ async function main() {
     info: { version: string; title: string };
     paths: Record<
       string,
-      Record<string, { operationId?: string; tags?: string[]; summary?: string }>
+      Record<
+        string,
+        {
+          operationId?: string;
+          tags?: string[];
+          summary?: string;
+          requestBody?: RequestBody | { $ref: string };
+        }
+      >
     >;
+    components?: {
+      schemas?: Record<string, SpecSchema>;
+      requestBodies?: Record<string, RequestBody>;
+    };
   };
 
   await mkdir(OUT_DIR, { recursive: true });
@@ -136,12 +161,46 @@ export const FIREFLY_PATH_COUNT = ${Object.keys(doc.paths ?? {}).length};
 
   await writeFile(path.join(OUT_DIR, 'operations.ts'), registry, 'utf8');
 
+  // --- 3. request-body schemas (E1-14) --------------------------------------
+  const bodies: RequestBodyRecord[] = [];
+  for (const [specPath, methods] of Object.entries(doc.paths ?? {})) {
+    for (const method of ['post', 'put', 'patch'] as const) {
+      let body = methods[method]?.requestBody;
+      if (!body) continue;
+      if ('$ref' in body) body = doc.components?.requestBodies?.[body.$ref.split('/').pop()!];
+      const schema = (body as RequestBody | undefined)?.content?.['application/json']?.schema;
+      // Only named JSON bodies: the proxy forwards JSON, and the one inline
+      // body is the attachment upload, which is binary.
+      if (!schema?.$ref) continue;
+      bodies.push({
+        method,
+        path: specPath,
+        pattern: toPattern(specPath),
+        schema: schema.$ref.split('/').pop()!,
+        required: (body as RequestBody).required ?? false,
+      });
+    }
+  }
+  bodies.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+  const reachable = collectSchemas(
+    doc.components?.schemas ?? {},
+    bodies.map((body) => body.schema),
+  );
+  await writeFile(
+    path.join(OUT_DIR, 'request-schemas.ts'),
+    renderRequestSchemas(doc.info.version, reachable, bodies),
+    'utf8',
+  );
+
   console.log(`Firefly III ${doc.info.version}`);
   console.log(`  paths      ${Object.keys(doc.paths ?? {}).length}`);
   console.log(`  operations ${operations.length}`);
   console.log(`  tags       ${tags.length}`);
   console.log(`  guarded    ${guarded.length} (${guarded.map((o) => o.path).join(', ')})`);
-  console.log(`\nWrote spec/generated/types.ts and spec/generated/operations.ts`);
+  console.log(
+    `  bodies     ${bodies.length} JSON request bodies, ${Object.keys(reachable).length} schemas`,
+  );
+  console.log(`\nWrote spec/generated/types.ts, operations.ts and request-schemas.ts`);
 }
 
 main().catch((error) => {

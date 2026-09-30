@@ -6,6 +6,7 @@ import { invalidateTags, tagsForPath } from '@/server/firefly/cache';
 import { consumeRateLimit } from '@/server/auth/rate-limit';
 import { recordAudit } from '@/server/audit';
 import { csrfFailure } from '@/server/auth/csrf';
+import { validateRequestBody } from '@/server/firefly/request-validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,6 +71,18 @@ async function handle(request: NextRequest, method: 'GET' | 'POST' | 'PUT' | 'DE
       body = await request.json();
     } catch {
       body = undefined;
+    }
+  }
+
+  // E1-14 — hold the body to the spec before it leaves. After the rate limit
+  // on purpose: a validation failure still counts as a request.
+  if (method === 'POST' || method === 'PUT') {
+    const check = validateRequestBody(method, pathForMatch, body);
+    if (!check.ok) {
+      return NextResponse.json(
+        { error: 'The request does not match the Firefly III API.', issues: check.issues },
+        { status: 422 },
+      );
     }
   }
 

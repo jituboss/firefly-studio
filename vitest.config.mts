@@ -40,6 +40,7 @@ export default defineConfig({
         'server/firefly/cache.ts',
         'server/firefly/url-guard.ts',
         'server/auth/csrf.ts',
+        'server/firefly/request-validation.ts',
       ],
       exclude: [
         '**/*.d.ts',

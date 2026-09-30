@@ -5,9 +5,14 @@
 > Together they should let a different AI assistant (Gemini, ChatGPT, a different Claude
 > session, a human) pick this project up with no other context.
 
-**Last updated:** 2026-09-30, at `v0.11.8`. Written by an outgoing AI coding assistant for whoever continues this work.
+**Last updated:** 2026-09-30, at `v0.12.0`. Written by an outgoing AI coding assistant for whoever continues this work.
 
-**What changed since the previous note (v0.9.4 → v0.11.8):** a Firefly Studio administrator role
+**0.12.0** closed the seven product P1s: the customizable dashboard (E3-12), onboarding presets
+(E2-19), the product tour (E2-20), liability amortisation (E4-07), object-group assignment
+(E9-05), the report reconciliation check (E14-15) and spec-generated request validation at the
+proxy (E1-14). See `PROJECT_PLAN.md` §22 and §7d below.
+
+**What changed before that (v0.9.4 → v0.11.8):** a Firefly Studio administrator role
 with an `/admin` section (0.10.1), a two-band transaction list (0.10.0), PDF beside CSV on every
 export (0.11.1), budgets that convert foreign-currency spending to the primary currency (0.11.2–
 0.11.4), inactive accounts hidden from the dashboard (0.11.5), and three rounds of mobile overlay
@@ -30,7 +35,7 @@ what actually happened building the first four milestones of it.
 ## 2. Current state — read this first
 
 **M0–M6 are done. M7 is nearly done. M8 has started.** `PROJECT_PLAN.md` §8 is the authoritative
-backlog: **180 of 228 items**, every finished one checked with a note on what shipped, what was cut,
+backlog: **187 of 228 items**, every finished one checked with a note on what shipped, what was cut,
 and why.
 
 | Milestone | What it shipped                                                                                    | Status     |
@@ -58,7 +63,7 @@ instance, and scheduled reports (needs a job runner).
 
 ### The gates you must keep green
 
-There are now five, not one. All of them run in `.github/workflows/release.yml` except the last two:
+There are now six, not one. All of them run in `.github/workflows/release.yml` except the last three:
 
 ```bash
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
@@ -66,9 +71,10 @@ pnpm audit                  # dependency advisories, moderate and above
 pnpm check:bundle           # per-route gzipped JS against a committed budget
 pnpm check:a11y             # axe over 19 routes in BOTH themes — needs a running app
 pnpm check:responsive       # horizontal overflow at 4 widths — needs a session cookie
+pnpm check:reconcile        # report totals vs Firefly's own, to the cent — needs a live instance
 ```
 
-`check:a11y` and `check:responsive` are not in CI: they need a running app and a seeded Firefly.
+`check:a11y`, `check:responsive` and `check:reconcile` are not in CI: they need a running app or a seeded Firefly.
 Run them by hand before calling any UI change done. `check:bundle --update` rewrites the budget when
 a rise is intended, which makes it a reviewable diff rather than a number nobody sees.
 
@@ -107,7 +113,7 @@ a rise is intended, which makes it a reviewable diff rather than a number nobody
 | Charts          | Recharts                                                                                                                                      | `components/charts/`                                                                                                                                                                                                                                                                                                                                                     |
 | Tables          | TanStack Virtual (only for the transaction grid)                                                                                              | `app/(app)/transactions/table.tsx`                                                                                                                                                                                                                                                                                                                                       |
 | Forms           | Native React Server Actions + `useActionState`, no react-hook-form                                                                            | Every write path follows the same pattern — see §6                                                                                                                                                                                                                                                                                                                       |
-| Testing         | Vitest (666 unit tests in 40 files), an 80 % coverage gate in CI, Playwright for the responsive check and for driving Server Actions          | `lib/` is at ~95 % statements. Most of `server/` and the pages are still uncovered — see §8                                                                                                                                                                                                                                                                              |
+| Testing         | Vitest (722 unit tests in 46 files), an 80 % coverage gate in CI, Playwright for the responsive check and for driving Server Actions          | `lib/` is at ~95 % statements. Most of `server/` and the pages are still uncovered — see §8                                                                                                                                                                                                                                                                              |
 | Package manager | pnpm                                                                                                                                          | `pnpm-workspace.yaml` has a build-approval allowlist because pnpm 9+ blocks postinstall scripts by default                                                                                                                                                                                                                                                               |
 
 ### ⚠️ Two files are named `types.ts` — they are not the same thing, and one is unused
@@ -553,9 +559,34 @@ cost someone else a day.
   need a real migration) and `docker/build-push-action` 7 (needs Actions runner ≥ 2.327.1). Same
   rule as the dependabot scars in §7a: build and boot the image before merging either one.
 
+## 7d. Lessons from 0.12.0
+
+- **Firefly's `PUT` is partial, whatever the spec's `required` says.** `BillUpdate` lists `name`
+  as required; `PUT /bills/{id}` with only `object_group_title` answers 200. A validator that
+  enforced the spec's required list on updates would have refused valid writes. The proxy's
+  check (`server/firefly/request-validation.ts`) enforces types on a PUT and presence only on a
+  POST.
+- **Three states for one field: set, clear, omit.** `object_group_title: "x"` assigns (creating
+  the group if new), `""` or `null` clears, and omitting it keeps the current group. Every
+  form's `compact()` drops empty strings, which turns "clear" into "keep". Any other field
+  with the same semantics needs the same treatment as `lib/object-group.ts`.
+- **Not every field can be cleared.** `notes` on a bill refuses both `""` and `null` ("must be at
+  least 1 characters"), so once set, the API cannot unset it. (The dev instance's bill 33 carries
+  `notes: "x"` from finding this out.)
+- **`/summary/basic`'s `monetary_value` is a STRING on the wire**, despite
+  `BasicSummaryEntry` typing it as a number. The dashboard survives it through `String()` and
+  implicit coercion; `lib/report-reconcile.ts` accepts both.
+- **Every new resource needs a cache tag — and this was the third miss.** Object groups had
+  none, so a created group stayed off `/object-groups` for a full TTL. When a resource's writes
+  can change another resource's fields (a group rename changes every member's
+  `object_group_title`), the tags have to go both ways.
+- **The demo seed sets `liability_direction: 'credit'` on its mortgage**, which Firefly labels
+  "I am owed this debt". The amortisation view does not depend on direction, but anything that
+  does will read the demo mortgage backwards.
+
 ## 8. Testing approach — what exists and what deliberately doesn't
 
-- **666 Vitest unit tests** in 40 files, over pure `lib/` modules plus four server modules. Run `pnpm test`, or
+- **722 Vitest unit tests** in 46 files, over pure `lib/` modules plus four server modules. Run `pnpm test`, or
   `pnpm test:cov` for the gate. The newest of them (`rule-vocabulary.test.ts`) pins the
   rule builder's 36 trigger and 21 action keywords against the vendored spec, so a Firefly
   update that adds one reddens CI instead of quietly producing a UI that cannot express it.
@@ -760,6 +791,12 @@ Use this map before assuming a feature still needs to be built.
 | Custom report builder + saved reports                                                        | `app/(app)/reports/custom/page.tsx`, `app/(app)/reports/custom/builder-form.tsx`, `lib/custom-report.ts`, `server/reports.ts`, `server/reports-actions.ts`                                                         |
 | Reporting arithmetic + scoped queries                                                        | `lib/reports.ts`, `lib/report-scope.ts`, `server/firefly/report-queries.ts`                                                                                                                                        |
 | Export menu, CSV + PDF (every export)                                                        | `components/export/export-menu.tsx`, `components/export/pdf-renderer.ts`, `lib/pdf/spec.ts`, `lib/statement.ts`, `components/reports/report-export.tsx`                                                            |
+| Dashboard layout, presets, Customize mode (E3-12, E2-19)                                     | `lib/dashboard-layout.ts`, `components/dashboard/dashboard-grid.tsx`, `server/dashboard.ts`, `server/dashboard-actions.ts`                                                                                         |
+| Product tour + Help menu (E2-20)                                                             | `lib/tour.ts`, `components/product-tour.tsx`, `components/app-shell.tsx` (Help)                                                                                                                                    |
+| Liability amortisation (E4-07)                                                               | `lib/amortisation.ts`, `app/(app)/accounts/[id]/amortisation.tsx`                                                                                                                                                  |
+| Object-group detail + form field (E9-05)                                                     | `app/(app)/object-groups/[id]/page.tsx`, `components/object-group-field.tsx`, `lib/object-group.ts`                                                                                                                |
+| Report reconciliation check (E14-15)                                                         | `lib/report-reconcile.ts`, `scripts/check-reconcile.ts` (`pnpm check:reconcile`)                                                                                                                                   |
+| Proxy request validation (E1-14)                                                             | `scripts/spec-zod.ts` → `spec/generated/request-schemas.ts`, `server/firefly/request-validation.ts`                                                                                                                |
 | Budget currency conversion (primary-currency spent)                                          | `lib/budget-currency.ts`, `lib/fx.ts`                                                                                                                                                                              |
 | Studio admin section (users, overview, activity)                                             | `app/(admin)/admin/`, `pnpm user:admin` / `dist/user-admin.cjs`                                                                                                                                                    |
 | Settings → connections manager                                                               | `app/(settings)/settings/connections/page.tsx`, `app/(settings)/settings/connections/connection-card.tsx`                                                                                                          |

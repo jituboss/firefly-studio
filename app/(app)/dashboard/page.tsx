@@ -2,6 +2,12 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getPreferences } from '@/server/preferences';
+import { getDashboardLayout } from '@/server/dashboard';
+import {
+  CustomizeDashboardButton,
+  DashboardGrid,
+  type DashboardWidget,
+} from '@/components/dashboard/dashboard-grid';
 import { getActiveConnection, readFailure } from '@/server/firefly/api';
 import {
   getAccountsSafe,
@@ -84,7 +90,10 @@ export default async function DashboardPage({
   const connection = await getActiveConnection();
   if (!connection) redirect('/onboarding');
 
-  const preferences = await getPreferences();
+  const [preferences, layout] = await Promise.all([
+    getPreferences(),
+    getDashboardLayout(session.user.id),
+  ]);
 
   const params = await searchParams;
   const range = resolveRangeFromParams(params, session.user.timezone);
@@ -164,6 +173,183 @@ export default async function DashboardPage({
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
 
+  // E3-12 — each widget is rendered here, on the server, and handed to the
+  // grid by id; the grid only decides order and visibility. A widget with
+  // nothing to show is left out rather than rendered empty.
+  const widgets: DashboardWidget[] = [
+    {
+      id: 'kpis',
+      node: (
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiTile
+            label="Net worth"
+            value={netWorth.value}
+            currency={netWorth.currency || currency}
+            previous={summaryValue(previousSummary, 'net-worth-in-', currency).value}
+            tone="neutral"
+          />
+          <KpiTile
+            label="Earned"
+            value={earned.value}
+            currency={earned.currency || currency}
+            previous={summaryValue(previousSummary, 'earned-in-', currency).value}
+            tone="income"
+          />
+          <KpiTile
+            label="Spent"
+            value={spent.value}
+            currency={spent.currency || currency}
+            previous={summaryValue(previousSummary, 'spent-in-', currency).value}
+            tone="expense"
+          />
+          <KpiTile
+            label="Balance"
+            value={balance.value}
+            currency={balance.currency || currency}
+            previous={summaryValue(previousSummary, 'balance-in-', currency).value}
+          />
+        </div>
+      ),
+    },
+    {
+      id: 'net-worth',
+      node: (
+        <Card className="min-w-0 overflow-hidden">
+          <CardContent className="min-w-0 space-y-4 p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+              <div className="min-w-0">
+                <h2 className="text-sm font-medium">Net worth over time</h2>
+                <p className="text-muted-foreground text-xs">{range.label}</p>
+              </div>
+
+              {trend.points.length > 0 ? (
+                <div className="min-w-0 text-right">
+                  <Amount
+                    value={trend.closing}
+                    currency={trend.currency}
+                    size="lg"
+                    showSign={false}
+                    tone="neutral"
+                    compact
+                  />
+                  <p className="text-muted-foreground mt-0.5 flex items-center justify-end gap-1 text-xs">
+                    <Amount
+                      value={trend.change}
+                      currency={trend.currency}
+                      size="sm"
+                      compact
+                      tone="auto"
+                    />
+                    {trend.changePercent === null ? null : (
+                      <span className={trend.change >= 0 ? 'text-income' : 'text-expense'}>
+                        ({trend.changePercent >= 0 ? '+' : ''}
+                        {trend.changePercent.toFixed(1)}%)
+                      </span>
+                    )}
+                    <span>this period</span>
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <BalanceTrend
+              data={trend}
+              timezone={session.user.timezone}
+              locale={session.user.locale}
+            />
+          </CardContent>
+        </Card>
+      ),
+    },
+    {
+      id: 'accounts',
+      node: (
+        <WidgetCard title="Accounts" href="/accounts">
+          <AccountBalanceList
+            accounts={accounts.data.filter((a) => a.attributes.active).slice(0, 6)}
+          />
+        </WidgetCard>
+      ),
+    },
+    {
+      id: 'recent',
+      node: (
+        <WidgetCard title="Recent transactions" href="/transactions">
+          <RecentTransactions transactions={recent.data} timezone={session.user.timezone} />
+        </WidgetCard>
+      ),
+    },
+    {
+      id: 'categories',
+      node: (
+        <WidgetCard title="Top spending categories">
+          <CategoryBars data={topCategories} currency={currency} height={220} />
+        </WidgetCard>
+      ),
+    },
+    {
+      id: 'bills',
+      node: (
+        <WidgetCard title="Upcoming bills">
+          <UpcomingBills
+            bills={bills.data}
+            timezone={session.user.timezone}
+            defaultCurrency={currency}
+          />
+        </WidgetCard>
+      ),
+    },
+    {
+      id: 'savings',
+      node: (
+        <WidgetCard title="Savings goals">
+          <PiggyProgress piggies={piggies.data} defaultCurrency={currency} />
+        </WidgetCard>
+      ),
+    },
+    {
+      id: 'budgets',
+      node: (
+        <WidgetCard title="Budget progress" href="/budgets">
+          <BudgetProgressWidget
+            budgets={budgetsResult.data}
+            limits={limitsResult.data}
+            defaultCurrency={currency}
+            rateTable={buildRateTable(ratesResult.data)}
+          />
+        </WidgetCard>
+      ),
+    },
+  ];
+
+  if (pinnedReports.length > 0) {
+    widgets.push({
+      id: 'pinned',
+      node: (
+        <WidgetCard title="Pinned reports" href="/reports">
+          <ul className="space-y-2">
+            {pinnedReports.map((report) => {
+              const config = parseConfig(report.config);
+              return (
+                <li key={report.id}>
+                  <a
+                    href={`/reports/custom?range=${range.preset}&metric=${config.metric}&dimension=${config.dimension}&chart=${config.chart}&limit=${config.limit}`}
+                    className="hover:bg-accent -mx-2 block rounded-md px-2 py-1.5"
+                  >
+                    <p className="truncate text-sm font-medium">{report.name}</p>
+                    <p className="text-muted-foreground truncate text-xs">
+                      {describeConfig(config)}
+                    </p>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </WidgetCard>
+      ),
+    });
+  }
+
   return (
     /*
      * `max-sm:pb-24` clears the floating add button, which is fixed to the
@@ -181,8 +367,13 @@ export default async function DashboardPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HideBalancesToggle defaultHidden={preferences.hideBalances} />
-          <DateRangePicker label={range.label} />
+          <CustomizeDashboardButton />
+          <span data-tour="hide-balances" className="inline-flex">
+            <HideBalancesToggle defaultHidden={preferences.hideBalances} />
+          </span>
+          <span data-tour="date-range" className="inline-flex">
+            <DateRangePicker label={range.label} />
+          </span>
           {/*
             E3-16 — the dashboard was read-only: every figure on it comes from
             transactions and there was no way to add one without leaving for
@@ -190,16 +381,18 @@ export default async function DashboardPage({
             the page has already loaded them, so the common case opens with the
             right account already chosen and needs no lookup at all.
           */}
-          <AddTransactionSheet
-            today={toApiDate(now(session.user.timezone), session.user.timezone)}
-            currency={currency}
-            assetAccounts={accounts.data
-              .filter((a) => a.attributes.active)
-              .map((account) => ({
-                id: account.id,
-                name: account.attributes.name,
-              }))}
-          />
+          <span data-tour="add-transaction" className="inline-flex">
+            <AddTransactionSheet
+              today={toApiDate(now(session.user.timezone), session.user.timezone)}
+              currency={currency}
+              assetAccounts={accounts.data
+                .filter((a) => a.attributes.active)
+                .map((account) => ({
+                  id: account.id,
+                  name: account.attributes.name,
+                }))}
+            />
+          </span>
         </div>
       </header>
 
@@ -219,143 +412,7 @@ export default async function DashboardPage({
       {readFailure() ? (
         <ErrorState kind={classifyError(readFailure())} />
       ) : (
-        <>
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiTile
-              label="Net worth"
-              value={netWorth.value}
-              currency={netWorth.currency || currency}
-              previous={summaryValue(previousSummary, 'net-worth-in-', currency).value}
-              tone="neutral"
-            />
-            <KpiTile
-              label="Earned"
-              value={earned.value}
-              currency={earned.currency || currency}
-              previous={summaryValue(previousSummary, 'earned-in-', currency).value}
-              tone="income"
-            />
-            <KpiTile
-              label="Spent"
-              value={spent.value}
-              currency={spent.currency || currency}
-              previous={summaryValue(previousSummary, 'spent-in-', currency).value}
-              tone="expense"
-            />
-            <KpiTile
-              label="Balance"
-              value={balance.value}
-              currency={balance.currency || currency}
-              previous={summaryValue(previousSummary, 'balance-in-', currency).value}
-            />
-          </div>
-
-          <Card className="min-w-0 overflow-hidden">
-            <CardContent className="min-w-0 space-y-4 p-4 sm:p-5">
-              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                <div className="min-w-0">
-                  <h2 className="text-sm font-medium">Net worth over time</h2>
-                  <p className="text-muted-foreground text-xs">{range.label}</p>
-                </div>
-
-                {trend.points.length > 0 ? (
-                  <div className="min-w-0 text-right">
-                    <Amount
-                      value={trend.closing}
-                      currency={trend.currency}
-                      size="lg"
-                      showSign={false}
-                      tone="neutral"
-                      compact
-                    />
-                    <p className="text-muted-foreground mt-0.5 flex items-center justify-end gap-1 text-xs">
-                      <Amount
-                        value={trend.change}
-                        currency={trend.currency}
-                        size="sm"
-                        compact
-                        tone="auto"
-                      />
-                      {trend.changePercent === null ? null : (
-                        <span className={trend.change >= 0 ? 'text-income' : 'text-expense'}>
-                          ({trend.changePercent >= 0 ? '+' : ''}
-                          {trend.changePercent.toFixed(1)}%)
-                        </span>
-                      )}
-                      <span>this period</span>
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              <BalanceTrend
-                data={trend}
-                timezone={session.user.timezone}
-                locale={session.user.locale}
-              />
-            </CardContent>
-          </Card>
-
-          <div className="grid min-w-0 gap-6 lg:grid-cols-2">
-            <WidgetCard title="Accounts" href="/accounts">
-              <AccountBalanceList
-                accounts={accounts.data.filter((a) => a.attributes.active).slice(0, 6)}
-              />
-            </WidgetCard>
-
-            <WidgetCard title="Recent transactions" href="/transactions">
-              <RecentTransactions transactions={recent.data} timezone={session.user.timezone} />
-            </WidgetCard>
-
-            <WidgetCard title="Top spending categories">
-              <CategoryBars data={topCategories} currency={currency} height={220} />
-            </WidgetCard>
-
-            <WidgetCard title="Upcoming bills">
-              <UpcomingBills
-                bills={bills.data}
-                timezone={session.user.timezone}
-                defaultCurrency={currency}
-              />
-            </WidgetCard>
-
-            <WidgetCard title="Savings goals">
-              <PiggyProgress piggies={piggies.data} defaultCurrency={currency} />
-            </WidgetCard>
-
-            <WidgetCard title="Budget progress" href="/budgets">
-              <BudgetProgressWidget
-                budgets={budgetsResult.data}
-                limits={limitsResult.data}
-                defaultCurrency={currency}
-                rateTable={buildRateTable(ratesResult.data)}
-              />
-            </WidgetCard>
-
-            {pinnedReports.length > 0 ? (
-              <WidgetCard title="Pinned reports" href="/reports">
-                <ul className="space-y-2">
-                  {pinnedReports.map((report) => {
-                    const config = parseConfig(report.config);
-                    return (
-                      <li key={report.id}>
-                        <a
-                          href={`/reports/custom?range=${range.preset}&metric=${config.metric}&dimension=${config.dimension}&chart=${config.chart}&limit=${config.limit}`}
-                          className="hover:bg-accent -mx-2 block rounded-md px-2 py-1.5"
-                        >
-                          <p className="truncate text-sm font-medium">{report.name}</p>
-                          <p className="text-muted-foreground truncate text-xs">
-                            {describeConfig(config)}
-                          </p>
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </WidgetCard>
-            ) : null}
-          </div>
-        </>
+        <DashboardGrid initialLayout={layout} widgets={widgets} />
       )}
     </div>
   );

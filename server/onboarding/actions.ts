@@ -19,6 +19,7 @@ import {
   type AssetAccount,
 } from '@/server/firefly/probe';
 import { checkVersion } from '@/server/firefly/version';
+import { isPresetId, presetLayout } from '@/lib/dashboard-layout';
 import { demoRefusal } from '@/server/auth/demo';
 import {
   createConnection,
@@ -340,6 +341,17 @@ export async function completeOnboardingAction(formData: FormData): Promise<void
   const weekStart = Number.parseInt(String(formData.get('weekStart') ?? '1'), 10);
   const defaultAccountIds = formData.getAll('accountIds').map(String);
 
+  // E2-19 — the preset only applies when one was offered and chosen. Adding a
+  // second instance re-runs this step without the picker, and must not reset a
+  // layout the user has since arranged.
+  const preset = formData.get('dashboardPreset');
+  const layout = isPresetId(preset) ? presetLayout(preset) : null;
+  const dashboardLayout = layout ? { order: layout.order, hidden: layout.hidden } : undefined;
+
+  // E2-20 — the tour is offered once, to someone finishing setup for the first
+  // time. Re-running the wizard to add an instance is not a first run.
+  const tourState = session.user.onboardingCompletedAt ? undefined : { status: 'active', step: 0 };
+
   await db
     .insert(userPreferences)
     .values({
@@ -348,10 +360,20 @@ export async function completeOnboardingAction(formData: FormData): Promise<void
       dateFormat,
       weekStart,
       defaultAccountIds,
+      dashboardLayout,
+      tourState,
     })
     .onConflictDoUpdate({
       target: userPreferences.userId,
-      set: { numberFormat, dateFormat, weekStart, defaultAccountIds, updatedAt: new Date() },
+      set: {
+        numberFormat,
+        dateFormat,
+        weekStart,
+        defaultAccountIds,
+        ...(dashboardLayout ? { dashboardLayout } : {}),
+        ...(tourState ? { tourState } : {}),
+        updatedAt: new Date(),
+      },
     });
 
   await db

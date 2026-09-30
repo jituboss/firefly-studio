@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { getActiveConnection } from '@/server/firefly/api';
+import { getObjectGroupTitles } from '@/server/firefly/queries';
 import { getSession } from '@/server/auth/session';
 import { now, toApiDate } from '@/lib/date';
 import { PiggyForm } from '../piggy-form';
@@ -16,6 +17,7 @@ export default async function NewPiggyBankPage() {
   if (!connection) redirect('/onboarding');
 
   const timezone = session.user.timezone;
+  const groups = await getObjectGroupTitles();
 
   return (
     <div className="mx-auto w-full max-w-2xl min-w-0 space-y-6">
@@ -30,6 +32,7 @@ export default async function NewPiggyBankPage() {
       <PiggyForm
         defaultCurrency={connection.primaryCurrency}
         today={toApiDate(now(timezone), timezone)}
+        groups={groups}
       />
     </div>
   );

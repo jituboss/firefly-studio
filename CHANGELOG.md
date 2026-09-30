@@ -10,6 +10,65 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-30
+
+**Your dashboard, your way, plus a payoff schedule for loans and a spec-checked proxy.**
+
+### Added
+
+- **Customize the dashboard.** A Customize button on the dashboard lets you
+  drag widgets into a new order (or use the arrow buttons, which also work by
+  keyboard and on a phone), hide the ones you don't use, and bring them back.
+  Start from a preset (Everyday spender, Saver, Investor or Blank) or reset to
+  the default. Nothing is saved until you press Done, so Cancel really undoes.
+  The layout is saved to your account, so it follows you to every device.
+- **Pick a dashboard when you set up.** The last onboarding step offers the
+  same four presets. It is only offered the first time, so reconnecting an
+  instance never resets a dashboard you have already arranged.
+- **A short product tour.** New accounts get an eight-step tour of the app
+  after onboarding. Skip it at any step; the new **Help** menu in the header
+  resumes it where you left off, on any device, or restarts it once finished.
+  Help also opens search (⌘K) and the documentation.
+- **Amortisation for loans and mortgages.** Liability accounts have an
+  Amortisation tab showing when the debt is paid off, the interest still to
+  pay, the total to pay, and a year-by-year table. The monthly payment is
+  guessed from your recent payments and can be changed, and "Extra each month"
+  shows how much sooner you'd finish and how much interest you'd save.
+  Firefly III stores the interest rate but never books interest, so this is a
+  projection forward from today's balance, and it says so.
+- **Object groups from the forms.** Subscriptions and piggy banks can be put
+  in a group from their own create and edit forms: pick an existing group or
+  type a new name to create one, and clear it to ungroup.
+- **A page for each object group**, listing its subscriptions and piggy banks,
+  with rename and delete. The groups list has always linked here; the page did
+  not exist.
+- **`pnpm check:reconcile`** checks, against a live instance, that the report
+  totals match Firefly III's own figures to the cent: spending, income and
+  balance, plus the category, budget, subscription, payee and account
+  breakdowns, over four date ranges.
+
+### Changed
+
+- **The Firefly proxy checks request bodies against the API spec** before
+  forwarding them, and answers a malformed POST or PUT with a 422 that names
+  each wrong field, instead of passing it on to fail in Firefly. The schemas
+  are generated from the vendored spec by `pnpm spec:codegen`. They are
+  deliberately lenient where Firefly is (numeric strings, partial updates,
+  fields the spec doesn't list yet), so the check catches wrong shapes rather
+  than second-guessing valid requests.
+
+### Fixed
+
+- **A new or renamed object group could take a full cache lifetime to
+  appear.** Object groups had no cache tag, so writes to them invalidated
+  nothing. Group, subscription and piggy-bank writes now invalidate each other.
+
+### Notes
+
+- Adds migration `0005` (a nullable `user_preferences.tour_state` column). It
+  runs on boot like the others. Existing accounts are not shown the tour
+  automatically; it is in Help.
+
 ## [0.11.8] - 2026-09-30
 
 **Export dropdown overflow on mobile — proper fix.**
