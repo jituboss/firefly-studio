@@ -10,6 +10,26 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-09-30
+
+**Compact KPI boxes on mobile.**
+
+### Changed
+
+- **KPI/summary boxes across the app are now compact on mobile.** On screens
+  below 640px, the dashboard's four KPI tiles (Net worth, Earned, Spent,
+  Balance) now arrange in a 2×2 grid instead of stacking four full-width rows,
+  and every tile's padding shrinks from `p-5` to `p-3`. The same treatment
+  applies to the report pages' `ReportStat` cards (all 11 report routes), the
+  accounts page's summary tiles, and the budgets page's summary tiles. Grid
+  gaps tighten from `gap-4` to `gap-2` on mobile and restore at the `sm`
+  breakpoint.
+  - **Desktop layouts are unchanged** — every change is in the base (mobile)
+    layer, with `sm:` prefixes preserving the existing desktop appearance.
+  - The result: on a typical phone, the dashboard's KPI section takes roughly
+    half the vertical space it did before, bringing the balance chart and other
+    content above the fold without scrolling.
+
 ## [0.13.1] - 2026-09-30
 
 **One Add button on phones.**
