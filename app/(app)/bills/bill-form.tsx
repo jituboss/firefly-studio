@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormMessage } from '@/components/auth/form-shell';
 import type { Bill } from '@/server/firefly/types';
+import { ObjectGroupField } from '@/components/object-group-field';
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -25,7 +26,16 @@ function Submit({ label }: { label: string }) {
 }
 
 /** E8-02 — one form for create and edit. */
-export function BillForm({ bill, defaultCurrency }: { bill?: Bill; defaultCurrency: string }) {
+export function BillForm({
+  bill,
+  defaultCurrency,
+  groups = [],
+}: {
+  bill?: Bill;
+  defaultCurrency: string;
+  /** E9-05 — existing object-group titles, offered as suggestions. */
+  groups?: string[];
+}) {
   const editing = Boolean(bill);
   const [state, action] = useActionState<BillFormState, FormData>(
     editing ? updateBillAction : createBillAction,
@@ -118,6 +128,8 @@ export function BillForm({ bill, defaultCurrency }: { bill?: Bill; defaultCurren
               <Input id="skip" name="skip" type="number" min={0} defaultValue={a?.skip ?? 0} />
             </div>
           </div>
+
+          <ObjectGroupField groups={groups} defaultValue={a?.object_group_title} />
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notes</Label>

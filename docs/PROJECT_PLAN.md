@@ -2,7 +2,7 @@
 
 > **Working title:** Firefly Studio
 > **Document status:** v1.0 — living document, use as the backlog of record
-> **Last updated:** 2026-09-16
+> **Last updated:** 2026-09-30 (at `v0.11.8`)
 > **API target:** Firefly III **v6.5.5** API v1 (164 paths / 230 operations, 28 resource groups) — spec generated 2026-03-15
 > **Minimum supported Firefly III:** 6.2.0 (degrade gracefully to 6.1.x)
 
@@ -350,7 +350,7 @@ Estimates are ideal engineering days.
 
 **Carried out of M0:**
 
-- [ ] **E1-14** `P1` `2d` Generate Zod request/response schemas from the vendored spec, for runtime validation at the proxy boundary — needed by M2, not by M0
+- [x] **E1-14** `P1` `2d` Generate Zod request/response schemas from the vendored spec, for runtime validation at the proxy boundary — **done in 0.12.0, requests only.** `pnpm spec:codegen` now also writes `spec/generated/request-schemas.ts` (43 JSON bodies, 80 schemas, via `scripts/spec-zod.ts`) and the proxy refuses a POST/PUT whose body does not match, with a 422 naming each field. Lenient where Firefly is: numeric strings for numbers, `"1"`/`"true"` for booleans, numbers for `*_id`, unknown keys pass, and a PUT only checks what it sends — `BillUpdate` marks `name` required but a PUT without it answers 200 on 6.5.5. **Cut: response validation**, deliberately — LEARNING.md §7 lists the places Firefly's responses contradict the spec, and each would become an outage.
 - [ ] **E1-15** `P2` `1d` OpenTelemetry Node SDK + OTLP exporter registered in `instrumentation.ts`
 - [x] **E1-16** `P1` `0.5d` HTTP access log on stdout, nginx-style, so `docker logs` answers "who hit what, and did it work" — ip, method, url, status, bytes, duration, user agent, both as a readable line and as structured pino fields. Hooks `node:http` rather than middleware, which cannot do it: middleware runs on the edge (no socket, so no real client address), is excluded from `/api/*` by this app's matcher, and `NextResponse.next()` never resolves to what was sent, so there is no status, size or duration. Resolved via `process.getBuiltinModule`, not `require`/`import`, because those are module specifiers webpack resolves at BUILD time — including for the edge bundle `instrumentation.ts` is compiled into, where `node:http` fails with UnhandledSchemeError and takes the production build down. **Query values are redacted before anything is written**: `/verify-email/confirm?token=…` and `/reset-password?token=…` carry single-use account-takeover credentials, and stdout is the most-forwarded artefact a deployment produces. The referer gets the same treatment — a browser sitting on a reset URL sends it whole on every subresource request. `ACCESS_LOG_TRUST_PROXY` is off by default: with nothing in front, `x-forwarded-for` is client-controlled and believing it lets any visitor write any address into the log.
 - [x] **E1-16** `P1` `0.5d` Approve `@sentry/cli` builds in the release job only, and wire `SENTRY_AUTH_TOKEN` so source maps actually upload — **already shipped**, reconciled 2026-09-17: the release workflow owns the upload and sets `SENTRY_AUTH_TOKEN` (commit 7d5da9b)
@@ -393,8 +393,8 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E2-16** `P0` `2d` Envelope-encrypt and persist the PAT — AES-256-GCM under an HKDF-SHA256 key derived per connection id, so ciphertext moved between rows will not decrypt; stores `token_hint`, `key_version`, status
 - [x] **E2-17** `P0` `1d` **Step 3 — Version gate.** Runs in step 2, not step 1, because reading the version needs a token. Blocks below `MIN_FIREFLY_VERSION`, warns below `RECOMMENDED_FIREFLY_VERSION`
 - [x] **E2-18** `P0` `2d` **Step 4 — Personalise.** Number/date format, week start, and featured accounts from `/accounts?type=asset`; handles an instance with zero accounts
-- [ ] **E2-19** `P1` `1d` **Step 5 — Dashboard preset.** "Everyday spender" / "Saver" / "Investor" / "Blank" layouts
-- [ ] **E2-20** `P1` `1d` **Step 6 — Done.** First-run product tour (dismissible, resumable from Help)
+- [x] **E2-19** `P1` `1d` **Step 5 — Dashboard preset.** "Everyday spender" / "Saver" / "Investor" / "Blank" layouts — **done in 0.12.0**, as a section of the wizard's last step rather than a step of its own (the wizard has three). Offered on a first run only, so re-running the wizard after removing a connection does not overwrite an arranged dashboard. The same presets are in the dashboard's Customize mode. `lib/dashboard-layout.ts`.
+- [x] **E2-20** `P1` `1d` **Step 6 — Done.** First-run product tour (dismissible, resumable from Help) — **done in 0.12.0.** Eight steps anchored to `data-tour` attributes, falling back to a centred card when a target is not on screen (the sidebar on a phone falls back to the menu button). Progress lives in `user_preferences.tour_state` (migration 0005), so it resumes on another device. Offered only to accounts that finish onboarding after it shipped; everyone can start it from the new Help menu in the header. `lib/tour.ts`, `components/product-tour.tsx`.
 - [x] **E2-21** `P0` `1d` Wizard is resumable — progress derived from database state (`onboarding_state` jsonb plus connection status), so a reload or a different device resumes at the right step
 - [x] **E2-22** `P0` `2d` **Connections manager** in Settings: list, rename, rotate token, set default, test now, delete
 - [x] **E2-23** `P1` `2d` Multiple connections + an instance switcher in the app shell — _the data model and service layer already support N connections; only the switcher UI is missing_ — `components/connection-switcher.tsx` in the app shell; `/onboarding?add=1` attaches a second instance
@@ -433,7 +433,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E3-09** `P1` `1d` Upcoming bills widget from `/bills`, with paid/unpaid state
 - [x] **E3-10** `P1` `1d` Piggy-bank progress widget
 - [x] **E3-11** `P1` `1d` Top spending categories from `/insight/expense/category`
-- [ ] **E3-12** `P1` `3d` Draggable dashboard grid persisted to `user_preferences.dashboard_layout`
+- [x] **E3-12** `P1` `3d` Draggable dashboard grid persisted to `user_preferences.dashboard_layout` — **done in 0.12.0.** Customize mode: drag to reorder on a pointer device, arrow buttons everywhere (HTML5 drag-and-drop does not fire on touch, and the buttons are the keyboard path too), hide/show, presets, reset, and Cancel as a real undo because nothing saves until Done. A stored layout is untrusted JSON: unknown ids are dropped and a widget added in a later release is appended visible. `components/dashboard/dashboard-grid.tsx`.
 - [x] **E3-13** `P1` `1d` Every widget reads through `fireflyGetSafe`, so one failing endpoint degrades that widget alone
 - [x] **E3-14** `P1` `0.5d` "Hide balances" privacy toggle, persisted to `localStorage`
 - [ ] **E3-15** `P2` `1d` Cash-flow forecast widget
@@ -449,7 +449,7 @@ instance. P1/P2 items are carried forward with their original IDs — none were 
 - [x] **E4-04** `P0` `2d` Create/edit form, including the liability and credit-card field sets Firefly requires
 - [x] **E4-05** `P0` `1d` Delete with a typed confirmation
 - [x] **E4-06** `P0` `1d` **Reconciliation** — `/accounts/{id}/reconcile`, reachable from a Reconcile button on any asset account. Pick a statement period (defaults to LAST month, because a statement covers a period that has closed), type the closing balance from the statement, tick the lines that appear on it, and watch the difference work down to zero. The arithmetic runs in the browser on `lib/reconcile.ts` so every tick moves the number in the same frame — reconciling is "tick, look, tick" forty times over, and a server round trip per tick is what makes people go back to Firefly's own screen. The same functions then re-run in the Server Action against UNCACHED, THROWING reads before anything is written, so a stale tab cannot talk the server into a wrong correction. Shift-click ticks a run of rows; the whole row is the label, so the hit target is the row and not a 16px box. **Asset accounts only** — that is Firefly's rule, not ours, and a liability gets an explanation instead of a 404. Below `md` the guidance moves out of the sticky bar into flow: with the correction card inside it the bar came to 379px of a 780px phone screen, and it is 65px now. Where the difference will not close, the page offers to write Firefly's own reconciliation transaction, naming the amount, the direction and the account before you commit — and it says out loud when lines are still unticked, because a correction written over those covers money the books already have. **Firefly's API cannot create the holding account that correction needs** (see §19.1), so when it is missing the page says exactly that and what to do once, rather than surfacing a 500. Verified end to end against 6.5.5: after correcting to a typed statement figure the account balance equalled it to the cent. Zero axe violations at 390px and 1280px, light and dark, across the fresh/ticked/invalid states.
-- [ ] **E4-07** `P1` `1d` Liability amortisation view
+- [x] **E4-07** `P1` `1d` Liability amortisation view — **done in 0.12.0.** An Amortisation tab on liability accounts: payoff month, interest to pay, total to pay and a year-by-year table, with an "extra each month" what-if. The payment defaults to the median of the last six months' payments. **A projection, labelled as one:** Firefly stores a rate and never books interest, so it applies the rate forward from today's balance. Per-period interest is rounded to the cent, so rows add to the totals exactly. `lib/amortisation.ts`.
 - [x] **E4-08** `P1` `0.5d` Archive/activate via the `active` flag on the edit form
 - [ ] **E4-09** `P2` `1d` Account ordering and custom colours
 
@@ -535,7 +535,7 @@ before implementing — see §13.
 - [x] **E9-02** `P0` `2d` Piggy CRUD: account, name, target amount, start/target date, notes — _object group assignment deferred (E9-05)_
 - [x] **E9-03** `P0` `1d` Add/remove money with the resulting `/piggy-banks/{id}/events` history timeline
 - [x] **E9-04** `P1` `1d` Attachments tab; "on track / behind" status — on-track / behind / target-reached badges on list and detail; attachments tab deferred to M3 attachment manager
-- [ ] **E9-05** `P1` `2d` Object-group management — _partially shipped: `app/(app)/object-groups/` lists and creates groups. **Missing:** assigning a bill or piggy bank to a group from its own form._
+- [x] **E9-05** `P1` `2d` Object-group management — **done in 0.12.0.** Subscription and piggy-bank forms take a group (existing, or a new title, which Firefly creates). Verified live: an empty `object_group_title` clears the assignment and omitting it keeps it, so the forms' `compact()` could not be used for it (`lib/object-group.ts`). Added the group page the list had always linked to (`/object-groups/[id]`: members, rename, delete), and an `object-groups` cache tag. There was none, so a new group stayed invisible for a full TTL.
 - [ ] **E9-06** `P2` `1d` Savings-goal projection chart
 
 ### E10 · Recurring transactions — M6
@@ -592,7 +592,7 @@ before implementing — see §13.
 - [x] **E14-12** `P1` `1d` Every chart element drills through to the underlying filtered transaction list — Every breakdown row links through; required adding category/budget/tag scoping to the transaction list, which previously understood only `account`
 - [ ] **E14-13** `P2` `2d` Scheduled reports — monthly email with a PDF attached (BullMQ + `report_runs`) — **Blocked on infrastructure:** needs a job runner (BullMQ + worker) and a mail transport. E2-28 now supplies the mail half; the scheduler half is still absent, and the same reasoning as E2-24 applies — a queue and a worker process for one periodic job is a lot for a single-container self-host. **Still planned — not out of scope.** Its greyed-out "Scheduled" nav entry was removed on 2026-09-17: a greyed-out link is a promise, and pointing one at a route that does not exist (`/reports-scheduled`) while the item is blocked on infrastructure advertises something nobody can use. Re-add the entry when the job runner lands, not before.
 - [ ] **E14-14** `P2` `3d` **Year in review** — an annual narrative summary with highlights and shareable cards
-- [ ] **E14-15** `P1` `1d` **Reconciliation test:** an automated check asserting our report totals equal Firefly's own figures to the cent
+- [x] **E14-15** `P1` `1d` **Reconciliation test:** an automated check asserting our report totals equal Firefly's own figures to the cent — **done in 0.12.0.** `pnpm check:reconcile` compares `/summary/basic` with the insight totals and five spending and three income breakdowns, run through the report pages' own functions, over this month, last month, this year and last year. 44/44 checks pass against the dev instance. Tags are excluded because they are not a partition (one transaction can carry several). It needs a live instance, so like `check:a11y` it runs on demand. `lib/report-reconcile.ts`.
 
 ### E15 · Search — M2
 
@@ -1257,7 +1257,8 @@ dangerous kind: a successful response that is silently wrong.
 
 ### 18.4 What is deliberately not done
 
-- **The dashboard quick-add's pending state can stick** — and the diagnosis
+- **The dashboard quick-add's pending state can stick** — _resolved in 0.9.0,
+  see §18.5; kept for the record of how it was misdiagnosed._ The diagnosis
   recorded here in 0.7.0 was WRONG. It said the hang reproduces "only inside a
   Sheet". 0.8.0 put the identical sheet, with the identical action, on
   /transactions, where it resolves in ~450ms at both 1400px and 390px while
@@ -1442,3 +1443,97 @@ worth recording because the obvious assumption is wrong both times:
   end, PHP-style.
 - `'' ~ 1 + 2` is `3`, not `12`. `~` binds LOOSER than `+`, which is the opposite
   of reading it left to right.
+
+## 21. 0.10.0 – 0.11.8 — admin, PDF, budget currencies, mobile overlays
+
+Released 2026-09-23 to 2026-09-30. Most of it was fixes and additions outside
+the §8 backlog. The only checkbox it touched is the PDF half of E14-11, already
+noted on that item. The per-release detail is in `CHANGELOG.md`.
+
+### 21.1 What shipped
+
+| Release       | Change                                                                                                    | Backlog             |
+| ------------- | --------------------------------------------------------------------------------------------------------- | ------------------- |
+| 0.10.0        | Transaction list chrome cut from five bands to two. Filters/Views/Export menus, pagination top and bottom | E5 polish           |
+| 0.10.1        | Firefly Studio administrator role, `/admin` (Users, Overview, Activity), `pnpm user:admin`                | new — not in §8     |
+| 0.11.0        | Admin user list stops clipping its row menu. Popover flips above its trigger when it doesn't fit below    | E21-11 (responsive) |
+| 0.11.1        | PDF beside CSV on every export. The transactions PDF is a statement with running balance                  | E14-11, E5-16       |
+| 0.11.2–0.11.4 | Budgets: per-currency limit matching, then real conversion to primary currency (`lib/budget-currency.ts`) | E6 correctness      |
+| 0.11.3        | Minor/patch dependency bumps. Sentry 11 and build-push-action 7 deferred                                  | —                   |
+| 0.11.5        | Inactive accounts hidden from the dashboard widget and the add sheet. Accounts search usable on mobile    | E3, E21-11          |
+| 0.11.6–0.11.8 | Dropdown `collisionPadding`. Popover clamps itself into the viewport by measuring                         | E21-11              |
+
+The administrator role is separate from E20. E20 administers the connected
+**Firefly** instance through its API. The 0.10.1 role administers **this
+deployment's** accounts and never grants access to anyone's ledger.
+
+### 21.2 Bugs found in our own code
+
+- **A horizontal scroll container is also a vertical one.** `overflow-x-auto`
+  on the admin table clipped the last row's menu to 4px of 115px. This is the
+  same CSS rule as LEARNING.md §5 rule 7.
+- **The first budget-currency fix hid money instead of converting it.** 0.11.2
+  skipped a spent entry whose currency had no matching limit, so USD spending
+  against a BDT budget disappeared. 0.11.4 converts it at Firefly's own rates
+  and discloses the conversion.
+- **Centring a popover on its wrapper centres it on the wrong box.** 0.11.7's
+  `left-1/2 -translate-x-1/2` fallback was relative to a narrow wrapper, not the
+  viewport. 0.11.8 measures the rendered panel and shifts it by pixels.
+- **The audit label map had drifted from the events recorded.** It named three
+  events nothing writes and missed eleven that fire. A test now pins the two
+  lists together.
+
+### 21.3 Not covered by a gate
+
+`check:responsive` measures page-level horizontal overflow with every overlay
+closed. An off-screen popover or menu only exists once it is opened, and the app
+shell's `overflow-x-clip` would hide its overflow anyway. So the gate did not
+catch the 0.11.x overlay bugs and won't catch a regression. It needs a step that
+opens each overlay and asserts its bounding box against the viewport.
+
+## 22. 0.12.0 — the product P1s
+
+Released 2026-09-30. Closes E1-14, E2-19, E2-20, E3-12, E4-07, E9-05 and
+E14-15; the backlog stands at 187 of 228. Each item's note in §8 says what
+shipped and what was cut. This section records what the live instance taught
+us, because all of it contradicts the spec or an obvious assumption.
+
+### 22.1 API behaviours found by making real calls
+
+- **`object_group_title` has three states.** A title assigns the group,
+  creating it if no group has that title. `""` and `null` both clear the
+  assignment. Omitting the field keeps it. The forms' `compact()` drops empty
+  strings, so it had to be bypassed for this field, or clearing the field
+  would silently do nothing.
+- **`PUT` is partial.** `BillUpdate` marks `name` required, but a PUT carrying
+  only `object_group_title` answers 200. The generated validator therefore
+  checks types, not presence, on a PUT.
+- **A bill's `notes` cannot be cleared.** Both `""` and `null` answer 422
+  "must be at least 1 characters".
+- **Tags are not a partition of spending.** Over 2026 to date, tagged plus
+  untagged spending came to 28,682.30 against total spending of 26,642.01,
+  because one transaction can carry several tags. Every other breakdown
+  (category, budget, subscription, payee, asset account; income by category,
+  source and asset account) sums to the total to the cent, in four ranges.
+- **`/summary/basic` sends `monetary_value` as a string**, not the number
+  `BasicSummaryEntry` declares.
+- **Firefly never books interest on a liability.** The dev mortgage's
+  `current_balance` is exactly the opening balance minus the payments
+  (−184,000.00 + 36 × 742.18 = −157,281.52) at 3.4 % a year. So the
+  amortisation view projects forward from today and says so, rather than
+  pretending to reconstruct a history Firefly does not have.
+
+### 22.2 Bugs found in our own code
+
+- **Object groups had no cache tag.** Writes to `/object-groups` invalidated
+  nothing, so a new group stayed off the list for a full TTL, and a group
+  rename left every member showing the old title.
+- **The object-groups list linked to a page that did not exist.** Every row
+  went to `/object-groups/{id}`, which 404'd. It exists now.
+
+### 22.3 Not covered by a gate
+
+`check:reconcile` needs a live instance, so it is on-demand like `check:a11y`.
+The dashboard's drag-and-drop is checked by hand; the pure layout operations
+underneath it (`lib/dashboard-layout.ts`) are unit-tested, and so is every
+move the arrow buttons make.

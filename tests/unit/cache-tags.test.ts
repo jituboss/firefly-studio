@@ -54,6 +54,22 @@ describe('tagsForPath', () => {
     );
   });
 
+  it('ties object groups to their members in both directions (E9-05)', () => {
+    // A group rename changes the title every member shows.
+    expect(tagsForPath('/v1/object-groups/4')).toEqual(
+      expect.arrayContaining(['object-groups', 'bills', 'piggy-banks']),
+    );
+    // A member write can create a group from an unknown title.
+    expect(tagsForPath('/v1/bills/9')).toContain('object-groups');
+    expect(tagsForPath('/v1/piggy-banks/2')).toContain('object-groups');
+    expect(tagsForPath('/v1/accounts/1')).not.toContain('object-groups');
+  });
+
+  it('never lists a tag twice', () => {
+    const tags = tagsForPath('/v1/object-groups/4/bills');
+    expect(new Set(tags).size).toBe(tags.length);
+  });
+
   it('drops transactions for link writes, which change what a transaction shows', () => {
     expect(tagsForPath('/v1/transaction-links/3')).toEqual(
       expect.arrayContaining(['links', 'transactions']),

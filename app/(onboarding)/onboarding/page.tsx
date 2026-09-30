@@ -67,6 +67,7 @@ export default async function OnboardingPage({
   return (
     <OnboardingWizard
       adding={adding}
+      firstRun={!hasCompletedOnboarding}
       initialStep={step}
       initialBaseUrl={session.user.onboardingState?.baseUrl ?? ''}
       connectionLabel={connection?.label ?? null}

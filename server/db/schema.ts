@@ -307,6 +307,12 @@ export const userPreferences = pgTable('user_preferences', {
     .notNull()
     .default(sql`'{}'::text[]`),
   dashboardLayout: jsonb('dashboard_layout').$type<Record<string, unknown>>(),
+  /**
+   * E2-20 — the product tour. Null means it was never offered (every account
+   * that finished onboarding before the tour existed), so it does not ambush
+   * people who already know the app. Parsed by `lib/tour.ts`.
+   */
+  tourState: jsonb('tour_state').$type<Record<string, unknown>>(),
   hideBalances: boolean('hide_balances').notNull().default(false),
   reducedMotion: boolean('reduced_motion').notNull().default(false),
   ...timestamps,

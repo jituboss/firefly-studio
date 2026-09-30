@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { fireflyWrite, FireflyRequestError } from './api';
 import type { Bill } from './types';
+import { objectGroupPayload } from '@/lib/object-group';
 
 /** E8-02 — bill (subscription) writes. */
 
@@ -52,13 +53,17 @@ export async function createBillAction(
 
   let created: { data: Bill };
   try {
-    created = await fireflyWrite<{ data: Bill }>('/v1/bills', 'POST', compact(input));
+    created = await fireflyWrite<{ data: Bill }>('/v1/bills', 'POST', {
+      ...compact(input),
+      ...objectGroupPayload(formData, 'create'),
+    });
   } catch (error) {
     if (error instanceof FireflyRequestError) return { error: error.message };
     throw error;
   }
 
   revalidatePath('/bills');
+  revalidatePath('/object-groups', 'layout');
   revalidatePath('/dashboard');
   redirect(`/bills/${created.data.id}`);
 }
@@ -75,7 +80,10 @@ export async function updateBillAction(
   }
 
   try {
-    await fireflyWrite(`/v1/bills/${id}`, 'PUT', compact(input));
+    await fireflyWrite(`/v1/bills/${id}`, 'PUT', {
+      ...compact(input),
+      ...objectGroupPayload(formData, 'update'),
+    });
   } catch (error) {
     if (error instanceof FireflyRequestError) return { error: error.message };
     throw error;
@@ -83,6 +91,7 @@ export async function updateBillAction(
 
   revalidatePath('/bills');
   revalidatePath(`/bills/${id}`);
+  revalidatePath('/object-groups', 'layout');
   revalidatePath('/dashboard');
   return {};
 }

@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { FormMessage } from '@/components/auth/form-shell';
 import type { PiggyBank } from '@/server/firefly/types';
+import { ObjectGroupField } from '@/components/object-group-field';
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -29,11 +30,14 @@ export function PiggyForm({
   piggy,
   defaultCurrency = 'EUR',
   today,
+  groups = [],
 }: {
   piggy?: PiggyBank;
   defaultCurrency?: string;
   /** Today in the user's timezone, resolved on the server. */
   today?: string;
+  /** E9-05 — existing object-group titles, offered as suggestions. */
+  groups?: string[];
 }) {
   const editing = Boolean(piggy);
   const [state, action] = useActionState<PiggyFormState, FormData>(
@@ -114,6 +118,8 @@ export function PiggyForm({
               <p className="text-muted-foreground text-xs">Optional deadline.</p>
             </div>
           </div>
+
+          <ObjectGroupField groups={groups} defaultValue={a?.object_group_title} />
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notes</Label>

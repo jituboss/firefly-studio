@@ -14,7 +14,8 @@ import {
   getAccountTransactions,
 } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
-import { formatDate } from '@/lib/date';
+import { formatDate, now, toApiDate } from '@/lib/date';
+import { addMonths } from '@/lib/amortisation';
 import { toDecimal } from '@/lib/money';
 import { buildBalanceTrend } from '@/lib/balance-trend';
 import { accountBucket, roleLabel } from '@/lib/account-summary';
@@ -27,6 +28,7 @@ import { HideBalancesToggle } from '@/components/hide-balances';
 import { BalanceTrend } from '@/components/charts/balance-trend';
 import { AccountForm } from '../account-form';
 import { DeleteAccountButton } from './delete-button';
+import { AmortisationPanel } from './amortisation';
 import { Tabs } from '@/components/ui/tabs';
 
 export const metadata: Metadata = { title: 'Account' };
@@ -66,11 +68,25 @@ export default async function AccountDetailPage({
   // of confident zeroes.
   const hasCashflow = bucket === 'money';
 
-  const [transactions, chart, expense, income] = await Promise.all([
+  // E4-07 — only liabilities have an interest rate to project with.
+  const isLiability = a.type === 'liabilities';
+  const today = toApiDate(now(session.user.timezone), session.user.timezone);
+  const showAmortisation = isLiability && tab === 'amortisation';
+
+  const [transactions, chart, expense, income, paymentHistory] = await Promise.all([
     getAccountTransactions(id, { start: range.start, end: range.end, limit: 25 }),
     getAccountBalanceChart(id, range.start, range.end),
     hasCashflow ? getAccountExpenseInsight(id, range.start, range.end) : Promise.resolve([]),
     hasCashflow ? getAccountIncomeInsight(id, range.start, range.end) : Promise.resolve([]),
+    // Six months is enough to find the regular payment without letting a
+    // payment that changed a year ago decide the projection.
+    showAmortisation
+      ? getAccountTransactions(id, {
+          start: `${addMonths(today.slice(0, 7), -6)}-01`,
+          end: today,
+          limit: 50,
+        })
+      : Promise.resolve({ data: [], meta: {} }),
   ]);
 
   const trend = buildBalanceTrend(chart, currency);
@@ -232,6 +248,7 @@ export default async function AccountDetailPage({
         active={tab}
         tabs={[
           { id: 'transactions', label: 'Transactions' },
+          ...(isLiability ? [{ id: 'amortisation', label: 'Amortisation' }] : []),
           { id: 'edit', label: 'Edit' },
         ]}
       />
@@ -293,6 +310,18 @@ export default async function AccountDetailPage({
             )}
           </CardContent>
         </Card>
+      ) : showAmortisation ? (
+        <AmortisationPanel
+          account={account}
+          transactions={paymentHistory.data}
+          currency={currency}
+          decimals={decimals}
+          startMonth={addMonths(today.slice(0, 7), 1)}
+          query={query}
+          basePath={`/accounts/${id}`}
+          timezone={session.user.timezone}
+          locale={session.user.locale}
+        />
       ) : (
         <div className="space-y-6">
           <AccountForm account={account} />

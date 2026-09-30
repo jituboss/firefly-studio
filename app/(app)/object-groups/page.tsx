@@ -45,7 +45,7 @@ export default async function ObjectGroupsPage() {
             <Folder className="text-muted-foreground mx-auto size-8" aria-hidden="true" />
             <p className="text-muted-foreground mt-3 text-sm">No object groups yet.</p>
             <p className="text-muted-foreground text-xs">
-              Groups are created in Firefly III when you assign them to a piggy bank or bill.
+              Create one here, or type a new group name on a subscription or piggy bank.
             </p>
           </CardContent>
         </Card>

@@ -9,7 +9,11 @@ import {
   ChartPie,
   Coins,
   Flame,
+  Compass,
+  Command as CommandIcon,
+  BookOpen,
   FlaskConical,
+  HelpCircle,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -33,6 +37,15 @@ import { CommandPalette } from '@/components/command-palette';
 import { NotificationInbox } from '@/components/notifications/inbox';
 import { ConnectionSwitcher, type SwitchableConnection } from '@/components/connection-switcher';
 import { ConnectionBanner } from '@/components/connection-banner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ProductTour, START_TOUR_EVENT } from '@/components/product-tour';
+import type { TourState } from '@/lib/tour';
 import { signOutAction } from '@/server/auth/actions';
 import { DEMO_BANNER } from '@/lib/demo';
 import type { notifications as notificationsSchema } from '@/server/db/schema';
@@ -119,7 +132,7 @@ function SidebarNav({
   const sections = isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS;
 
   return (
-    <nav aria-label="Main" className="flex flex-1 flex-col gap-6 p-3">
+    <nav aria-label="Main" data-tour="nav" className="flex flex-1 flex-col gap-6 p-3">
       {sections.map((section) => (
         <div key={section.heading}>
           <p className="text-muted-foreground px-3 pb-1.5 text-[0.6875rem] font-semibold tracking-wider uppercase">
@@ -197,8 +210,11 @@ export function AppShell({
   version,
   isDemo = false,
   isAdmin = false,
+  tour = null,
 }: {
   children: React.ReactNode;
+  /** E2-20 — the product tour's saved progress; null if never offered. */
+  tour?: TourState | null;
   userName?: string;
   /** E2-26 — shows the banner, so nobody mistakes invented figures for theirs. */
   isDemo?: boolean;
@@ -272,6 +288,7 @@ export function AppShell({
             size="icon"
             className="lg:hidden"
             aria-label="Open navigation"
+            data-tour="nav-mobile"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(true)}
           >
@@ -305,6 +322,42 @@ export function AppShell({
               </Link>
             </Button>
           </Tooltip>
+
+          {/* E2-20 — "resumable from Help": the tour restarts from here, at
+              the step it was closed on. */}
+          <DropdownMenu>
+            <Tooltip content="Help" side="bottom">
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Help" data-tour="help">
+                  <HelpCircle className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event(START_TOUR_EVENT))}>
+                <Compass aria-hidden="true" />
+                {tour?.status === 'dismissed' ? 'Resume the tour' : 'Take the tour'}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() =>
+                  document.dispatchEvent(
+                    new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }),
+                  )
+                }
+              >
+                <CommandIcon aria-hidden="true" />
+                Search and commands
+                <kbd className="text-muted-foreground ml-auto text-[10px]">⌘K</kbd>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <a href={`${SOURCE_URL}#readme`} target="_blank" rel="noreferrer noopener">
+                  <BookOpen aria-hidden="true" />
+                  Documentation
+                </a>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <ThemeToggle />
 
@@ -351,6 +404,7 @@ export function AppShell({
       </div>
 
       <CommandPalette />
+      <ProductTour initialState={tour} />
     </div>
   );
 }
