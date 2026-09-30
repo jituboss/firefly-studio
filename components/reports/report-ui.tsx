@@ -70,11 +70,11 @@ export function ReportStat({
 }) {
   return (
     <Card className="min-w-0">
-      <CardContent className="min-w-0 p-4 sm:p-5">
+      <CardContent className="min-w-0 p-3 sm:p-5">
         <p className="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
           {label}
         </p>
-        <div className="mt-1.5 min-w-0">
+        <div className="mt-1 min-w-0 sm:mt-1.5">
           {raw !== undefined ? (
             <span className="tabular block truncate text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">
               {raw}

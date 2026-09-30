@@ -152,7 +152,7 @@ export default async function BudgetsPage({
       </header>
 
       {budgets.length > 0 && !totalLimit.isZero() ? (
-        <section className="grid min-w-0 gap-4 sm:grid-cols-3">
+        <section className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4">
           <SummaryTile label="Budgeted" value={totalLimit.toString()} currency={primaryCurrency} />
           <SummaryTile
             label="Spent"
@@ -319,9 +319,9 @@ function SummaryTile({
 }) {
   return (
     <Card className="min-w-0 overflow-hidden">
-      <CardContent className="min-w-0 p-4">
+      <CardContent className="min-w-0 p-3 sm:p-4">
         <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</p>
-        <div className="mt-1.5 min-w-0">
+        <div className="mt-1 min-w-0 sm:mt-1.5">
           <Amount
             value={value}
             currency={currency}

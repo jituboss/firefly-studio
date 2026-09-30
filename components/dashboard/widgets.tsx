@@ -56,11 +56,11 @@ export function KpiTile({
 }) {
   return (
     <Card className="min-w-0">
-      <CardContent className="min-w-0 p-5">
+      <CardContent className="min-w-0 p-3 sm:p-5">
         <p className="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
           {label}
         </p>
-        <div className="mt-1.5 min-w-0">
+        <div className="mt-1 min-w-0 sm:mt-1.5">
           <Amount
             value={value}
             currency={currency}
@@ -83,7 +83,7 @@ export function KpiTile({
           previous={previous}
           compare={tone === 'income' || tone === 'expense' ? 'magnitude' : 'value'}
           betterWhen={tone === 'expense' ? 'lower' : 'higher'}
-          className="mt-1"
+          className="mt-0.5 sm:mt-1"
         />
       </CardContent>
     </Card>

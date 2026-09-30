@@ -58,7 +58,7 @@ export default async function BillReportPage({
 
   return (
     <div className="min-w-0 space-y-5">
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <ReportStat
           label="Annualised cost"
           value={report.totalAnnualised}

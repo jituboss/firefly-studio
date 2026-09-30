@@ -46,7 +46,7 @@ export function BuilderForm({ config }: { config: CustomReportConfig }) {
 
   return (
     <div
-      className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4"
       aria-busy={pending || undefined}
     >
       <Field label="Measure" htmlFor="metric">
