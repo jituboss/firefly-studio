@@ -398,7 +398,7 @@ export function ReconcileWorkspace({
         />
       ) : null}
 
-      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-20 -mx-1 min-w-0 border-t px-1 py-2.5 backdrop-blur">
+      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-[var(--mobile-nav-offset)] z-20 -mx-1 min-w-0 border-t px-1 py-2.5 backdrop-blur transition-[bottom] duration-200 motion-reduce:transition-none">
         <div className="flex min-w-0 items-center gap-3">
           <div className="min-w-0 shrink-0">
             <p className="text-muted-foreground text-[11px] font-medium">

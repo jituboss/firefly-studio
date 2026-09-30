@@ -10,6 +10,43 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+**A bottom navigation bar on phones, and a command palette that actually searches.**
+
+### Added
+
+- **Bottom navigation on phones.** Home, two tabs of your choice
+  (Transactions and Budgets to start), a raised **Add** button, and **More**.
+  It slides away while you scroll down and comes back when you scroll up, hides
+  while you're typing, and gives way to the bulk-action bar when you select
+  transactions. Tablets and desktops are unchanged.
+- **Add, from anywhere.** The centre button offers Expense, Income or
+  Transfer, or repeats one of your last three entries with every field filled
+  in, then opens the quick-add panel. It replaces the floating add button.
+- **More** holds every section, Settings, the theme switch, the product tour,
+  sign-out, who you're signed in as, and the source link. **Customize this
+  bar** there swaps the two middle tabs for Reports, Accounts, Categories,
+  Subscriptions or Piggy banks, saved to your account.
+- **The phone header** shows the Firefly Studio wordmark, search and
+  notifications; the rest moved into More.
+
+### Changed
+
+- **The ⌘K palette lists everything**: every page, every "New …" action,
+  every report, every settings tab, all three themes and the product tour, up
+  from five links and two themes. **Typing now filters and ranks the list**,
+  highlights the letters that matched (in transaction results too), and
+  selects the best match so Enter goes straight to it.
+
+### Fixed
+
+- **Settings had no way back on a phone.** The Settings and Admin sections
+  render the app shell from their own layouts, which didn't pass the bottom
+  bar; the shell now requires it, so a section can't leave it out.
+
+### Notes
+
+- Adds migration `0006` (a nullable `user_preferences.mobile_nav` column).
+
 ## [0.12.0] - 2026-09-30
 
 **Your dashboard, your way, plus a payoff schedule for loans and a spec-checked proxy.**

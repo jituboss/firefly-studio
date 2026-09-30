@@ -22,7 +22,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     body: 'A minute-long look around. Your data stays in your Firefly III; this app only reads and writes it for you. Leave whenever you like and pick it up again from Help.',
   },
   {
-    targets: ['nav', 'nav-mobile'],
+    targets: ['nav', 'bottom-nav', 'nav-mobile'],
     title: 'Everything is one click away',
     body: 'Accounts, transactions, budgets, reports and automation live here, grouped by what you are trying to do.',
   },
@@ -32,7 +32,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     body: 'Every figure on the page follows this range — this month, last year, or any dates you choose.',
   },
   {
-    targets: ['add-transaction'],
+    targets: ['add-transaction', 'nav-add'],
     title: 'Record a transaction',
     body: 'Add spending or income from the dashboard without leaving it. The full form, with splits, is on the Transactions page.',
   },
@@ -52,9 +52,9 @@ export const TOUR_STEPS: readonly TourStep[] = [
     body: 'Press ⌘K (Ctrl+K on Windows and Linux) anywhere to search transactions or jump to a page.',
   },
   {
-    targets: ['help'],
+    targets: ['help', 'nav-more'],
     title: 'That is the tour',
-    body: 'Help is where to restart it. Everything else is yours to explore.',
+    body: 'Help is where to restart it — under More on a phone. Everything else is yours to explore.',
   },
 ];
 

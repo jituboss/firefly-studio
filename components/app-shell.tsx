@@ -21,6 +21,7 @@ import {
   PiggyBank,
   Receipt,
   Repeat,
+  Search,
   Settings,
   Shapes,
   ShieldCheck,
@@ -45,6 +46,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ProductTour, START_TOUR_EVENT } from '@/components/product-tour';
+import { MobileNav } from '@/components/mobile-nav';
+import type { MobileNavSlots } from '@/lib/mobile-nav';
 import type { TourState } from '@/lib/tour';
 import { signOutAction } from '@/server/auth/actions';
 import { DEMO_BANNER } from '@/lib/demo';
@@ -211,8 +214,16 @@ export function AppShell({
   isDemo = false,
   isAdmin = false,
   tour = null,
+  mobileNav,
 }: {
   children: React.ReactNode;
+  /**
+   * The phone bottom bar: its two chosen slots, and what the add panel needs
+   * without a page to supply it. Required, not optional: on a phone the bar
+   * is the only navigation, and a layout that left it out made its section a
+   * dead end (Settings and Admin did, before this was required).
+   */
+  mobileNav: { slots: MobileNavSlots; today: string; currency: string };
   /** E2-20 — the product tour's saved progress; null if never offered. */
   tour?: TourState | null;
   userName?: string;
@@ -286,7 +297,8 @@ export function AppShell({
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            // Phones use the bottom bar's More instead; tablets keep the drawer.
+            className="max-sm:hidden lg:hidden"
             aria-label="Open navigation"
             data-tour="nav-mobile"
             aria-expanded={mobileOpen}
@@ -294,7 +306,16 @@ export function AppShell({
           >
             <Menu className="size-4" />
           </Button>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 max-sm:flex max-sm:items-center max-sm:gap-2">
+            {/* Phones: the wordmark takes the hamburger's place, and the
+                switcher beside it only appears with more than one instance. */}
+            <Link
+              href="/dashboard"
+              className="flex shrink-0 items-center gap-1.5 font-semibold tracking-tight sm:hidden"
+            >
+              <Flame className="text-primary size-5" aria-hidden="true" />
+              Firefly Studio
+            </Link>
             <ConnectionSwitcher connections={connections} />
           </div>
 
@@ -304,12 +325,30 @@ export function AppShell({
             </span>
           ) : null}
 
+          {/* Phones only: the ⌘K shortcut has no keyboard to be typed on, so the
+              search it opens needs a button. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Search"
+            className="sm:hidden"
+            onClick={() =>
+              document.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }),
+              )
+            }
+          >
+            <Search className="size-4" />
+          </Button>
+
           <NotificationInbox notifications={notifications ?? []} />
 
           {/* Settings lives here rather than in the sidebar: it is a place you
               visit occasionally and leave, not one of the ledger views you move
               between. /settings redirects to the connections page. */}
-          <Tooltip content="Settings" side="bottom">
+          {/* Settings, help, theme and sign-out live in the bottom bar's More
+              on a phone, so the header there holds only what is used often. */}
+          <Tooltip content="Settings" side="bottom" className="max-sm:hidden">
             <Button
               asChild
               variant="ghost"
@@ -326,7 +365,7 @@ export function AppShell({
           {/* E2-20 — "resumable from Help": the tour restarts from here, at
               the step it was closed on. */}
           <DropdownMenu>
-            <Tooltip content="Help" side="bottom">
+            <Tooltip content="Help" side="bottom" className="max-sm:hidden">
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Help" data-tour="help">
                   <HelpCircle className="size-4" />
@@ -359,7 +398,9 @@ export function AppShell({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <ThemeToggle />
+          <div className="flex max-sm:hidden">
+            <ThemeToggle />
+          </div>
 
           {/*
             E22-07 — tell the service worker to empty its cache on the way out.
@@ -370,6 +411,7 @@ export function AppShell({
           */}
           <form
             action={signOutAction}
+            className="max-sm:hidden"
             onSubmit={() => {
               navigator.serviceWorker?.controller?.postMessage('clear-cache');
             }}
@@ -389,7 +431,12 @@ export function AppShell({
           <ConnectionBanner label={active.label} status={active.status} connectionId={active.id} />
         ) : null}
 
-        <main id="main" className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+        {/* Phones: room at the bottom for the bar, so the last row of a page is
+            never under it. */}
+        <main
+          id="main"
+          className="min-w-0 px-4 py-6 max-sm:pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8"
+        >
           {isDemo ? (
             <div
               role="status"
@@ -403,8 +450,17 @@ export function AppShell({
         </main>
       </div>
 
-      <CommandPalette />
+      <CommandPalette isAdmin={isAdmin} />
       <ProductTour initialState={tour} />
+      <MobileNav
+        slots={mobileNav.slots}
+        today={mobileNav.today}
+        currency={mobileNav.currency}
+        isAdmin={isAdmin}
+        version={version}
+        sourceUrl={SOURCE_URL}
+        userName={userName}
+      />
     </div>
   );
 }

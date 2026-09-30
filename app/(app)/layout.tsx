@@ -6,6 +6,7 @@ import { listConnections } from '@/server/connections';
 import { refreshStaleConnectionsInBackground } from '@/server/connections/health';
 import { listUnreadNotifications } from '@/server/notifications';
 import { getTourState } from '@/server/dashboard';
+import { mobileNavProps } from '@/server/mobile-nav';
 
 /**
  * E2-13 — the authoritative guard. Middleware only checks that a cookie exists;
@@ -55,6 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       isDemo={session.user.isDemo}
       isAdmin={session.user.role === 'admin'}
       tour={tour}
+      mobileNav={await mobileNavProps(session.user, connections)}
     >
       {children}
     </AppShell>

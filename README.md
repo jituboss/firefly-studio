@@ -96,7 +96,7 @@ one — and the dashboard finds its figures, which are keyed by that currency.
 - **Transactions** — virtualised grid, filters, operator-aware search, saved views, full create/edit/split/duplicate/delete, bulk edit, quick add, CSV export, attachments, transaction links
 - **Accounts** — grouped list, per-account detail with balance history and money in/out, statement reconciliation with a running difference and an optional correcting entry, and a payoff schedule for loans and mortgages
 - **Budgets, categories, subscriptions, piggy banks** — full CRUD, budget limits, spending pace, annualised cost, savings progress, object groups assignable from each form
-- **Reports** — net worth, income vs expense, categories, budgets, accounts, tags, subscriptions, a cash-flow Sankey, and a custom report builder; CSV and PDF export
+- **Reports** — net worth, income vs expense, categories, budgets, accounts, tags, subscriptions, a cash-flow Sankey, and a custom report builder; CSV and PDF export; a ⌘K palette that searches every page, action and transaction
 - **Automation** — rule groups with a visual builder, a dry run and Firefly's expression macros with a live preview, recurring transactions with a forecast and manual trigger, tags with a cloud view and bulk tagging
 - **Currencies** — enable/disable, set the primary currency, manage exchange rates
 - **Attachments** — upload, drag/drop/paste, camera capture, lightbox preview, and a manager for everything stored
@@ -105,6 +105,7 @@ one — and the dashboard finds its figures, which are keyed by that currency.
 - **Connections** — guided onboarding that probes your instance and ends with a short, resumable tour, several instances per account with a switcher, background health checks, and an optional managed instance users can be provisioned onto
 - **Settings & admin** — Firefly preferences, an About/diagnostics panel, owner-gated user, user-group and instance-configuration management, and a danger zone behind step-up re-auth
 - **Operations** — multi-stage non-root image, migrations on boot, health and readiness endpoints, Redis-backed response cache, opt-in Sentry error reporting
+- **Phone-first navigation** — a bottom bar with Home, two tabs you choose, a one-tap Add that can repeat a recent entry, and More for everything else
 - **Installable** — web manifest and service worker, an offline page, and a cache that deliberately holds no financial data
 - **Accessible** — an axe-core gate over every main route in both themes with zero violations, a text alternative for every chart, and a typed error state for every kind of failure
 

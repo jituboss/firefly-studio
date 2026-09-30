@@ -3,6 +3,7 @@ import { appVersion } from '@/server/version';
 import { requireAdmin } from '@/server/auth/roles';
 import { listConnections } from '@/server/connections';
 import { listUnreadNotifications } from '@/server/notifications';
+import { mobileNavProps } from '@/server/mobile-nav';
 
 /**
  * Admin sits in its own route group, for the same reason Settings does — and it
@@ -40,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         isDefault: entry.isDefault,
       }))}
       notifications={notifications}
+      mobileNav={await mobileNavProps(session.user, connections)}
       version={appVersion()}
       isDemo={session.user.isDemo}
       isAdmin

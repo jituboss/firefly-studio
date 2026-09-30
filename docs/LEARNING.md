@@ -584,6 +584,23 @@ cost someone else a day.
   "I am owed this debt". The amortisation view does not depend on direction, but anything that
   does will read the demo mortgage backwards.
 
+## 7e. Lessons from the phone bottom bar
+
+- **A layout that renders the shell must give it everything a phone needs.** Settings and Admin
+  each render `AppShell` from their own route-group layout. When the bar was optional, both
+  left it out and became dead ends on a phone — the header had lost its hamburger, so nothing
+  led back. `mobileNav` is a REQUIRED prop now: a new layout that forgets it fails to compile.
+- **Tailwind v4 moves things with the `translate` property, not `transform`.** A test reading
+  `getComputedStyle(el).transform` sees `none` on a `translate-y-full` element and reports a
+  bar that never hides. Read `translate`.
+- **Prove "desktop unchanged" with pixels, and freeze the data first.** The check here is a
+  before/after screenshot of seven pages at 1440 and 768 with a per-pixel diff. It went red
+  once — because the phone test had recorded a real transaction, which changed the list and the
+  report totals. Delete test data and flush the Redis cache before the "after" shots.
+- **cmdk's filtering is off in this palette** (`shouldFilter={false}`) because transaction hits
+  come from the server. With it off, nothing filters the static items and nothing re-selects
+  the top row: typing looked broken. `lib/command-catalog.ts` does both now.
+
 ## 8. Testing approach — what exists and what deliberately doesn't
 
 - **722 Vitest unit tests** in 46 files, over pure `lib/` modules plus four server modules. Run `pnpm test`, or
@@ -796,6 +813,8 @@ Use this map before assuming a feature still needs to be built.
 | Liability amortisation (E4-07)                                                               | `lib/amortisation.ts`, `app/(app)/accounts/[id]/amortisation.tsx`                                                                                                                                                  |
 | Object-group detail + form field (E9-05)                                                     | `app/(app)/object-groups/[id]/page.tsx`, `components/object-group-field.tsx`, `lib/object-group.ts`                                                                                                                |
 | Report reconciliation check (E14-15)                                                         | `lib/report-reconcile.ts`, `scripts/check-reconcile.ts` (`pnpm check:reconcile`)                                                                                                                                   |
+| Phone bottom bar, Add menu, More sheet                                                       | `components/mobile-nav.tsx`, `lib/mobile-nav.ts`, `server/mobile-nav.ts`                                                                                                                                           |
+| ⌘K palette catalogue + matcher                                                               | `components/command-palette.tsx`, `lib/command-catalog.ts`                                                                                                                                                         |
 | Proxy request validation (E1-14)                                                             | `scripts/spec-zod.ts` → `spec/generated/request-schemas.ts`, `server/firefly/request-validation.ts`                                                                                                                |
 | Budget currency conversion (primary-currency spent)                                          | `lib/budget-currency.ts`, `lib/fx.ts`                                                                                                                                                                              |
 | Studio admin section (users, overview, activity)                                             | `app/(admin)/admin/`, `pnpm user:admin` / `dist/user-admin.cjs`                                                                                                                                                    |

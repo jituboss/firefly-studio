@@ -351,14 +351,10 @@ export default async function DashboardPage({
   }
 
   return (
-    /*
-     * `max-sm:pb-24` clears the floating add button, which is fixed to the
-     * bottom-right on phones. Without it the button sits on top of the last
-     * widget's bottom-right corner once the page is scrolled to the end —
-     * which on this page is a budget figure, so the thing it covers is a
-     * number someone came to read.
-     */
-    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-6 max-sm:pb-24">
+    // No bottom padding of its own on a phone: the app shell's <main> leaves
+    // room for the bottom bar on every page, which replaced the floating add
+    // button this page used to clear.
+    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
