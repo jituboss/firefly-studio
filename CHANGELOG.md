@@ -10,6 +10,8 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-30
+
 **A bottom navigation bar on phones, and a command palette that actually searches.**
 
 ### Added
