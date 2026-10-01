@@ -6,13 +6,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection, readFailure } from '@/server/firefly/api';
-import { getCategories } from '@/server/firefly/queries';
+import { getCategories, getExchangeRates } from '@/server/firefly/queries';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { Amount } from '@/components/ui/amount';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { add, divide, toDecimal } from '@/lib/money';
+import { buildRateTable, convertSpent } from '@/lib/budget-currency';
+import type { RateTable } from '@/lib/fx';
 import type { Category } from '@/server/firefly/types';
 import { classifyError } from '@/lib/error-taxonomy';
 
@@ -28,25 +30,32 @@ interface CategoryRow {
   active: boolean;
 }
 
-function toRow(category: Category, fallbackCurrency: string): CategoryRow {
-  // Firefly reports one entry per currency. Taking `[0]` blindly can report a
-  // secondary currency's figure as if it were the headline, so prefer the
-  // connection's own currency when it is present.
-  const pick = (entries: Category['attributes']['spent']) =>
-    entries?.find((entry) => entry.currency_code === fallbackCurrency) ?? entries?.[0];
-
-  const spent = pick(category.attributes.spent);
-  const earned = pick(category.attributes.earned);
-  const spentAmount = spent ? toDecimal(spent.sum).abs() : toDecimal(0);
-  const earnedAmount = earned ? toDecimal(earned.sum).abs() : toDecimal(0);
+function toRow(
+  category: Category,
+  fallbackCurrency: string,
+  rateTable: RateTable | null,
+): CategoryRow {
+  // Firefly reports one entry per currency. Convert all entries to the
+  // primary currency using the rate table, so the total matches the budget
+  // screen and dashboard for the same period.
+  const spentConverted = convertSpent(
+    category.attributes.spent ?? [],
+    fallbackCurrency,
+    rateTable,
+  );
+  const earnedConverted = convertSpent(
+    category.attributes.earned ?? [],
+    fallbackCurrency,
+    rateTable,
+  );
 
   return {
     id: category.id,
     name: category.attributes.name,
-    spent: spentAmount.toString(),
-    earned: earnedAmount.toString(),
-    currency: spent?.currency_code ?? earned?.currency_code ?? fallbackCurrency,
-    active: !spentAmount.isZero() || !earnedAmount.isZero(),
+    spent: spentConverted.amount,
+    earned: earnedConverted.amount,
+    currency: fallbackCurrency,
+    active: !toDecimal(spentConverted.amount).isZero() || !toDecimal(earnedConverted.amount).isZero(),
   };
 }
 
@@ -73,23 +82,36 @@ export default async function CategoriesPage({
   const params = await searchParams;
   const range = resolveRangeFromParams(params, session.user.timezone);
 
-  const result = await getCategories(range.start, range.end);
-  const rows = result.data.map((category) => toRow(category, connection.primaryCurrency));
+  const [result, ratesResult] = await Promise.all([
+    getCategories(range.start, range.end),
+    getExchangeRates(),
+  ]);
+  const rateTable = buildRateTable(ratesResult.data);
+  const rows = result.data.map((category) =>
+    toRow(category, connection.primaryCurrency, rateTable),
+  );
 
   const active = rows
     .filter((row) => row.active)
     .sort((a, b) => add(b.spent, b.earned).comparedTo(add(a.spent, a.earned)));
   const dormant = rows.filter((row) => !row.active).sort((a, b) => a.name.localeCompare(b.name));
 
-  // One currency at a time — the rule everywhere else in this codebase.
-  const totalSpent = active
-    .filter((row) => row.currency === connection.primaryCurrency)
-    .reduce((sum, row) => add(sum, row.spent), toDecimal(0));
-  const otherCurrencies = [
-    ...new Set(
-      active.map((row) => row.currency).filter((code) => code !== connection.primaryCurrency),
-    ),
-  ].sort();
+  // All rows are now in the primary currency, so the total is a simple sum.
+  const totalSpent = active.reduce((sum, row) => add(sum, row.spent), toDecimal(0));
+  // Track which foreign currencies were converted for disclosure.
+  const convertedCurrencies = new Set<string>();
+  const unconvertible = new Set<string>();
+  for (const category of result.data) {
+    for (const entry of category.attributes.spent ?? []) {
+      const code = entry.currency_code.toUpperCase();
+      if (code === connection.primaryCurrency.toUpperCase()) continue;
+      if (rateTable && rateTable.pairs.has(`${code}>${connection.primaryCurrency.toUpperCase()}`)) {
+        convertedCurrencies.add(code);
+      } else {
+        unconvertible.add(code);
+      }
+    }
+  }
 
   // Bars are relative to the biggest spender, so the largest fills the row and
   // everything else reads as a fraction of it at a glance.
@@ -152,8 +174,12 @@ export default async function CategoriesPage({
               <p className="text-muted-foreground mt-1 text-xs">
                 {range.label} · {active.length} categor{active.length === 1 ? 'y' : 'ies'} with
                 activity
-                {otherCurrencies.length > 0
-                  ? ` · excludes ${otherCurrencies.join(', ')} — no conversion rate`
+                {convertedCurrencies.size > 0
+                  ? ` · includes ${[...convertedCurrencies].sort().join(', ')} converted to ${connection.primaryCurrency}` +
+                    (rateTable?.asOf ? ` as of ${rateTable.asOf}` : '')
+                  : ''}
+                {unconvertible.size > 0
+                  ? ` · ${[...unconvertible].sort().join(', ')} not converted`
                   : ''}
               </p>
             </CardContent>
