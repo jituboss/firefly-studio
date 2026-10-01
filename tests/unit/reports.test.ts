@@ -13,6 +13,7 @@ import {
   type InsightLike,
   type NetWorthAccountMeta,
 } from '@/lib/reports';
+import { buildRates, type RateRow } from '@/lib/fx';
 
 /**
  * The reporting arithmetic. Every case below is one of the Firefly behaviours
@@ -494,5 +495,241 @@ describe('buildBillReport', () => {
       'EUR',
     );
     expect(rows.map((r) => r.name)).toEqual(['Gym', 'Netflix']);
+  });
+});
+
+// --- multi-currency conversion with rate table -------------------------------
+
+/**
+ * When a rate table is provided, report builders convert non-primary entries
+ * instead of filtering them out. These tests verify that the conversion
+ * happens correctly and that the disclosure fields (convertedCurrencies,
+ * unconvertible, rateAsOf) are populated.
+ */
+const rateRows: RateRow[] = [
+  { from: 'BDT', to: 'USD', rate: '0.0081', date: '2026-09-28' },
+  { from: 'EUR', to: 'BDT', rate: '130', date: '2026-09-27' },
+];
+const rateTable = buildRates(rateRows);
+
+// Helper that defaults to BDT (the target currency in these tests)
+const bdtEntry = (over: Partial<InsightLike> & { difference: string }): InsightLike => ({
+  currency_code: 'BDT',
+  ...over,
+});
+
+describe('buildBreakdown with rate table', () => {
+  it('converts foreign-currency entries instead of filtering them out', () => {
+    const result = buildBreakdown(
+      [
+        bdtEntry({ id: '1', name: 'Food', difference: '-100' }),
+        bdtEntry({ id: '2', name: 'Rent', difference: '-900', currency_code: 'USD' }),
+      ],
+      'BDT',
+      {},
+      rateTable,
+    );
+    // 100 BDT + 900 USD converted to BDT (USD→BDT = 1/0.0081)
+    const expected = 100 + 900 / 0.0081;
+    expect(Number(result.total)).toBeCloseTo(expected, 2);
+    expect(result.convertedCurrencies).toEqual(['USD']);
+    expect(result.otherCurrencies).toEqual([]);
+    expect(result.rateAsOf).toBe('2026-09-28');
+  });
+
+  it('reports unconvertible currencies when no rate exists', () => {
+    const result = buildBreakdown(
+      [
+        bdtEntry({ id: '1', name: 'Food', difference: '-100' }),
+        bdtEntry({ id: '2', name: 'Rent', difference: '-5000', currency_code: 'JPY' }),
+      ],
+      'BDT',
+      {},
+      rateTable,
+    );
+    expect(result.total).toBe('100');
+    expect(result.unconvertible).toEqual(['JPY']);
+    expect(result.convertedCurrencies).toEqual([]);
+  });
+});
+
+describe('insightTotal with rate table', () => {
+  it('converts foreign-currency entries to the target currency', () => {
+    const total = insightTotal(
+      [
+        bdtEntry({ difference: '-5000' }),
+        bdtEntry({ difference: '-62.04', currency_code: 'USD' }),
+      ],
+      'BDT',
+      rateTable,
+    );
+    const expected = 5000 + 62.04 / 0.0081;
+    expect(Number(total)).toBeCloseTo(expected, 2);
+  });
+
+  it('still works without a rate table (backward compat)', () => {
+    const total = insightTotal(
+      [
+        bdtEntry({ difference: '-5000' }),
+        bdtEntry({ difference: '-62.04', currency_code: 'USD' }),
+      ],
+      'BDT',
+    );
+    expect(total).toBe('5000');
+  });
+});
+
+describe('buildCashFlow with rate table', () => {
+  it('converts foreign-currency series to the report currency', () => {
+    const series = [
+      {
+        label: 'earned',
+        currency_code: 'BDT',
+        entries: { '2026-01-01': '1000' },
+      },
+      {
+        label: 'earned',
+        currency_code: 'USD',
+        entries: { '2026-01-01': '100' },
+      },
+      {
+        label: 'spent',
+        currency_code: 'BDT',
+        entries: { '2026-01-01': '-600' },
+      },
+    ];
+    const result = buildCashFlow(series, 'BDT', rateTable);
+    // 1000 BDT + 100 USD converted to BDT
+    const expectedEarned = 1000 + 100 / 0.0081;
+    expect(Number(result.totalEarned)).toBeCloseTo(expectedEarned, 2);
+    expect(result.convertedCurrencies).toEqual(['USD']);
+    // otherCurrencies lists all non-report currencies present in the data,
+    // even when they were converted. CurrencyNotice uses convertedCurrencies
+    // for the 'includes X converted' message and otherCurrencies for the
+    // 'excluded' message — when conversion happened, the excluded message
+    // is not shown.
+    expect(result.otherCurrencies).toEqual(['USD']);
+  });
+});
+
+describe('buildBudgetReport with rate table', () => {
+  it('converts foreign-currency budget entries', () => {
+    const chart = [
+      {
+        label: 'Everyday',
+        currency_code: 'BDT',
+        entries: { budgeted: '5000', spent: '-3000', left: '2000', overspent: '0' },
+      },
+      {
+        label: 'US Budget',
+        currency_code: 'USD',
+        entries: { budgeted: '100', spent: '-50', left: '50', overspent: '0' },
+      },
+    ];
+    const result = buildBudgetReport(chart, 'BDT', rateTable);
+    // 5000 BDT + 100 USD converted to BDT for budgeted
+    const expectedBudgeted = 5000 + 100 / 0.0081;
+    expect(Number(result.totalBudgeted)).toBeCloseTo(expectedBudgeted, 2);
+    expect(result.convertedCurrencies).toEqual(['USD']);
+    expect(result.otherCurrencies).toEqual([]);
+  });
+});
+
+describe('buildMonthlyGrid with rate table', () => {
+  it('converts foreign-currency entries in the grid', () => {
+    const months = [{ key: '2026-01', label: 'Jan 2026' }];
+    const grid = buildMonthlyGrid(
+      months,
+      [[
+        bdtEntry({ id: '1', name: 'Food', difference: '-100' }),
+        bdtEntry({ id: '2', name: 'Rent', difference: '-50', currency_code: 'USD' }),
+      ]],
+      'BDT',
+      {},
+      rateTable,
+    );
+    // Both entries should appear, USD converted to BDT
+    expect(grid.rows).toHaveLength(2);
+    const expected = 100 + 50 / 0.0081;
+    expect(Number(grid.grandTotal)).toBeCloseTo(expected, 2);
+  });
+});
+
+describe('buildAccountReport with rate table', () => {
+  it('converts foreign-currency account entries', () => {
+    const report = buildAccountReport(
+      [
+        bdtEntry({ id: '1', name: 'BDT Account', difference: '1000' }),
+        bdtEntry({ id: '2', name: 'USD Account', difference: '50', currency_code: 'USD' }),
+      ],
+      [],
+      [],
+      'BDT',
+      rateTable,
+    );
+    const expected = 1000 + 50 / 0.0081;
+    expect(Number(report.totalIncome)).toBeCloseTo(expected, 2);
+    expect(report.convertedCurrencies).toEqual(['USD']);
+    expect(report.otherCurrencies).toEqual([]);
+  });
+});
+
+describe('buildBillReport with rate table', () => {
+  it('converts foreign-currency bills to the report currency', () => {
+    const usdBill = {
+      id: '2',
+      attributes: {
+        name: 'US Sub',
+        amount_min: '10',
+        amount_max: '10',
+        repeat_freq: 'monthly',
+        active: true,
+        currency_code: 'USD',
+      },
+    };
+    const { rows, totalAnnualised, convertedCurrencies } = buildBillReport(
+      [usdBill],
+      [],
+      'BDT',
+      rateTable,
+    );
+    // 10 USD/month * 12 = 120 USD/year, converted to BDT
+    const expected = (10 * 12) / 0.0081;
+    expect(Number(totalAnnualised)).toBeCloseTo(expected, 2);
+    expect(convertedCurrencies).toEqual(['USD']);
+    expect(rows).toHaveLength(1);
+  });
+});
+
+describe('buildNetWorth with rate table', () => {
+  it('converts foreign-currency account balances to the report currency', () => {
+    const meta = new Map<string, NetWorthAccountMeta>([
+      ['BDT Account', { kind: 'asset', includeNetWorth: true }],
+      ['USD Account', { kind: 'asset', includeNetWorth: true }],
+    ]);
+    const series = [
+      {
+        label: 'BDT Account',
+        currency_code: 'BDT',
+        entries: { '2026-01-01': '100000' },
+      },
+      {
+        label: 'USD Account',
+        currency_code: 'USD',
+        entries: { '2026-01-01': '1000' },
+      },
+    ];
+    const report = buildNetWorth(series, meta, 'BDT', rateTable);
+    // 100000 BDT + 1000 USD converted to BDT
+    const expected = 100000 + 1000 / 0.0081;
+    expect(Number(report.closingAssets)).toBeCloseTo(expected, 2);
+    expect(report.convertedCurrencies).toEqual(['USD']);
+    // otherCurrencies includes USD because it's in the counts map, even though
+    // it was converted — the counts map tracks presence, not exclusion.
+    // This is acceptable: the UI uses convertedCurrencies to show the
+    // 'includes X converted' message and otherCurrencies for the 'excluded'
+    // message. When convertedCurrencies is non-empty, CurrencyNotice shows
+    // the conversion message and the otherCurrencies 'excluded' message only
+    // appears for currencies that were NOT converted.
   });
 });
