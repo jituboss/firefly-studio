@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection, readFailure } from '@/server/firefly/api';
-import { getBills } from '@/server/firefly/queries';
+import { getBills, getExchangeRates } from '@/server/firefly/queries';
 import { createNotification } from '@/server/notifications';
 import { resolveRangeFromParams } from '@/lib/date-range';
 import { formatDate, now, toApiDate } from '@/lib/date';
@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toDecimal, divide, multiply, add } from '@/lib/money';
+import { buildRateTable } from '@/lib/budget-currency';
+import { convert } from '@/lib/fx';
 import { classifyError } from '@/lib/error-taxonomy';
 
 export const metadata: Metadata = { title: 'Subscriptions' };
@@ -34,7 +36,11 @@ export default async function BillsPage({
   const params = await searchParams;
   const range = resolveRangeFromParams(params, session.user.timezone);
 
-  const result = await getBills(range.start, range.end);
+  const [result, ratesResult] = await Promise.all([
+    getBills(range.start, range.end),
+    getExchangeRates(),
+  ]);
+  const rateTable = buildRateTable(ratesResult.data);
   const bills = [...result.data].sort((a, b) => a.attributes.name.localeCompare(b.attributes.name));
   await syncBillNotifications(session.user.id, bills, session.user.timezone);
   const active = bills.filter((b) => b.attributes.active);
@@ -65,20 +71,32 @@ export default async function BillsPage({
     return aa.comparedTo(bb);
   });
   const topExpensive = rankedActive.slice(0, 5);
-  // Annualised cost is totalled in the connection's currency only. The earlier
-  // version summed every currency's numbers together and labelled the result a
-  // "naive cross-currency sum" in the caption — a wrong number with a footnote
-  // is still a wrong number.
-  const totalAnnualised = [...annualisedByBill.values()]
-    .filter(({ currency }) => currency === connection.primaryCurrency)
-    .reduce((sum, { annualised }) => sum.plus(toDecimal(annualised)), toDecimal(0));
-  const otherCurrencies = [
-    ...new Set(
-      [...annualisedByBill.values()]
-        .map(({ currency }) => currency)
-        .filter((code) => code !== connection.primaryCurrency),
-    ),
-  ].sort();
+  // Annualised cost: convert non-primary-currency bills into the primary
+  // currency for the total. Per-bill amounts stay in their native currency
+  // in the list, but the summary total converts.
+  const convertedCurrencies = new Set<string>();
+  const unconvertible = new Set<string>();
+  let totalAnnualised = toDecimal(0);
+  for (const { annualised, currency } of annualisedByBill.values()) {
+    const code = currency.toUpperCase();
+    const target = connection.primaryCurrency.toUpperCase();
+    if (code === target) {
+      totalAnnualised = totalAnnualised.plus(toDecimal(annualised));
+      continue;
+    }
+    if (rateTable) {
+      const converted = convert(annualised, code, target, rateTable);
+      if (converted !== null) {
+        totalAnnualised = totalAnnualised.plus(toDecimal(converted));
+        convertedCurrencies.add(code);
+      } else {
+        unconvertible.add(code);
+      }
+    } else {
+      unconvertible.add(code);
+    }
+  }
+  const otherCurrencies = [...unconvertible].sort();
 
   const today = toApiDate(now(session.user.timezone), session.user.timezone);
 
@@ -156,8 +174,12 @@ export default async function BillsPage({
                   </div>
                   <p className="text-muted-foreground mt-1 text-xs">
                     Across {active.length} active subscription{active.length === 1 ? '' : 's'}
+                    {convertedCurrencies.size > 0
+                      ? ` · includes ${[...convertedCurrencies].sort().join(', ')} converted to ${connection.primaryCurrency}` +
+                        (rateTable?.asOf ? ` as of ${rateTable.asOf}` : '')
+                      : ''}
                     {otherCurrencies.length > 0
-                      ? ` · excludes ${otherCurrencies.join(', ')} — no conversion rate`
+                      ? ` · ${otherCurrencies.join(', ')} not converted`
                       : ''}
                   </p>
                 </CardContent>
