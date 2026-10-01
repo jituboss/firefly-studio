@@ -9,10 +9,13 @@ import {
   getAccountsSafe,
   getBudget,
   getCategory,
+  getExchangeRates,
 } from '@/server/firefly/queries';
 import { previousDay, resolveRangeFromParams } from '@/lib/date-range';
 import { now, toApiDate } from '@/lib/date';
 import { add, toDecimal } from '@/lib/money';
+import { buildRateTable } from '@/lib/budget-currency';
+import { convertTotal, type CurrencyBucket, type RateTable } from '@/lib/fx';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { HideBalancesToggle } from '@/components/hide-balances';
 import { TransactionFilters } from './filters';
@@ -56,7 +59,39 @@ export const metadata: Metadata = { title: 'Transactions' };
  * mode the totals come from which SIDE of each split the account sits on, and
  * transfers count, because a transfer out of this account is money out of it.
  */
-function pageTotals(transactions: Transaction[], preferred: string, accountId?: string) {
+/**
+ * In, out and net for the rows on screen.
+ *
+ * Deliberately scoped to the current page rather than the whole result set:
+ * Firefly's list endpoints carry no totals, and summing only page one while
+ * labelling it "this period" would state a number that is simply wrong.
+ *
+ * With a rate table, all currency buckets are converted to the primary
+ * currency and summed into one figure. Without one, the previous behavior
+ * applies: pick one currency and report the rest as excluded.
+ *
+ * **Two different questions, depending on `accountId`.**
+ *
+ * With no account filter the list is "everything that happened", and the
+ * meaningful split is income against spending: deposits in, withdrawals out,
+ * transfers excluded because moving money between your own accounts is neither.
+ *
+ * Filtered to ONE account the question changes to "what moved through this
+ * account", and transaction type stops being able to answer it. Firefly names a
+ * transaction for what it is to the ledger, not for what it is to the account
+ * you are looking at, and on a credit card the two come apart completely:
+ * paying the card off from a current account is a `withdrawal`, and so is
+ * buying something with the card. Counting both as spending reported a card
+ * month of 168,000 in and 3,653 out as "out 171,653, net −171,653". In that
+ * mode the totals come from which SIDE of each split the account sits on, and
+ * transfers count, because a transfer out of this account is money out of it.
+ */
+function pageTotals(
+  transactions: Transaction[],
+  preferred: string,
+  rateTable: RateTable | null,
+  accountId?: string,
+) {
   const splits = transactions.flatMap((group) => group.attributes.transactions);
   const currencies = new Map<string, TransactionSplit[]>();
   for (const split of splits) {
@@ -65,6 +100,55 @@ function pageTotals(transactions: Transaction[], preferred: string, accountId?: 
     currencies.set(split.currency_code, bucket);
   }
 
+  // With a rate table, compute per-currency inflow/outflow then convert each
+  // bucket to the primary currency and sum.
+  if (rateTable) {
+    const inflowBuckets: CurrencyBucket[] = [];
+    const outflowBuckets: CurrencyBucket[] = [];
+
+    for (const [code, bucketSplits] of currencies) {
+      let inflow = toDecimal(0);
+      let outflow = toDecimal(0);
+
+      if (accountId) {
+        const totals = accountFlowTotals(bucketSplits, accountId, code);
+        inflow = toDecimal(totals.inflow);
+        outflow = toDecimal(totals.outflow);
+      } else {
+        for (const split of bucketSplits) {
+          if (split.type === 'deposit') inflow = add(inflow, split.amount);
+          else if (split.type === 'withdrawal') outflow = add(outflow, split.amount);
+        }
+      }
+
+      if (!inflow.isZero()) inflowBuckets.push({ currency: code, amount: inflow.toString() });
+      if (!outflow.isZero()) outflowBuckets.push({ currency: code, amount: outflow.toString() });
+    }
+
+    const inflowResult = convertTotal(inflowBuckets, preferred, rateTable);
+    const outflowResult = convertTotal(outflowBuckets, preferred, rateTable);
+    const net = toDecimal(inflowResult.total).minus(toDecimal(outflowResult.total));
+
+    const convertedCurrencies = [
+      ...new Set([...inflowResult.converted, ...outflowResult.converted]),
+    ].sort();
+    const unconvertible = [
+      ...new Set([...inflowResult.unconvertible, ...outflowResult.unconvertible]),
+    ].sort();
+
+    return {
+      currency: preferred,
+      inflow: inflowResult.total,
+      outflow: outflowResult.total,
+      net: net.toString(),
+      convertedCurrencies,
+      unconvertible,
+      otherCurrencies: [] as string[],
+      rateAsOf: rateTable.asOf,
+    };
+  }
+
+  // Without a rate table, pick one currency and report the rest as excluded.
   const currency = currencies.has(preferred)
     ? preferred
     : ([...currencies.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? preferred);
@@ -79,8 +163,6 @@ function pageTotals(transactions: Transaction[], preferred: string, accountId?: 
     outflow = toDecimal(totals.outflow);
   } else {
     for (const split of own) {
-      // Transfers move money between the user's own accounts; counting them as
-      // either income or spending would double the day's activity.
       if (split.type === 'deposit') inflow = add(inflow, split.amount);
       else if (split.type === 'withdrawal') outflow = add(outflow, split.amount);
     }
@@ -97,6 +179,9 @@ function pageTotals(transactions: Transaction[], preferred: string, accountId?: 
      * so — see the header below.
      */
     otherCurrencies: [...currencies.keys()].filter((code) => code !== currency).sort(),
+    convertedCurrencies: [] as string[],
+    unconvertible: [] as string[],
+    rateAsOf: null as string | null,
   };
 }
 
@@ -173,11 +258,12 @@ export default async function TransactionsPage({
             ? `/v1/tags/${encodeURIComponent(tag)}/transactions?${query.toString()}`
             : `/v1/transactions?${query.toString()}`;
 
-  const [result, assetAccounts, pinnedAccountInfo, scopeName] = await Promise.all([
-    fireflyGetSafe<Paged<Transaction>>(basePath, { data: [], meta: {} }),
-    // For the add panel: it opens with an account already chosen, so the
-    // common case needs no lookup.
-    getAccountsSafe({ type: 'asset' }),
+  const [result, assetAccounts, pinnedAccountInfo, scopeName, ratesResult] =
+    await Promise.all([
+      fireflyGetSafe<Paged<Transaction>>(basePath, { data: [], meta: {} }),
+      // For the add panel: it opens with an account already chosen, so the
+      // common case needs no lookup.
+      getAccountsSafe({ type: 'asset' }),
     // An `?account=` filter showed up as nothing but an id in the URL, so the
     // list looked mysteriously short with no visible reason.
     accountId
@@ -201,7 +287,8 @@ export default async function TransactionsPage({
         : tag
           ? Promise.resolve(`tag: ${tag}`)
           : Promise.resolve(null),
-  ]);
+      getExchangeRates(),
+    ]);
 
   const data =
     search && type !== 'all'
@@ -224,7 +311,8 @@ export default async function TransactionsPage({
           .then((response) => response.data.attributes.current_balance)
           .catch(() => null)
       : null;
-  const totals = pageTotals(data, connection.primaryCurrency, accountId);
+  const rateTable = buildRateTable(ratesResult.data);
+  const totals = pageTotals(data, connection.primaryCurrency, rateTable, accountId);
   const savedViewsList = await listSavedViews(session.user.id, 'transactions');
 
   const filtered = Boolean(search) || Boolean(accountId) || Boolean(scopeName) || type !== 'all';
@@ -282,9 +370,16 @@ export default async function TransactionsPage({
             : ` · ${range.label}`}
           {pinnedAccount ? ` · ${pinnedAccount}` : ''}
           {scopeName ? ` · ${scopeName}` : ''}
-          {totals.otherCurrencies.length > 0
-            ? ` · totals exclude ${totals.otherCurrencies.join(', ')}`
-            : ''}
+          {totals.convertedCurrencies.length > 0
+            ? ` · includes ${totals.convertedCurrencies.join(', ')} converted to ${totals.currency}` +
+              (totals.unconvertible.length > 0
+                ? ` · ${totals.unconvertible.join(', ')} not converted`
+                : '')
+            : totals.otherCurrencies.length > 0
+              ? ` · totals exclude ${totals.otherCurrencies.join(', ')}`
+              : totals.unconvertible.length > 0
+                ? ` · ${totals.unconvertible.join(', ')} not converted`
+                : ''}
         </p>
       </header>
 
@@ -378,6 +473,9 @@ export default async function TransactionsPage({
                 net: totals.net,
               }}
               otherCurrencies={totals.otherCurrencies}
+              convertedCurrencies={totals.convertedCurrencies}
+              unconvertible={totals.unconvertible}
+              rateAsOf={totals.rateAsOf}
             />
 
             <TransactionGrid

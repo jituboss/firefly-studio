@@ -51,9 +51,22 @@ export interface PageTotalsData {
   native: TotalsFigures;
   /** Currencies on this page that the native figures do not include. */
   otherCurrencies: string[];
+  /** Currencies that were converted to the native currency. */
+  convertedCurrencies?: string[];
+  /** Currencies that could not be converted (no rate available). */
+  unconvertible?: string[];
+  /** Date of the newest rate used, for disclosure. */
+  rateAsOf?: string | null;
 }
 
-export function PageTotals({ scope = 'page', native, otherCurrencies }: PageTotalsData) {
+export function PageTotals({
+  scope = 'page',
+  native,
+  otherCurrencies,
+  convertedCurrencies = [],
+  unconvertible = [],
+  rateAsOf = null,
+}: PageTotalsData) {
   /*
    * Transfers are excluded from a whole-ledger total because moving money
    * between your own accounts is neither income nor spending — and counted in
@@ -66,10 +79,20 @@ export function PageTotals({ scope = 'page', native, otherCurrencies }: PageTota
       ? `In and out of this account on this page, in ${native.currency}, transfers included`
       : `Totals for this page, in ${native.currency}, transfers excluded`;
 
-  const label =
-    otherCurrencies.length > 0
-      ? `${described}. ${otherCurrencies.join(', ')} not included.`
-      : `${described}.`;
+  const conversionNote =
+    convertedCurrencies.length > 0
+      ? ` Includes ${convertedCurrencies.join(', ')} converted to ${native.currency}` +
+        (rateAsOf ? ` using rates as of ${rateAsOf}` : '') + '.'
+      : '';
+
+  const excludedNote =
+    unconvertible.length > 0
+      ? ` ${unconvertible.join(', ')} not converted — no rate available.`
+      : otherCurrencies.length > 0
+        ? ` ${otherCurrencies.join(', ')} not included.`
+        : '';
+
+  const label = `${described}.${conversionNote}${excludedNote}`;
 
   return (
     /*
