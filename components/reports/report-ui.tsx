@@ -215,21 +215,42 @@ export function BreakdownTable({
  * under-reporting. Same rule as the dashboard's balance chart: figures across
  * currencies are never summed without conversion data, and Firefly's
  * `pc_entries` come back empty (see lib/balance-trend.ts).
+ *
+ * When `convertedCurrencies` is non-empty, the message changes from 'excluded'
+ * to 'converted' — the report summed foreign-currency entries into the report
+ * currency using exchange rates, and the date of those rates is disclosed.
  */
 export function CurrencyNotice({
   currency,
   otherCurrencies,
+  convertedCurrencies = [],
+  rateAsOf = null,
 }: {
   currency: string;
   otherCurrencies: string[];
+  /** Currencies that were converted to the report currency. */
+  convertedCurrencies?: string[];
+  /** Date of the newest rate used, for disclosure. */
+  rateAsOf?: string | null;
 }) {
-  if (otherCurrencies.length === 0) return null;
+  if (otherCurrencies.length === 0 && convertedCurrencies.length === 0) return null;
   return (
     <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
       <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
       <span>
-        Reported in {currency}. Amounts in {otherCurrencies.join(', ')} are excluded — Firefly
-        supplies no conversion rate here, and summing across currencies would invent a figure.
+        {convertedCurrencies.length > 0 && (
+          <>
+            Includes {convertedCurrencies.join(', ')} converted to {currency}
+            {rateAsOf ? ` using rates as of ${rateAsOf}` : ''}.
+            {otherCurrencies.length > 0 && ' '}
+          </>
+        )}
+        {otherCurrencies.length > 0 && (
+          <>
+            Amounts in {otherCurrencies.join(', ')} are excluded — Firefly
+            supplies no conversion rate here, and summing across currencies would invent a figure.
+          </>
+        )}
       </span>
     </p>
   );

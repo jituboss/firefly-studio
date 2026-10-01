@@ -1,4 +1,5 @@
 import { abs, add, divide, subtract, toDecimal } from '@/lib/money';
+import { convert, rateFor, type RateTable } from '@/lib/fx';
 
 /**
  * E14 — the reporting arithmetic, kept pure so it can be reasoned about (and
@@ -41,12 +42,27 @@ export interface ReportBreakdown {
   total: string;
   /** Currency codes present in the payload but not totalled. */
   otherCurrencies: string[];
+  /** Currencies that were converted to the report currency. */
+  convertedCurrencies: string[];
+  /** Currencies that could not be converted (no rate available). */
+  unconvertible: string[];
+  /** Date of the newest rate used, for disclosure. */
+  rateAsOf: string | null;
 }
 
 /** Pick the currency to report in: the requested one if present, else the one
  *  carrying the largest absolute figure, so a report never headlines a trivial
- *  secondary balance simply because it sorted first. */
-export function chooseReportCurrency(entries: InsightLike[], preferred: string): string {
+ *  secondary balance simply because it sorted first. When a rate table is
+ *  available the preferred currency is always used, since every other currency
+ *  will be converted into it. */
+export function chooseReportCurrency(
+  entries: InsightLike[],
+  preferred: string,
+  rateTable?: RateTable | null,
+): string {
+  // With a rate table, always use the preferred currency — everything converts.
+  if (rateTable) return preferred.toUpperCase();
+
   const totals = new Map<string, ReturnType<typeof toDecimal>>();
   for (const entry of entries) {
     const code = (entry.currency_code ?? '').toUpperCase();
@@ -81,16 +97,24 @@ export interface BreakdownOptions {
  *
  * Rows sharing an `id` are merged, because a resource split across currencies
  * appears once per currency and only the matching ones are kept.
+ *
+ * When a rate table is provided, non-primary-currency entries are converted
+ * to the report currency instead of being filtered out. When no rate table is
+ * available, the current behavior is preserved: filter and disclose excluded
+ * currencies.
  */
 export function buildBreakdown(
   entries: InsightLike[],
   preferredCurrency: string,
   options: BreakdownOptions = {},
+  rateTable?: RateTable | null,
 ): ReportBreakdown {
   const { minimum = '0', limit, rollUp = true } = options;
-  const currency = chooseReportCurrency(entries, preferredCurrency);
+  const currency = chooseReportCurrency(entries, preferredCurrency, rateTable);
 
   const otherCurrencies = new Set<string>();
+  const convertedCurrencies = new Set<string>();
+  const unconvertible = new Set<string>();
   const merged = new Map<
     string,
     { id?: string; name: string; amount: ReturnType<typeof toDecimal> }
@@ -99,6 +123,25 @@ export function buildBreakdown(
   for (const entry of entries) {
     const code = (entry.currency_code ?? '').toUpperCase();
     if (code && code !== currency) {
+      if (rateTable) {
+        const rate = rateFor(rateTable, code, currency.toUpperCase());
+        if (rate === null) {
+          unconvertible.add(code);
+          continue;
+        }
+        convertedCurrencies.add(code);
+        const convertedAmount = convert(abs(entry.difference).toString(), code, currency.toUpperCase(), rateTable);
+        if (convertedAmount === null) {
+          unconvertible.add(code);
+          continue;
+        }
+        const name = entry.name?.trim() || 'Unnamed';
+        const key = entry.id ?? name;
+        const existing = merged.get(key);
+        if (existing) existing.amount = add(existing.amount, convertedAmount);
+        else merged.set(key, { id: entry.id, name, amount: toDecimal(convertedAmount) });
+        continue;
+      }
       otherCurrencies.add(code);
       continue;
     }
@@ -143,15 +186,36 @@ export function buildBreakdown(
     rows,
     total: total.toString(),
     otherCurrencies: [...otherCurrencies].sort(),
+    convertedCurrencies: [...convertedCurrencies].sort(),
+    unconvertible: [...unconvertible].sort(),
+    rateAsOf: rateTable?.asOf ?? null,
   };
 }
 
-/** The single figure out of an `insight/<flow>/total`-shaped payload. */
-export function insightTotal(entries: InsightLike[], currency: string): string {
+/** The single figure out of an `insight/<flow>/total`-shaped payload.
+ *  When a rate table is provided, all currencies are converted to the target.
+ *  Without one, only the matching currency is summed (current behavior). */
+export function insightTotal(
+  entries: InsightLike[],
+  currency: string,
+  rateTable?: RateTable | null,
+): string {
   let total = toDecimal(0);
+  const target = currency.toUpperCase();
   for (const entry of entries) {
-    if ((entry.currency_code ?? '').toUpperCase() !== currency.toUpperCase()) continue;
-    total = add(total, abs(entry.difference));
+    const code = (entry.currency_code ?? '').toUpperCase();
+    if (code === target) {
+      total = add(total, abs(entry.difference));
+      continue;
+    }
+    if (rateTable) {
+      const rate = rateFor(rateTable, code, target);
+      if (rate === null) continue;
+      const converted = convert(abs(entry.difference).toString(), code, target, rateTable);
+      if (converted !== null) total = add(total, converted);
+      continue;
+    }
+    // No rate table: skip non-matching currencies (current behavior).
   }
   return total.toString();
 }
@@ -183,6 +247,10 @@ export interface CashFlowSeries {
   /** Share of income not spent, 0–100, or null when nothing was earned. */
   savingsRate: number | null;
   otherCurrencies: string[];
+  /** Currencies that were converted to the report currency. */
+  convertedCurrencies: string[];
+  /** Date of the newest rate used, for disclosure. */
+  rateAsOf: string | null;
 }
 
 /**
@@ -192,10 +260,14 @@ export interface CashFlowSeries {
  * object keyed by bucket-start datetime. `spent` arrives negative; it is
  * flipped so both bars measure upwards from zero and the net line is the
  * difference rather than a sum.
+ *
+ * When a rate table is provided, non-primary-currency series are converted
+ * to the report currency instead of being filtered out.
  */
 export function buildCashFlow(
   series: ChartSeriesLike[],
   preferredCurrency: string,
+  rateTable?: RateTable | null,
 ): CashFlowSeries {
   const currencies = new Map<string, number>();
   for (const entry of series) {
@@ -203,27 +275,37 @@ export function buildCashFlow(
     if (code) currencies.set(code, (currencies.get(code) ?? 0) + 1);
   }
 
+  // With a rate table, always use the preferred currency and convert everything.
   const wanted = preferredCurrency.toUpperCase();
-  const currency = currencies.has(wanted)
-    ? wanted
-    : ([...currencies.keys()].sort()[0] ?? preferredCurrency);
-
+  const currency = rateTable ? wanted : (currencies.has(wanted) ? wanted : ([...currencies.keys()].sort()[0] ?? preferredCurrency));
   const otherCurrencies = [...currencies.keys()].filter((code) => code !== currency).sort();
-  const relevant = series.filter(
-    (entry) => !entry.currency_code || entry.currency_code.toUpperCase() === currency,
-  );
+
+  const convertedCurrencies = new Set<string>();
 
   const earnedBy = new Map<string, ReturnType<typeof toDecimal>>();
   const spentBy = new Map<string, ReturnType<typeof toDecimal>>();
 
-  for (const entry of relevant) {
+  for (const entry of series) {
+    const entryCode = (entry.currency_code ?? '').toUpperCase();
     const normalized = entry.label.toLowerCase();
-    const bucket =
-      normalized.includes('earn') || normalized.includes('income') ? earnedBy : spentBy;
+    const bucket = normalized.includes('earn') || normalized.includes('income') ? earnedBy : spentBy;
     for (const [rawDate, value] of Object.entries(entry.entries)) {
       const date = rawDate.slice(0, 10);
+      const magnitude = abs(value);
+      if (entryCode && entryCode !== currency) {
+        if (rateTable) {
+          const rate = rateFor(rateTable, entryCode, currency.toUpperCase());
+          if (rate === null) continue;
+          const converted = convert(magnitude.toString(), entryCode, currency.toUpperCase(), rateTable);
+          if (converted === null) continue;
+          convertedCurrencies.add(entryCode);
+          bucket.set(date, add(bucket.get(date) ?? 0, converted));
+        }
+        // No rate table: skip non-matching currencies (current behavior).
+        continue;
+      }
       // `spent` is negative on the wire; magnitude is what a bar chart draws.
-      bucket.set(date, add(bucket.get(date) ?? 0, abs(value)));
+      bucket.set(date, add(bucket.get(date) ?? 0, magnitude));
     }
   }
 
@@ -261,6 +343,8 @@ export function buildCashFlow(
     net: net.toString(),
     savingsRate: totalEarned.isZero() ? null : divide(net, totalEarned).times(100).toNumber(),
     otherCurrencies,
+    convertedCurrencies: [...convertedCurrencies].sort(),
+    rateAsOf: rateTable?.asOf ?? null,
   };
 }
 
@@ -310,6 +394,10 @@ export interface NetWorthReport {
   closingAssets: string;
   closingLiabilities: string;
   otherCurrencies: string[];
+  /** Currencies that were converted to the report currency. */
+  convertedCurrencies: string[];
+  /** Date of the newest rate used, for disclosure. */
+  rateAsOf: string | null;
   /** Accounts the user flagged out of net worth, and so left out here. */
   excludedAccounts: number;
 }
@@ -339,6 +427,7 @@ export function buildNetWorth(
   series: ChartSeriesLike[],
   meta: Map<string, NetWorthAccountMeta>,
   preferredCurrency: string,
+  rateTable?: RateTable | null,
 ): NetWorthReport {
   const eligible = series.filter((entry) => meta.get(entry.label)?.includeNetWorth !== false);
   const excludedAccounts = series.length - eligible.length;
@@ -349,12 +438,15 @@ export function buildNetWorth(
     if (code) counts.set(code, (counts.get(code) ?? 0) + 1);
   }
   const wanted = preferredCurrency.toUpperCase();
-  const currency = counts.has(wanted) ? wanted : ([...counts.keys()].sort()[0] ?? wanted);
+  const currency = rateTable ? wanted : (counts.has(wanted) ? wanted : ([...counts.keys()].sort()[0] ?? wanted));
   const otherCurrencies = [...counts.keys()].filter((code) => code !== currency).sort();
+  const convertedCurrencies = new Set<string>();
 
-  const included = eligible.filter(
-    (entry) => !entry.currency_code || entry.currency_code.toUpperCase() === currency,
-  );
+  const included = rateTable
+    ? eligible
+    : eligible.filter(
+        (entry) => !entry.currency_code || entry.currency_code.toUpperCase() === currency,
+      );
 
   const empty: NetWorthReport = {
     currency,
@@ -366,14 +458,29 @@ export function buildNetWorth(
     closingAssets: '0',
     closingLiabilities: '0',
     otherCurrencies,
+    convertedCurrencies: [],
+    rateAsOf: rateTable?.asOf ?? null,
     excludedAccounts,
   };
   if (included.length === 0) return empty;
 
   const indexed = included.map((entry) => {
+    const entryCode = (entry.currency_code ?? '').toUpperCase();
+    const isForeign = entryCode && entryCode !== currency;
     const values = new Map<string, string | number>();
     for (const [rawDate, value] of Object.entries(entry.entries)) {
-      values.set(rawDate.slice(0, 10), value);
+      const date = rawDate.slice(0, 10);
+      if (isForeign && rateTable) {
+        const converted = convert(abs(value).toString(), entryCode, currency.toUpperCase(), rateTable);
+        if (converted !== null) {
+          convertedCurrencies.add(entryCode);
+          // Preserve sign: liabilities are negative, assets positive
+          const sign = toDecimal(value).isNegative() ? '-' : '';
+          values.set(date, sign + converted);
+        }
+        continue;
+      }
+      values.set(date, value);
     }
     // Firefly gives the chart no account id, only the label, so the name is the
     // only join key available back to the account's type.
@@ -451,6 +558,8 @@ export function buildNetWorth(
     closingAssets: closingAssets.toString(),
     closingLiabilities: closingLiabilities.toString(),
     otherCurrencies,
+    convertedCurrencies: [...convertedCurrencies].sort(),
+    rateAsOf: rateTable?.asOf ?? null,
     excludedAccounts,
   };
 }
@@ -477,6 +586,10 @@ export interface BudgetReport {
   totalSpent: string;
   totalOverspent: string;
   otherCurrencies: string[];
+  /** Currencies that were converted to the report currency. */
+  convertedCurrencies: string[];
+  /** Date of the newest rate used, for disclosure. */
+  rateAsOf: string | null;
 }
 
 /**
@@ -490,12 +603,14 @@ export interface BudgetReport {
 export function buildBudgetReport(
   series: ChartSeriesLike[],
   preferredCurrency: string,
+  rateTable?: RateTable | null,
 ): BudgetReport {
   const codes = new Set(
     series.map((entry) => (entry.currency_code ?? '').toUpperCase()).filter(Boolean),
   );
   const wanted = preferredCurrency.toUpperCase();
-  const currency = codes.has(wanted) ? wanted : ([...codes].sort()[0] ?? wanted);
+  const currency = rateTable ? wanted : (codes.has(wanted) ? wanted : ([...codes].sort()[0] ?? wanted));
+  const convertedCurrencies = new Set<string>();
 
   const rows: BudgetReportRow[] = [];
   let totalBudgeted = toDecimal(0);
@@ -504,14 +619,27 @@ export function buildBudgetReport(
 
   for (const entry of series) {
     const code = (entry.currency_code ?? '').toUpperCase();
-    if (code && code !== currency) continue;
+    if (code && code !== currency) {
+      if (!rateTable) continue;
+      // Convert this entry's figures to the report currency
+      const rate = rateFor(rateTable, code, currency.toUpperCase());
+      if (rate === null) continue;
+      convertedCurrencies.add(code);
+    }
 
-    const budgeted = abs(entry.entries.budgeted ?? 0);
-    const spent = abs(entry.entries.spent ?? 0);
-    const overspent = abs(entry.entries.overspent ?? 0);
-    // `left` is taken from Firefly rather than recomputed, so the figure agrees
-    // with what Firefly's own budget page shows.
-    const left = abs(entry.entries.left ?? 0);
+    const convertAmount = (value: number | string): ReturnType<typeof toDecimal> => {
+      const magnitude = abs(value);
+      if (code && code !== currency && rateTable) {
+        const converted = convert(magnitude.toString(), code, currency.toUpperCase(), rateTable);
+        return converted !== null ? toDecimal(converted) : toDecimal(0);
+      }
+      return magnitude;
+    };
+
+    const budgeted = convertAmount(entry.entries.budgeted ?? 0);
+    const spent = convertAmount(entry.entries.spent ?? 0);
+    const overspent = convertAmount(entry.entries.overspent ?? 0);
+    const left = convertAmount(entry.entries.left ?? 0);
 
     if (budgeted.isZero() && spent.isZero()) continue;
 
@@ -538,7 +666,9 @@ export function buildBudgetReport(
     totalBudgeted: totalBudgeted.toString(),
     totalSpent: totalSpent.toString(),
     totalOverspent: totalOverspent.toString(),
-    otherCurrencies: [...codes].filter((code) => code !== currency).sort(),
+    otherCurrencies: rateTable ? [...codes].filter((code) => code !== currency).filter((code) => !convertedCurrencies.has(code)).sort() : [...codes].filter((code) => code !== currency).sort(),
+    convertedCurrencies: [...convertedCurrencies].sort(),
+    rateAsOf: rateTable?.asOf ?? null,
   };
 }
 
@@ -578,6 +708,7 @@ export function buildMonthlyGrid(
   perMonth: InsightLike[][],
   currency: string,
   options: { limit?: number } = {},
+  rateTable?: RateTable | null,
 ): MonthlyGrid {
   const wanted = currency.toUpperCase();
   const byResource = new Map<
@@ -587,7 +718,28 @@ export function buildMonthlyGrid(
 
   months.forEach((month, index) => {
     for (const entry of perMonth[index] ?? []) {
-      if ((entry.currency_code ?? '').toUpperCase() !== wanted) continue;
+      const code = (entry.currency_code ?? '').toUpperCase();
+      const magnitude = abs(entry.difference);
+
+      if (code !== wanted) {
+        if (rateTable) {
+          const rate = rateFor(rateTable, code, wanted);
+          if (rate === null) continue;
+          const converted = convert(magnitude.toString(), code, wanted, rateTable);
+          if (converted === null) continue;
+          const name = entry.name?.trim() || 'Unnamed';
+          const key = entry.id ?? name;
+          let row = byResource.get(key);
+          if (!row) {
+            row = { id: entry.id, name, amounts: new Map() };
+            byResource.set(key, row);
+          }
+          row.amounts.set(month.key, add(row.amounts.get(month.key) ?? 0, converted));
+          continue;
+        }
+        // No rate table: skip non-matching currencies (current behavior).
+        continue;
+      }
       const name = entry.name?.trim() || 'Unnamed';
       const key = entry.id ?? name;
       let row = byResource.get(key);
@@ -595,7 +747,7 @@ export function buildMonthlyGrid(
         row = { id: entry.id, name, amounts: new Map() };
         byResource.set(key, row);
       }
-      row.amounts.set(month.key, add(row.amounts.get(month.key) ?? 0, abs(entry.difference)));
+      row.amounts.set(month.key, add(row.amounts.get(month.key) ?? 0, magnitude));
     }
   });
 
@@ -664,6 +816,10 @@ export interface AccountReport {
   totalIncome: string;
   totalExpense: string;
   otherCurrencies: string[];
+  /** Currencies that were converted to the report currency. */
+  convertedCurrencies: string[];
+  /** Date of the newest rate used, for disclosure. */
+  rateAsOf: string | null;
 }
 
 /**
@@ -680,15 +836,50 @@ export function buildAccountReport(
   expense: InsightLike[],
   transfers: InsightLike[],
   preferredCurrency: string,
+  rateTable?: RateTable | null,
 ): AccountReport {
-  const currency = chooseReportCurrency([...income, ...expense], preferredCurrency);
+  const currency = chooseReportCurrency([...income, ...expense], preferredCurrency, rateTable);
   const otherCurrencies = new Set<string>();
+  const convertedCurrencies = new Set<string>();
 
   const rows = new Map<string, AccountReportRow & { sortKey: ReturnType<typeof toDecimal> }>();
 
   const upsert = (entry: InsightLike, field: 'income' | 'expense' | 'transfers') => {
     const code = (entry.currency_code ?? '').toUpperCase();
-    if (code && code !== currency) {
+    const target = currency.toUpperCase();
+
+    if (code && code !== target) {
+      if (rateTable) {
+        const rate = rateFor(rateTable, code, target);
+        if (rate === null) {
+          otherCurrencies.add(code);
+          return;
+        }
+        convertedCurrencies.add(code);
+        const magnitude = field === 'transfers' ? toDecimal(entry.difference) : abs(entry.difference);
+        const converted = convert(magnitude.toString(), code, target, rateTable);
+        if (converted === null) {
+          otherCurrencies.add(code);
+          return;
+        }
+        const name = entry.name?.trim() || 'Unnamed';
+        const key = entry.id ?? name;
+        let row = rows.get(key);
+        if (!row) {
+          row = {
+            id: entry.id,
+            name,
+            income: '0',
+            expense: '0',
+            transfers: '0',
+            net: '0',
+            sortKey: toDecimal(0),
+          };
+          rows.set(key, row);
+        }
+        row[field] = add(row[field], converted).toString();
+        return;
+      }
       otherCurrencies.add(code);
       return;
     }
@@ -736,6 +927,8 @@ export function buildAccountReport(
     totalIncome: totalIncome.toString(),
     totalExpense: totalExpense.toString(),
     otherCurrencies: [...otherCurrencies].sort(),
+    convertedCurrencies: [...convertedCurrencies].sort(),
+    rateAsOf: rateTable?.asOf ?? null,
   };
 }
 
@@ -772,6 +965,10 @@ export interface BillReport {
   totalActual: string;
   activeCount: number;
   inactiveCount: number;
+  /** Currencies that were converted to the report currency. */
+  convertedCurrencies: string[];
+  /** Date of the newest rate used, for disclosure. */
+  rateAsOf: string | null;
 }
 
 export interface BillLike {
@@ -800,14 +997,25 @@ export function buildBillReport(
   bills: BillLike[],
   actuals: InsightLike[],
   preferredCurrency: string,
+  rateTable?: RateTable | null,
 ): BillReport {
   const currency = preferredCurrency.toUpperCase();
+  const convertedCurrencies = new Set<string>();
 
   const actualById = new Map<string, ReturnType<typeof toDecimal>>();
   for (const entry of actuals) {
-    if ((entry.currency_code ?? '').toUpperCase() !== currency) continue;
+    const code = (entry.currency_code ?? '').toUpperCase();
     if (!entry.id) continue;
-    actualById.set(entry.id, add(actualById.get(entry.id) ?? 0, abs(entry.difference)));
+    if (code === currency) {
+      actualById.set(entry.id, add(actualById.get(entry.id) ?? 0, abs(entry.difference)));
+    } else if (rateTable) {
+      const rate = rateFor(rateTable, code, currency);
+      if (rate === null) continue;
+      const converted = convert(abs(entry.difference).toString(), code, currency, rateTable);
+      if (converted === null) continue;
+      convertedCurrencies.add(code);
+      actualById.set(entry.id, add(actualById.get(entry.id) ?? 0, converted));
+    }
   }
 
   let totalAnnualised = toDecimal(0);
@@ -816,16 +1024,34 @@ export function buildBillReport(
   let inactiveCount = 0;
 
   const rows: BillReportRow[] = bills
-    .filter((bill) => {
-      const code = (bill.attributes.currency_code ?? '').toUpperCase();
-      return !code || code === currency;
-    })
     .map((bill) => {
-      const expected = divide(add(bill.attributes.amount_min, bill.attributes.amount_max), 2);
+      const billCode = (bill.attributes.currency_code ?? '').toUpperCase();
+      const isForeign = billCode && billCode !== currency;
+
+      // Skip bills we can't convert
+      if (isForeign && !rateTable) return null;
+      if (isForeign && rateTable) {
+        const rate = rateFor(rateTable, billCode, currency);
+        if (rate === null) return null;
+        convertedCurrencies.add(billCode);
+      }
+
+      const expectedRaw = divide(add(bill.attributes.amount_min, bill.attributes.amount_max), 2);
       const perYear = OCCURRENCES_PER_YEAR[bill.attributes.repeat_freq] ?? 0;
-      // `skip: 1` means "every other period", so the divisor is skip + 1.
       const divisor = (bill.attributes.skip ?? 0) + 1;
-      const annualised = perYear === 0 ? toDecimal(0) : divide(expected.times(perYear), divisor);
+      const annualisedRaw = perYear === 0 ? toDecimal(0) : divide(expectedRaw.times(perYear), divisor);
+
+      // Convert if foreign
+      const convertAmount = (value: ReturnType<typeof toDecimal>): ReturnType<typeof toDecimal> => {
+        if (isForeign && rateTable) {
+          const converted = convert(value.toString(), billCode, currency, rateTable);
+          return converted !== null ? toDecimal(converted) : toDecimal(0);
+        }
+        return value;
+      };
+
+      const expected = convertAmount(expectedRaw);
+      const annualised = convertAmount(annualisedRaw);
       const actual = actualById.get(bill.id) ?? toDecimal(0);
 
       if (bill.attributes.active) {
@@ -847,6 +1073,7 @@ export function buildBillReport(
         nextExpected: bill.attributes.next_expected_match ?? null,
       };
     })
+    .filter((row): row is BillReportRow => row !== null)
     .sort((a, b) => toDecimal(b.annualised).comparedTo(toDecimal(a.annualised)));
 
   return {
@@ -856,5 +1083,7 @@ export function buildBillReport(
     totalActual: totalActual.toString(),
     activeCount,
     inactiveCount,
+    convertedCurrencies: [...convertedCurrencies].sort(),
+    rateAsOf: rateTable?.asOf ?? null,
   };
 }
