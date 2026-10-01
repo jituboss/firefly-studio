@@ -26,6 +26,7 @@ import type { Budget, BudgetLimit } from '@/server/firefly/types';
 import { previousPeriod, resolveRangeFromParams } from '@/lib/date-range';
 import { now, toApiDate } from '@/lib/date';
 import { buildRateTable, convertSpent } from '@/lib/budget-currency';
+import { convertSummaryEntries } from '@/lib/currency-convert';
 import { buildBalanceTrend } from '@/lib/balance-trend';
 import { toDecimal } from '@/lib/money';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,30 +54,18 @@ import type { BasicSummary } from '@/server/firefly/types';
 export const metadata: Metadata = { title: 'Dashboard' };
 
 /**
- * Pull one figure out of /summary/basic.
- *
- * Firefly emits one entry PER CURRENCY, keyed `spent-in-BDT`, `spent-in-USD`
- * and so on. Taking the first match meant a multi-currency ledger could show
- * net worth in one currency and spending in another, purely by key order.
- * Prefer the connection's primary currency; fall back to the largest figure so
- * a tile never silently reports a trivial secondary balance as the headline.
+ * Pull one figure out of /summary/basic, converting all currencies to the
+ * primary one. Previously this picked a single currency entry and silently
+ * dropped the rest; now it sums every currency variant through the rate table
+ * so the dashboard total matches the budget screen for the same period.
  */
 function summaryValue(
   summary: BasicSummary,
   prefix: string,
   preferred: string,
-): { value: string; currency: string } {
-  const matches = Object.entries(summary).filter(([key]) => key.startsWith(prefix));
-  if (matches.length === 0) return { value: '0', currency: preferred };
-
-  const exact = matches.find(([, entry]) => entry.currency_code === preferred);
-  const chosen =
-    exact ??
-    matches.reduce((best, current) =>
-      Math.abs(current[1].monetary_value) > Math.abs(best[1].monetary_value) ? current : best,
-    );
-
-  return { value: String(chosen[1].monetary_value), currency: chosen[1].currency_code };
+  rateTable: ReturnType<typeof buildRateTable> | null,
+) {
+  return convertSummaryEntries(summary, prefix, preferred, rateTable);
 }
 
 export default async function DashboardPage({
@@ -139,11 +128,28 @@ export default async function DashboardPage({
     .catch(() => []);
 
   const currency = connection.primaryCurrency;
+  const rateTable = buildRateTable(ratesResult.data);
 
-  const netWorth = summaryValue(summary, 'net-worth-in-', currency);
-  const spent = summaryValue(summary, 'spent-in-', currency);
-  const earned = summaryValue(summary, 'earned-in-', currency);
-  const balance = summaryValue(summary, 'balance-in-', currency);
+  const netWorth = summaryValue(summary, 'net-worth-in-', currency, rateTable);
+  const spent = summaryValue(summary, 'spent-in-', currency, rateTable);
+  const earned = summaryValue(summary, 'earned-in-', currency, rateTable);
+  const balance = summaryValue(summary, 'balance-in-', currency, rateTable);
+
+  // Previous-period comparison must also convert, so the delta is apples to
+  // apples.
+  const prevNetWorth = summaryValue(previousSummary, 'net-worth-in-', currency, rateTable);
+  const prevEarned = summaryValue(previousSummary, 'earned-in-', currency, rateTable);
+  const prevSpent = summaryValue(previousSummary, 'spent-in-', currency, rateTable);
+  const prevBalance = summaryValue(previousSummary, 'balance-in-', currency, rateTable);
+
+  // Collect disclosure info: if any KPI converted foreign currencies, show a
+  // single note under the grid.
+  const allConverted = new Set<string>();
+  const allUnconvertible = new Set<string>();
+  for (const kpi of [netWorth, spent, earned, balance]) {
+    for (const code of kpi.convertedCurrencies) allConverted.add(code);
+    for (const code of kpi.unconvertible) allUnconvertible.add(code);
+  }
 
   // `/chart/account/overview?preselected=all` reports EVERY asset and liability
   // account, including archived ones and ones the user flagged out of net
@@ -180,35 +186,51 @@ export default async function DashboardPage({
     {
       id: 'kpis',
       node: (
+        <>
         <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           <KpiTile
             label="Net worth"
             value={netWorth.value}
-            currency={netWorth.currency || currency}
-            previous={summaryValue(previousSummary, 'net-worth-in-', currency).value}
+            currency={currency}
+            previous={prevNetWorth.value}
             tone="neutral"
           />
           <KpiTile
             label="Earned"
             value={earned.value}
-            currency={earned.currency || currency}
-            previous={summaryValue(previousSummary, 'earned-in-', currency).value}
+            currency={currency}
+            previous={prevEarned.value}
             tone="income"
           />
           <KpiTile
             label="Spent"
             value={spent.value}
-            currency={spent.currency || currency}
-            previous={summaryValue(previousSummary, 'spent-in-', currency).value}
+            currency={currency}
+            previous={prevSpent.value}
             tone="expense"
           />
           <KpiTile
             label="Balance"
             value={balance.value}
-            currency={balance.currency || currency}
-            previous={summaryValue(previousSummary, 'balance-in-', currency).value}
+            currency={currency}
+            previous={prevBalance.value}
           />
         </div>
+        {allConverted.size > 0 ? (
+          <p className="text-muted-foreground text-xs">
+            Foreign-currency spending converted to {currency} using exchange rates as of{' '}
+            {rateTable.asOf ?? 'latest available'}.
+            {allUnconvertible.size > 0
+              ? ` Amounts in ${[...allUnconvertible].sort().join(', ')} could not be converted.`
+              : ''}
+          </p>
+        ) : allUnconvertible.size > 0 ? (
+          <p className="text-muted-foreground text-xs">
+            Amounts in {[...allUnconvertible].sort().join(', ')} are not included — no conversion
+            rate available.
+          </p>
+        ) : null}
+        </>
       ),
     },
     {
@@ -315,7 +337,7 @@ export default async function DashboardPage({
             budgets={budgetsResult.data}
             limits={limitsResult.data}
             defaultCurrency={currency}
-            rateTable={buildRateTable(ratesResult.data)}
+            rateTable={rateTable}
           />
         </WidgetCard>
       ),
