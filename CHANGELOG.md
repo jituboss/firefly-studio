@@ -10,6 +10,54 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-10-02
+
+**Multi-currency conversion across all surfaces.**
+
+### Fixed
+
+- **All financial screens now convert foreign-currency amounts to the user's
+  primary currency using Firefly's exchange rates.** Previously only the budget
+  screens converted USD (or other foreign) transactions to BDT; the dashboard
+  KPI tiles, transactions page totals, categories list, bills summary, and every
+  report silently dropped non-primary currency entries. A budget could show
+  ৳20,500 spent while the dashboard showed ৳19,800 for the same period — both
+  "correct" under their own logic, but inconsistent.
+
+### Changed
+
+- **Dashboard KPI tiles** (Net worth, Earned, Spent, Balance) now sum all
+  currencies converted to the primary currency, with a disclosure note when
+  conversion occurred.
+- **Transactions page totals** (In/Out/Net strip) now convert all currency
+  buckets to the primary currency instead of picking one and excluding the
+  rest. The subtitle says "includes USD converted" instead of "USD not
+  included."
+- **Categories list** now converts per-category spent/earned across all
+  currencies into the primary currency. Per-row amounts and the total tile are
+  in the primary currency.
+- **Bills/Subscriptions** annualised total now converts non-primary-currency
+  bills into the primary currency for the summary total.
+- **All report pages** (income-expense, categories, net-worth, budgets, tags,
+  cash-flow, custom, accounts, bills) now pass exchange rate tables to the
+  report builders. The `CurrencyNotice` component shows "includes X converted
+  to {currency}" instead of "X not included" when conversion happened.
+- **`lib/reports.ts`** — all report builder functions accept an optional
+  `rateTable` parameter. When provided, non-primary entries are converted
+  instead of filtered. When omitted, the previous filter-and-disclose behavior
+  is preserved for backward compatibility.
+
+### Added
+
+- **`lib/currency-convert.ts`** — new shared utilities:
+  `convertSummaryEntries()` for `/summary/basic` shape and
+  `convertInsightEntries()` for `/insight/*` arrays, with full disclosure
+  (convertedCurrencies, unconvertible, rateAsOf).
+- **`tests/unit/currency-convert.test.ts`** — 13 unit tests for the new
+  conversion helpers.
+- **`tests/unit/reports.test.ts`** — 10 new multi-currency conversion tests
+  with a BDT+USD fixture and rate table.
+
 ## [0.13.2] - 2026-09-30
 
 **Compact KPI boxes on mobile.**
