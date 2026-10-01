@@ -87,7 +87,9 @@ export default async function IncomeExpenseReportPage({
           value={earned}
           currency={currency}
           tone="income"
-          change={scope.compare ? delta(earned, insightTotal(priorIncome, currency, rateTable)) : null}
+          change={
+            scope.compare ? delta(earned, insightTotal(priorIncome, currency, rateTable)) : null
+          }
           hint={scope.label}
         />
         <ReportStat
@@ -95,7 +97,9 @@ export default async function IncomeExpenseReportPage({
           value={spent}
           currency={currency}
           tone="expense"
-          change={scope.compare ? delta(spent, insightTotal(priorExpense, currency, rateTable)) : null}
+          change={
+            scope.compare ? delta(spent, insightTotal(priorExpense, currency, rateTable)) : null
+          }
           hint={scope.label}
         />
         <ReportStat

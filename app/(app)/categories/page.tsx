@@ -38,11 +38,7 @@ function toRow(
   // Firefly reports one entry per currency. Convert all entries to the
   // primary currency using the rate table, so the total matches the budget
   // screen and dashboard for the same period.
-  const spentConverted = convertSpent(
-    category.attributes.spent ?? [],
-    fallbackCurrency,
-    rateTable,
-  );
+  const spentConverted = convertSpent(category.attributes.spent ?? [], fallbackCurrency, rateTable);
   const earnedConverted = convertSpent(
     category.attributes.earned ?? [],
     fallbackCurrency,
@@ -55,7 +51,8 @@ function toRow(
     spent: spentConverted.amount,
     earned: earnedConverted.amount,
     currency: fallbackCurrency,
-    active: !toDecimal(spentConverted.amount).isZero() || !toDecimal(earnedConverted.amount).isZero(),
+    active:
+      !toDecimal(spentConverted.amount).isZero() || !toDecimal(earnedConverted.amount).isZero(),
   };
 }
 

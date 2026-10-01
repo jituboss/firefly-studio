@@ -556,10 +556,7 @@ describe('buildBreakdown with rate table', () => {
 describe('insightTotal with rate table', () => {
   it('converts foreign-currency entries to the target currency', () => {
     const total = insightTotal(
-      [
-        bdtEntry({ difference: '-5000' }),
-        bdtEntry({ difference: '-62.04', currency_code: 'USD' }),
-      ],
+      [bdtEntry({ difference: '-5000' }), bdtEntry({ difference: '-62.04', currency_code: 'USD' })],
       'BDT',
       rateTable,
     );
@@ -569,10 +566,7 @@ describe('insightTotal with rate table', () => {
 
   it('still works without a rate table (backward compat)', () => {
     const total = insightTotal(
-      [
-        bdtEntry({ difference: '-5000' }),
-        bdtEntry({ difference: '-62.04', currency_code: 'USD' }),
-      ],
+      [bdtEntry({ difference: '-5000' }), bdtEntry({ difference: '-62.04', currency_code: 'USD' })],
       'BDT',
     );
     expect(total).toBe('5000');
@@ -640,10 +634,12 @@ describe('buildMonthlyGrid with rate table', () => {
     const months = [{ key: '2026-01', label: 'Jan 2026' }];
     const grid = buildMonthlyGrid(
       months,
-      [[
-        bdtEntry({ id: '1', name: 'Food', difference: '-100' }),
-        bdtEntry({ id: '2', name: 'Rent', difference: '-50', currency_code: 'USD' }),
-      ]],
+      [
+        [
+          bdtEntry({ id: '1', name: 'Food', difference: '-100' }),
+          bdtEntry({ id: '2', name: 'Rent', difference: '-50', currency_code: 'USD' }),
+        ],
+      ],
       'BDT',
       {},
       rateTable,

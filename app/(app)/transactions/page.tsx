@@ -258,12 +258,11 @@ export default async function TransactionsPage({
             ? `/v1/tags/${encodeURIComponent(tag)}/transactions?${query.toString()}`
             : `/v1/transactions?${query.toString()}`;
 
-  const [result, assetAccounts, pinnedAccountInfo, scopeName, ratesResult] =
-    await Promise.all([
-      fireflyGetSafe<Paged<Transaction>>(basePath, { data: [], meta: {} }),
-      // For the add panel: it opens with an account already chosen, so the
-      // common case needs no lookup.
-      getAccountsSafe({ type: 'asset' }),
+  const [result, assetAccounts, pinnedAccountInfo, scopeName, ratesResult] = await Promise.all([
+    fireflyGetSafe<Paged<Transaction>>(basePath, { data: [], meta: {} }),
+    // For the add panel: it opens with an account already chosen, so the
+    // common case needs no lookup.
+    getAccountsSafe({ type: 'asset' }),
     // An `?account=` filter showed up as nothing but an id in the URL, so the
     // list looked mysteriously short with no visible reason.
     accountId
@@ -287,8 +286,8 @@ export default async function TransactionsPage({
         : tag
           ? Promise.resolve(`tag: ${tag}`)
           : Promise.resolve(null),
-      getExchangeRates(),
-    ]);
+    getExchangeRates(),
+  ]);
 
   const data =
     search && type !== 'all'

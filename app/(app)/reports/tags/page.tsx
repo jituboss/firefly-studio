@@ -53,9 +53,15 @@ export default async function TagReportPage({
   const currency = scope.currency;
   const spending = buildBreakdown(expense, currency, {}, rateTable);
   const earning = buildBreakdown(income, currency, { limit: 8 }, rateTable);
-  const grid = buildMonthlyGrid(months, monthly as InsightLike[][], spending.currency, {
-    limit: 12,
-  }, rateTable);
+  const grid = buildMonthlyGrid(
+    months,
+    monthly as InsightLike[][],
+    spending.currency,
+    {
+      limit: 12,
+    },
+    rateTable,
+  );
 
   const bars = spending.rows
     .slice(0, 10)

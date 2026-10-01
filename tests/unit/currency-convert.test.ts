@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  convertSummaryEntries,
-  convertInsightEntries,
-} from '@/lib/currency-convert';
+import { convertSummaryEntries, convertInsightEntries } from '@/lib/currency-convert';
 import { buildRates, type RateRow } from '@/lib/fx';
 import type { InsightLike } from '@/lib/reports';
 
@@ -129,21 +126,14 @@ describe('convertInsightEntries', () => {
   });
 
   it('sums a single currency without conversion', () => {
-    const result = convertInsightEntries(
-      [entry({ difference: '-5000' })],
-      'BDT',
-      rateTable,
-    );
+    const result = convertInsightEntries([entry({ difference: '-5000' })], 'BDT', rateTable);
     expect(result.total).toBe('5000');
     expect(result.convertedCurrencies).toEqual([]);
   });
 
   it('converts multi-currency entries with rates', () => {
     const result = convertInsightEntries(
-      [
-        entry({ difference: '-5000' }),
-        entry({ difference: '-62.04', currency_code: 'USD' }),
-      ],
+      [entry({ difference: '-5000' }), entry({ difference: '-62.04', currency_code: 'USD' })],
       'BDT',
       rateTable,
     );
@@ -155,10 +145,7 @@ describe('convertInsightEntries', () => {
 
   it('reports unconvertible currencies with missing rates', () => {
     const result = convertInsightEntries(
-      [
-        entry({ difference: '-5000' }),
-        entry({ difference: '-5000', currency_code: 'JPY' }),
-      ],
+      [entry({ difference: '-5000' }), entry({ difference: '-5000', currency_code: 'JPY' })],
       'BDT',
       rateTable,
     );
@@ -168,10 +155,7 @@ describe('convertInsightEntries', () => {
 
   it('degrades to target-only summing without a rate table', () => {
     const result = convertInsightEntries(
-      [
-        entry({ difference: '-5000' }),
-        entry({ difference: '-62.04', currency_code: 'USD' }),
-      ],
+      [entry({ difference: '-5000' }), entry({ difference: '-62.04', currency_code: 'USD' })],
       'BDT',
       null,
     );
@@ -183,10 +167,7 @@ describe('convertInsightEntries', () => {
 
   it('all same currency as target — no conversion needed', () => {
     const result = convertInsightEntries(
-      [
-        entry({ difference: '-100' }),
-        entry({ difference: '-200' }),
-      ],
+      [entry({ difference: '-100' }), entry({ difference: '-200' })],
       'BDT',
       rateTable,
     );

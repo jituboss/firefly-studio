@@ -187,49 +187,49 @@ export default async function DashboardPage({
       id: 'kpis',
       node: (
         <>
-        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-          <KpiTile
-            label="Net worth"
-            value={netWorth.value}
-            currency={currency}
-            previous={prevNetWorth.value}
-            tone="neutral"
-          />
-          <KpiTile
-            label="Earned"
-            value={earned.value}
-            currency={currency}
-            previous={prevEarned.value}
-            tone="income"
-          />
-          <KpiTile
-            label="Spent"
-            value={spent.value}
-            currency={currency}
-            previous={prevSpent.value}
-            tone="expense"
-          />
-          <KpiTile
-            label="Balance"
-            value={balance.value}
-            currency={currency}
-            previous={prevBalance.value}
-          />
-        </div>
-        {allConverted.size > 0 ? (
-          <p className="text-muted-foreground text-xs">
-            Foreign-currency spending converted to {currency} using exchange rates as of{' '}
-            {rateTable.asOf ?? 'latest available'}.
-            {allUnconvertible.size > 0
-              ? ` Amounts in ${[...allUnconvertible].sort().join(', ')} could not be converted.`
-              : ''}
-          </p>
-        ) : allUnconvertible.size > 0 ? (
-          <p className="text-muted-foreground text-xs">
-            Amounts in {[...allUnconvertible].sort().join(', ')} are not included — no conversion
-            rate available.
-          </p>
-        ) : null}
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+            <KpiTile
+              label="Net worth"
+              value={netWorth.value}
+              currency={currency}
+              previous={prevNetWorth.value}
+              tone="neutral"
+            />
+            <KpiTile
+              label="Earned"
+              value={earned.value}
+              currency={currency}
+              previous={prevEarned.value}
+              tone="income"
+            />
+            <KpiTile
+              label="Spent"
+              value={spent.value}
+              currency={currency}
+              previous={prevSpent.value}
+              tone="expense"
+            />
+            <KpiTile
+              label="Balance"
+              value={balance.value}
+              currency={currency}
+              previous={prevBalance.value}
+            />
+          </div>
+          {allConverted.size > 0 ? (
+            <p className="text-muted-foreground text-xs">
+              Foreign-currency spending converted to {currency} using exchange rates as of{' '}
+              {rateTable.asOf ?? 'latest available'}.
+              {allUnconvertible.size > 0
+                ? ` Amounts in ${[...allUnconvertible].sort().join(', ')} could not be converted.`
+                : ''}
+            </p>
+          ) : allUnconvertible.size > 0 ? (
+            <p className="text-muted-foreground text-xs">
+              Amounts in {[...allUnconvertible].sort().join(', ')} are not included — no conversion
+              rate available.
+            </p>
+          ) : null}
         </>
       ),
     },

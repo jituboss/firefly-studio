@@ -130,7 +130,12 @@ export function buildBreakdown(
           continue;
         }
         convertedCurrencies.add(code);
-        const convertedAmount = convert(abs(entry.difference).toString(), code, currency.toUpperCase(), rateTable);
+        const convertedAmount = convert(
+          abs(entry.difference).toString(),
+          code,
+          currency.toUpperCase(),
+          rateTable,
+        );
         if (convertedAmount === null) {
           unconvertible.add(code);
           continue;
@@ -277,7 +282,11 @@ export function buildCashFlow(
 
   // With a rate table, always use the preferred currency and convert everything.
   const wanted = preferredCurrency.toUpperCase();
-  const currency = rateTable ? wanted : (currencies.has(wanted) ? wanted : ([...currencies.keys()].sort()[0] ?? preferredCurrency));
+  const currency = rateTable
+    ? wanted
+    : currencies.has(wanted)
+      ? wanted
+      : ([...currencies.keys()].sort()[0] ?? preferredCurrency);
   const otherCurrencies = [...currencies.keys()].filter((code) => code !== currency).sort();
 
   const convertedCurrencies = new Set<string>();
@@ -288,7 +297,8 @@ export function buildCashFlow(
   for (const entry of series) {
     const entryCode = (entry.currency_code ?? '').toUpperCase();
     const normalized = entry.label.toLowerCase();
-    const bucket = normalized.includes('earn') || normalized.includes('income') ? earnedBy : spentBy;
+    const bucket =
+      normalized.includes('earn') || normalized.includes('income') ? earnedBy : spentBy;
     for (const [rawDate, value] of Object.entries(entry.entries)) {
       const date = rawDate.slice(0, 10);
       const magnitude = abs(value);
@@ -296,7 +306,12 @@ export function buildCashFlow(
         if (rateTable) {
           const rate = rateFor(rateTable, entryCode, currency.toUpperCase());
           if (rate === null) continue;
-          const converted = convert(magnitude.toString(), entryCode, currency.toUpperCase(), rateTable);
+          const converted = convert(
+            magnitude.toString(),
+            entryCode,
+            currency.toUpperCase(),
+            rateTable,
+          );
           if (converted === null) continue;
           convertedCurrencies.add(entryCode);
           bucket.set(date, add(bucket.get(date) ?? 0, converted));
@@ -438,7 +453,11 @@ export function buildNetWorth(
     if (code) counts.set(code, (counts.get(code) ?? 0) + 1);
   }
   const wanted = preferredCurrency.toUpperCase();
-  const currency = rateTable ? wanted : (counts.has(wanted) ? wanted : ([...counts.keys()].sort()[0] ?? wanted));
+  const currency = rateTable
+    ? wanted
+    : counts.has(wanted)
+      ? wanted
+      : ([...counts.keys()].sort()[0] ?? wanted);
   const otherCurrencies = [...counts.keys()].filter((code) => code !== currency).sort();
   const convertedCurrencies = new Set<string>();
 
@@ -471,7 +490,12 @@ export function buildNetWorth(
     for (const [rawDate, value] of Object.entries(entry.entries)) {
       const date = rawDate.slice(0, 10);
       if (isForeign && rateTable) {
-        const converted = convert(abs(value).toString(), entryCode, currency.toUpperCase(), rateTable);
+        const converted = convert(
+          abs(value).toString(),
+          entryCode,
+          currency.toUpperCase(),
+          rateTable,
+        );
         if (converted !== null) {
           convertedCurrencies.add(entryCode);
           // Preserve sign: liabilities are negative, assets positive
@@ -609,7 +633,11 @@ export function buildBudgetReport(
     series.map((entry) => (entry.currency_code ?? '').toUpperCase()).filter(Boolean),
   );
   const wanted = preferredCurrency.toUpperCase();
-  const currency = rateTable ? wanted : (codes.has(wanted) ? wanted : ([...codes].sort()[0] ?? wanted));
+  const currency = rateTable
+    ? wanted
+    : codes.has(wanted)
+      ? wanted
+      : ([...codes].sort()[0] ?? wanted);
   const convertedCurrencies = new Set<string>();
 
   const rows: BudgetReportRow[] = [];
@@ -666,7 +694,12 @@ export function buildBudgetReport(
     totalBudgeted: totalBudgeted.toString(),
     totalSpent: totalSpent.toString(),
     totalOverspent: totalOverspent.toString(),
-    otherCurrencies: rateTable ? [...codes].filter((code) => code !== currency).filter((code) => !convertedCurrencies.has(code)).sort() : [...codes].filter((code) => code !== currency).sort(),
+    otherCurrencies: rateTable
+      ? [...codes]
+          .filter((code) => code !== currency)
+          .filter((code) => !convertedCurrencies.has(code))
+          .sort()
+      : [...codes].filter((code) => code !== currency).sort(),
     convertedCurrencies: [...convertedCurrencies].sort(),
     rateAsOf: rateTable?.asOf ?? null,
   };
@@ -856,7 +889,8 @@ export function buildAccountReport(
           return;
         }
         convertedCurrencies.add(code);
-        const magnitude = field === 'transfers' ? toDecimal(entry.difference) : abs(entry.difference);
+        const magnitude =
+          field === 'transfers' ? toDecimal(entry.difference) : abs(entry.difference);
         const converted = convert(magnitude.toString(), code, target, rateTable);
         if (converted === null) {
           otherCurrencies.add(code);
@@ -1039,7 +1073,8 @@ export function buildBillReport(
       const expectedRaw = divide(add(bill.attributes.amount_min, bill.attributes.amount_max), 2);
       const perYear = OCCURRENCES_PER_YEAR[bill.attributes.repeat_freq] ?? 0;
       const divisor = (bill.attributes.skip ?? 0) + 1;
-      const annualisedRaw = perYear === 0 ? toDecimal(0) : divide(expectedRaw.times(perYear), divisor);
+      const annualisedRaw =
+        perYear === 0 ? toDecimal(0) : divide(expectedRaw.times(perYear), divisor);
 
       // Convert if foreign
       const convertAmount = (value: ReturnType<typeof toDecimal>): ReturnType<typeof toDecimal> => {

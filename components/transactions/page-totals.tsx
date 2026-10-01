@@ -82,7 +82,8 @@ export function PageTotals({
   const conversionNote =
     convertedCurrencies.length > 0
       ? ` Includes ${convertedCurrencies.join(', ')} converted to ${native.currency}` +
-        (rateAsOf ? ` using rates as of ${rateAsOf}` : '') + '.'
+        (rateAsOf ? ` using rates as of ${rateAsOf}` : '') +
+        '.'
       : '';
 
   const excludedNote =

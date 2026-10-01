@@ -241,14 +241,13 @@ export function CurrencyNotice({
         {convertedCurrencies.length > 0 && (
           <>
             Includes {convertedCurrencies.join(', ')} converted to {currency}
-            {rateAsOf ? ` using rates as of ${rateAsOf}` : ''}.
-            {otherCurrencies.length > 0 && ' '}
+            {rateAsOf ? ` using rates as of ${rateAsOf}` : ''}.{otherCurrencies.length > 0 && ' '}
           </>
         )}
         {otherCurrencies.length > 0 && (
           <>
-            Amounts in {otherCurrencies.join(', ')} are excluded — Firefly
-            supplies no conversion rate here, and summing across currencies would invent a figure.
+            Amounts in {otherCurrencies.join(', ')} are excluded — Firefly supplies no conversion
+            rate here, and summing across currencies would invent a figure.
           </>
         )}
       </span>

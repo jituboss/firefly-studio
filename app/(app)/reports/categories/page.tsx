@@ -51,8 +51,8 @@ export default async function CategoryReportPage({
     -MAX_GRID_MONTHS,
   );
 
-  const [expense, income, uncategorised, priorExpense, ratesResult, ...monthly] =
-    await Promise.all([
+  const [expense, income, uncategorised, priorExpense, ratesResult, ...monthly] = await Promise.all(
+    [
       getExpenseByCategoryScoped(current),
       getIncomeByCategoryScoped(current),
       getExpenseWithoutCategory(current),
@@ -61,7 +61,8 @@ export default async function CategoryReportPage({
       ...months.map((month) =>
         getExpenseByCategoryScoped({ ...current, start: month.start, end: month.end }),
       ),
-    ]);
+    ],
+  );
   const rateTable = buildRateTable(ratesResult.data);
 
   const currency = scope.currency;
@@ -70,7 +71,9 @@ export default async function CategoryReportPage({
   const grid = buildMonthlyGrid(months, monthly, spending.currency, { limit: 12 }, rateTable);
 
   const uncategorisedTotal = buildBreakdown(uncategorised, currency, {}, rateTable).total;
-  const priorSpending = scope.compare ? buildBreakdown(priorExpense, currency, {}, rateTable).total : '0';
+  const priorSpending = scope.compare
+    ? buildBreakdown(priorExpense, currency, {}, rateTable).total
+    : '0';
 
   const treemap = spending.rows
     .filter((row) => toDecimal(row.amount).greaterThan(0))
