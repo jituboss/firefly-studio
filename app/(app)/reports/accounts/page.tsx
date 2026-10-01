@@ -8,8 +8,10 @@ import {
   getIncomeByAsset,
   getTransferByAsset,
 } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { drillToTransactions, resolveReportScope } from '@/lib/report-scope';
 import { buildAccountReport } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { subtract } from '@/lib/money';
 import { Table, TBody, TD, TFoot, TH, THead, TR } from '@/components/ui/table';
 import { Amount } from '@/components/ui/amount';
@@ -33,13 +35,15 @@ export default async function AccountReportPage({
   const scope = resolveReportScope(params, connection.primaryCurrency, session.user.timezone);
   const current = { start: scope.start, end: scope.end, accounts: scope.accounts };
 
-  const [income, expense, transfers] = await Promise.all([
+  const [income, expense, transfers, ratesResult] = await Promise.all([
     getIncomeByAsset(current),
     getExpenseByAsset(current),
     getTransferByAsset(current),
+    getExchangeRates(),
   ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
-  const report = buildAccountReport(income, expense, transfers, scope.currency);
+  const report = buildAccountReport(income, expense, transfers, scope.currency, rateTable);
   const net = subtract(report.totalIncome, report.totalExpense).toString();
 
   const exportRows = report.rows.map((row) => ({
@@ -233,7 +237,12 @@ export default async function AccountReportPage({
             </TFoot>
           </Table>
         )}
-        <CurrencyNotice currency={report.currency} otherCurrencies={report.otherCurrencies} />
+        <CurrencyNotice
+          currency={report.currency}
+          otherCurrencies={report.otherCurrencies}
+          convertedCurrencies={report.convertedCurrencies}
+          rateAsOf={report.rateAsOf}
+        />
         <p className="text-muted-foreground text-xs" data-print="hide">
           <Link href={drillToTransactions(scope)} className="hover:text-primary hover:underline">
             See every transaction in this period →

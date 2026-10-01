@@ -3,9 +3,11 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getInsightByPath } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { listSavedReports } from '@/server/reports';
 import { drillToTransactions, resolveReportScope, scopeToQuery } from '@/lib/report-scope';
 import { buildBreakdown } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import {
   describeConfig,
   insightPathFor,
@@ -61,14 +63,16 @@ export default async function CustomReportPage({
 
   const path = insightPathFor(config.metric, config.dimension);
 
-  const [entries, saved] = await Promise.all([
+  const [entries, saved, ratesResult] = await Promise.all([
     path
       ? getInsightByPath(path, { start: scope.start, end: scope.end, accounts: scope.accounts })
       : Promise.resolve([]),
     listSavedReports(session.user.id),
+    getExchangeRates(),
   ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
-  const breakdown = buildBreakdown(entries, scope.currency, { limit: config.limit });
+  const breakdown = buildBreakdown(entries, scope.currency, { limit: config.limit }, rateTable);
   const title = describeConfig(config);
   const isExpense = config.metric === 'expense';
 
@@ -239,7 +243,12 @@ export default async function CustomReportPage({
             return null;
           }}
         />
-        <CurrencyNotice currency={breakdown.currency} otherCurrencies={breakdown.otherCurrencies} />
+        <CurrencyNotice
+          currency={breakdown.currency}
+          otherCurrencies={breakdown.otherCurrencies}
+          convertedCurrencies={breakdown.convertedCurrencies}
+          rateAsOf={breakdown.rateAsOf}
+        />
       </ReportSection>
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2" data-print="hide">

@@ -7,8 +7,10 @@ import {
   getIncomeByCategoryScoped,
   getExpenseWithoutCategory,
 } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { drillToTransactions, resolveReportScope } from '@/lib/report-scope';
 import { buildBreakdown, buildMonthlyGrid, delta, type InsightLike } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { eachMonthInRange } from '@/lib/date';
 import { toDecimal } from '@/lib/money';
 import { CategoryTreemap } from '@/components/charts/category-treemap';
@@ -49,23 +51,26 @@ export default async function CategoryReportPage({
     -MAX_GRID_MONTHS,
   );
 
-  const [expense, income, uncategorised, priorExpense, ...monthly] = await Promise.all([
-    getExpenseByCategoryScoped(current),
-    getIncomeByCategoryScoped(current),
-    getExpenseWithoutCategory(current),
-    scope.compare ? getExpenseByCategoryScoped(prior) : Promise.resolve([] as InsightLike[]),
-    ...months.map((month) =>
-      getExpenseByCategoryScoped({ ...current, start: month.start, end: month.end }),
-    ),
-  ]);
+  const [expense, income, uncategorised, priorExpense, ratesResult, ...monthly] =
+    await Promise.all([
+      getExpenseByCategoryScoped(current),
+      getIncomeByCategoryScoped(current),
+      getExpenseWithoutCategory(current),
+      scope.compare ? getExpenseByCategoryScoped(prior) : Promise.resolve([] as InsightLike[]),
+      getExchangeRates(),
+      ...months.map((month) =>
+        getExpenseByCategoryScoped({ ...current, start: month.start, end: month.end }),
+      ),
+    ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
   const currency = scope.currency;
-  const spending = buildBreakdown(expense, currency);
-  const earning = buildBreakdown(income, currency, { limit: 8 });
-  const grid = buildMonthlyGrid(months, monthly, spending.currency, { limit: 12 });
+  const spending = buildBreakdown(expense, currency, {}, rateTable);
+  const earning = buildBreakdown(income, currency, { limit: 8 }, rateTable);
+  const grid = buildMonthlyGrid(months, monthly, spending.currency, { limit: 12 }, rateTable);
 
-  const uncategorisedTotal = buildBreakdown(uncategorised, currency).total;
-  const priorSpending = scope.compare ? buildBreakdown(priorExpense, currency).total : '0';
+  const uncategorisedTotal = buildBreakdown(uncategorised, currency, {}, rateTable).total;
+  const priorSpending = scope.compare ? buildBreakdown(priorExpense, currency, {}, rateTable).total : '0';
 
   const treemap = spending.rows
     .filter((row) => toDecimal(row.amount).greaterThan(0))
@@ -188,7 +193,12 @@ export default async function CategoryReportPage({
         }
       >
         <CategoryTreemap data={treemap} currency={spending.currency} />
-        <CurrencyNotice currency={spending.currency} otherCurrencies={spending.otherCurrencies} />
+        <CurrencyNotice
+          currency={spending.currency}
+          otherCurrencies={spending.otherCurrencies}
+          convertedCurrencies={spending.convertedCurrencies}
+          rateAsOf={spending.rateAsOf}
+        />
       </ReportSection>
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">

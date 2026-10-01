@@ -4,9 +4,11 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getAccountsSafe } from '@/server/firefly/queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { getNetWorthChart } from '@/server/firefly/report-queries';
 import { resolveReportScope } from '@/lib/report-scope';
 import { buildNetWorth, type NetWorthAccountMeta } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { Amount } from '@/components/ui/amount';
 import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
 import { NetWorthArea } from '@/components/charts/net-worth-area';
@@ -47,14 +49,16 @@ export default async function NetWorthReportPage({
   const params = await searchParams;
   const scope = resolveReportScope(params, connection.primaryCurrency, session.user.timezone);
 
-  const [chart, assets, liabilities] = await Promise.all([
+  const [chart, assets, liabilities, ratesResult] = await Promise.all([
     getNetWorthChart(
       { start: scope.start, end: scope.end, accounts: scope.accounts },
       bucketFor(scope.start, scope.end),
     ),
     getAccountsSafe({ type: 'asset', limit: 300 }),
     getAccountsSafe({ type: 'liabilities', limit: 300 }),
+    getExchangeRates(),
   ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
   // The chart endpoint identifies accounts by NAME only — no id — so the name
   // is the only key available to join back to the account's type and its
@@ -73,7 +77,7 @@ export default async function NetWorthReportPage({
     });
   }
 
-  const report = buildNetWorth(chart, meta, scope.currency);
+  const report = buildNetWorth(chart, meta, scope.currency, rateTable);
 
   if (report.points.length === 0) {
     return (
@@ -253,7 +257,12 @@ export default async function NetWorthReportPage({
           timezone={session.user.timezone}
           locale={session.user.locale}
         />
-        <CurrencyNotice currency={report.currency} otherCurrencies={report.otherCurrencies} />
+        <CurrencyNotice
+          currency={report.currency}
+          otherCurrencies={report.otherCurrencies}
+          convertedCurrencies={report.convertedCurrencies}
+          rateAsOf={report.rateAsOf}
+        />
         {report.excludedAccounts > 0 ? (
           <p className="text-muted-foreground text-xs">
             {report.excludedAccounts} account{report.excludedAccounts === 1 ? '' : 's'} excluded, as

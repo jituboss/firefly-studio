@@ -7,8 +7,10 @@ import {
   getExpenseByBudget,
   getExpenseWithoutBudget,
 } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { drillToTransactions, resolveReportScope } from '@/lib/report-scope';
 import { buildBreakdown, buildBudgetReport, buildMonthlyGrid } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { eachMonthInRange } from '@/lib/date';
 import { subtract, toDecimal } from '@/lib/money';
 import { cn } from '@/lib/utils';
@@ -42,17 +44,19 @@ export default async function BudgetReportPage({
     -MAX_GRID_MONTHS,
   );
 
-  const [overview, unbudgeted, ...monthly] = await Promise.all([
+  const [overview, unbudgeted, ratesResult, ...monthly] = await Promise.all([
     getBudgetOverviewChart(current),
     getExpenseWithoutBudget(current),
+    getExchangeRates(),
     ...months.map((month) =>
       getExpenseByBudget({ ...current, start: month.start, end: month.end }),
     ),
   ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
-  const report = buildBudgetReport(overview, scope.currency);
-  const grid = buildMonthlyGrid(months, monthly, report.currency, { limit: 12 });
-  const unbudgetedTotal = buildBreakdown(unbudgeted, scope.currency).total;
+  const report = buildBudgetReport(overview, scope.currency, rateTable);
+  const grid = buildMonthlyGrid(months, monthly, report.currency, { limit: 12 }, rateTable);
+  const unbudgetedTotal = buildBreakdown(unbudgeted, scope.currency, {}, rateTable).total;
 
   const remaining = subtract(report.totalBudgeted, report.totalSpent).toString();
   const overBudgetCount = report.rows.filter((row) => row.usage > 100).length;
@@ -255,7 +259,12 @@ export default async function BudgetReportPage({
             </TFoot>
           </Table>
         )}
-        <CurrencyNotice currency={report.currency} otherCurrencies={report.otherCurrencies} />
+        <CurrencyNotice
+          currency={report.currency}
+          otherCurrencies={report.otherCurrencies}
+          convertedCurrencies={report.convertedCurrencies}
+          rateAsOf={report.rateAsOf}
+        />
       </ReportSection>
 
       <ReportSection

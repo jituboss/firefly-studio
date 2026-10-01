@@ -8,8 +8,10 @@ import {
   getExpenseByBill,
   getExpenseWithoutBill,
 } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { resolveReportScope } from '@/lib/report-scope';
 import { buildBillReport, buildBreakdown } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { divide, toDecimal } from '@/lib/money';
 import { formatDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
@@ -36,14 +38,16 @@ export default async function BillReportPage({
   const scope = resolveReportScope(params, connection.primaryCurrency, session.user.timezone);
   const current = { start: scope.start, end: scope.end, accounts: scope.accounts };
 
-  const [bills, actuals, unbilled] = await Promise.all([
+  const [bills, actuals, unbilled, ratesResult] = await Promise.all([
     getBillsInRange(current),
     getExpenseByBill(current),
     getExpenseWithoutBill(current),
+    getExchangeRates(),
   ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
-  const report = buildBillReport(bills.data, actuals, scope.currency);
-  const unbilledTotal = buildBreakdown(unbilled, scope.currency).total;
+  const report = buildBillReport(bills.data, actuals, scope.currency, rateTable);
+  const unbilledTotal = buildBreakdown(unbilled, scope.currency, {}, rateTable).total;
   const monthly = divide(report.totalAnnualised, 12).toString();
 
   const exportRows = report.rows.map((row) => ({

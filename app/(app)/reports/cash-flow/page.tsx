@@ -7,8 +7,10 @@ import {
   getIncomeTotal,
   getTransactionsInRange,
 } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { resolveReportScope } from '@/lib/report-scope';
 import { insightTotal } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { buildSankey, type FlowTransaction } from '@/lib/sankey';
 import { subtract } from '@/lib/money';
 import { SankeyFlow } from '@/components/charts/sankey-flow';
@@ -42,11 +44,13 @@ export default async function CashFlowReportPage({
   const scope = resolveReportScope(params, connection.primaryCurrency, session.user.timezone);
   const current = { start: scope.start, end: scope.end, accounts: scope.accounts };
 
-  const [transactions, income, expense] = await Promise.all([
+  const [transactions, income, expense, ratesResult] = await Promise.all([
     getTransactionsInRange(current, FLOW_SAMPLE_LIMIT),
     getIncomeTotal(current),
     getExpenseTotal(current),
+    getExchangeRates(),
   ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
   // A Firefly transaction group holds one or more splits, and it is the SPLIT
   // that carries the source, destination and category — so the flows come from
@@ -64,8 +68,8 @@ export default async function CashFlowReportPage({
 
   const diagram = buildSankey(flows, scope.currency, { width: 760, height: 440 });
 
-  const earned = insightTotal(income, scope.currency);
-  const spent = insightTotal(expense, scope.currency);
+  const earned = insightTotal(income, scope.currency, rateTable);
+  const spent = insightTotal(expense, scope.currency, rateTable);
   const truncated = (transactions.meta.pagination?.total ?? 0) > FLOW_SAMPLE_LIMIT;
 
   const exportRows = diagram.links.map((link) => ({

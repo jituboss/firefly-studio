@@ -9,8 +9,10 @@ import {
   getIncomeBySource,
   getIncomeTotal,
 } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { drillToTransactions, resolveReportScope } from '@/lib/report-scope';
 import { buildBreakdown, buildCashFlow, delta, insightTotal } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { formatMonthLabel } from '@/lib/date';
 import { subtract } from '@/lib/money';
 import { Amount } from '@/components/ui/amount';
@@ -42,28 +44,31 @@ export default async function IncomeExpenseReportPage({
   const current = { start: scope.start, end: scope.end, accounts: scope.accounts };
   const prior = { start: scope.previous.start, end: scope.previous.end, accounts: scope.accounts };
 
-  const [chart, income, expense, sources, sinks, priorIncome, priorExpense] = await Promise.all([
-    getCashFlowChart(current),
-    getIncomeTotal(current),
-    getExpenseTotal(current),
-    getIncomeBySource(current),
-    getExpenseByDestination(current),
-    scope.compare ? getIncomeTotal(prior) : Promise.resolve([]),
-    scope.compare ? getExpenseTotal(prior) : Promise.resolve([]),
-  ]);
+  const [chart, income, expense, sources, sinks, priorIncome, priorExpense, ratesResult] =
+    await Promise.all([
+      getCashFlowChart(current),
+      getIncomeTotal(current),
+      getExpenseTotal(current),
+      getIncomeBySource(current),
+      getExpenseByDestination(current),
+      scope.compare ? getIncomeTotal(prior) : Promise.resolve([]),
+      scope.compare ? getExpenseTotal(prior) : Promise.resolve([]),
+      getExchangeRates(),
+    ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
   const currency = scope.currency;
-  const cashFlow = buildCashFlow(chart, currency);
+  const cashFlow = buildCashFlow(chart, currency, rateTable);
 
   // Headline figures come from the insight `total` endpoints, not from summing the chart:
   // those are the numbers Firefly's own reports print, so this is what makes
   // the two agree to the cent.
-  const earned = insightTotal(income, currency);
-  const spent = insightTotal(expense, currency);
+  const earned = insightTotal(income, currency, rateTable);
+  const spent = insightTotal(expense, currency, rateTable);
   const net = subtract(earned, spent).toString();
 
-  const topSources = buildBreakdown(sources, currency, { limit: 10 });
-  const topSinks = buildBreakdown(sinks, currency, { limit: 10 });
+  const topSources = buildBreakdown(sources, currency, { limit: 10 }, rateTable);
+  const topSinks = buildBreakdown(sinks, currency, { limit: 10 }, rateTable);
 
   const exportRows = cashFlow.points.map((point) => ({
     month: formatMonthLabel(point.date, session.user.timezone, session.user.locale),
@@ -82,7 +87,7 @@ export default async function IncomeExpenseReportPage({
           value={earned}
           currency={currency}
           tone="income"
-          change={scope.compare ? delta(earned, insightTotal(priorIncome, currency)) : null}
+          change={scope.compare ? delta(earned, insightTotal(priorIncome, currency, rateTable)) : null}
           hint={scope.label}
         />
         <ReportStat
@@ -90,7 +95,7 @@ export default async function IncomeExpenseReportPage({
           value={spent}
           currency={currency}
           tone="expense"
-          change={scope.compare ? delta(spent, insightTotal(priorExpense, currency)) : null}
+          change={scope.compare ? delta(spent, insightTotal(priorExpense, currency, rateTable)) : null}
           hint={scope.label}
         />
         <ReportStat
@@ -220,7 +225,12 @@ export default async function IncomeExpenseReportPage({
           timezone={session.user.timezone}
           locale={session.user.locale}
         />
-        <CurrencyNotice currency={cashFlow.currency} otherCurrencies={cashFlow.otherCurrencies} />
+        <CurrencyNotice
+          currency={cashFlow.currency}
+          otherCurrencies={cashFlow.otherCurrencies}
+          convertedCurrencies={cashFlow.convertedCurrencies}
+          rateAsOf={cashFlow.rateAsOf}
+        />
       </ReportSection>
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
@@ -239,6 +249,8 @@ export default async function IncomeExpenseReportPage({
           <CurrencyNotice
             currency={topSources.currency}
             otherCurrencies={topSources.otherCurrencies}
+            convertedCurrencies={topSources.convertedCurrencies}
+            rateAsOf={topSources.rateAsOf}
           />
         </ReportSection>
 
@@ -251,7 +263,12 @@ export default async function IncomeExpenseReportPage({
             emptyMessage="Nothing spent in this period."
             hrefFor={(row) => (row.id ? drillToTransactions(scope, { type: 'withdrawal' }) : null)}
           />
-          <CurrencyNotice currency={topSinks.currency} otherCurrencies={topSinks.otherCurrencies} />
+          <CurrencyNotice
+            currency={topSinks.currency}
+            otherCurrencies={topSinks.otherCurrencies}
+            convertedCurrencies={topSinks.convertedCurrencies}
+            rateAsOf={topSinks.rateAsOf}
+          />
         </ReportSection>
       </div>
 

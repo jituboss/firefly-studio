@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/server/auth/session';
 import { getActiveConnection } from '@/server/firefly/api';
 import { getExpenseByTag, getIncomeByTag } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { drillToTransactions, resolveReportScope } from '@/lib/report-scope';
 import { buildBreakdown, buildMonthlyGrid, type InsightLike } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { eachMonthInRange } from '@/lib/date';
 import { toDecimal } from '@/lib/money';
 import { CategoryBars } from '@/components/charts/category-bars';
@@ -40,18 +42,20 @@ export default async function TagReportPage({
     -MAX_GRID_MONTHS,
   );
 
-  const [expense, income, ...monthly] = await Promise.all([
+  const [expense, income, ratesResult, ...monthly] = await Promise.all([
     getExpenseByTag(current),
     getIncomeByTag(current),
+    getExchangeRates(),
     ...months.map((month) => getExpenseByTag({ ...current, start: month.start, end: month.end })),
   ]);
+  const rateTable = buildRateTable(ratesResult.data);
 
   const currency = scope.currency;
-  const spending = buildBreakdown(expense, currency);
-  const earning = buildBreakdown(income, currency, { limit: 8 });
+  const spending = buildBreakdown(expense, currency, {}, rateTable);
+  const earning = buildBreakdown(income, currency, { limit: 8 }, rateTable);
   const grid = buildMonthlyGrid(months, monthly as InsightLike[][], spending.currency, {
     limit: 12,
-  });
+  }, rateTable);
 
   const bars = spending.rows
     .slice(0, 10)
@@ -176,7 +180,12 @@ export default async function TagReportPage({
           currency={spending.currency}
           height={Math.max(180, bars.length * 32)}
         />
-        <CurrencyNotice currency={spending.currency} otherCurrencies={spending.otherCurrencies} />
+        <CurrencyNotice
+          currency={spending.currency}
+          otherCurrencies={spending.otherCurrencies}
+          convertedCurrencies={spending.convertedCurrencies}
+          rateAsOf={spending.rateAsOf}
+        />
       </ReportSection>
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
