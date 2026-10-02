@@ -10,6 +10,24 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.13.5] - 2026-10-02
+
+**Fix: Dashboard disclosure note layout and reports overview currency conversion.**
+
+### Fixed
+
+- **The dashboard currency disclosure note no longer breaks the KPI grid
+  layout.** The multi-line paragraph that appeared between the KPI tiles and
+  the net-worth chart has been replaced with a single truncated line that
+  fits within the grid width at every screen size.
+
+- **The reports overview page now converts foreign-currency entries to the
+  primary currency.** The overview page was missed in v0.13.3 — its KPI tiles
+  (Income, Expenses, Net, Savings rate) still used `insightTotal()` without
+  passing a rate table, so non-primary currency entries were silently dropped.
+  It now fetches exchange rates and passes the rate table through, matching
+  every other report page.
+
 ## [0.13.4] - 2026-10-02
 
 **Fix: Balance and Net worth KPI tiles inflated by foreign-currency sign error.**
