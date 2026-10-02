@@ -21,8 +21,10 @@ import {
   getIncomeTotal,
   getTransferTotal,
 } from '@/server/firefly/report-queries';
+import { getExchangeRates } from '@/server/firefly/queries';
 import { resolveReportScope, scopeToQuery } from '@/lib/report-scope';
 import { buildCashFlow, delta, insightTotal } from '@/lib/reports';
+import { buildRateTable } from '@/lib/budget-currency';
 import { subtract } from '@/lib/money';
 import { Card, CardContent } from '@/components/ui/card';
 import { IncomeExpenseBars } from '@/components/charts/income-expense-bars';
@@ -103,19 +105,23 @@ export default async function ReportsOverviewPage({
   const current = { start: scope.start, end: scope.end, accounts: scope.accounts };
   const prior = { start: scope.previous.start, end: scope.previous.end, accounts: scope.accounts };
 
-  const [income, expense, transfers, cashFlowChart, priorIncome, priorExpense] = await Promise.all([
-    getIncomeTotal(current),
-    getExpenseTotal(current),
-    getTransferTotal(current),
-    getCashFlowChart(current),
-    scope.compare ? getIncomeTotal(prior) : Promise.resolve([]),
-    scope.compare ? getExpenseTotal(prior) : Promise.resolve([]),
-  ]);
+  const [income, expense, transfers, cashFlowChart, priorIncome, priorExpense, ratesResult] =
+    await Promise.all([
+      getIncomeTotal(current),
+      getExpenseTotal(current),
+      getTransferTotal(current),
+      getCashFlowChart(current),
+      scope.compare ? getIncomeTotal(prior) : Promise.resolve([]),
+      scope.compare ? getExpenseTotal(prior) : Promise.resolve([]),
+      getExchangeRates(),
+    ]);
+
+  const rateTable = buildRateTable(ratesResult.data);
 
   const currency = scope.currency;
-  const earned = insightTotal(income, currency);
-  const spent = insightTotal(expense, currency);
-  const moved = insightTotal(transfers, currency);
+  const earned = insightTotal(income, currency, rateTable);
+  const spent = insightTotal(expense, currency, rateTable);
+  const moved = insightTotal(transfers, currency, rateTable);
   const net = subtract(earned, spent).toString();
 
   const cashFlow = buildCashFlow(cashFlowChart, currency);
@@ -129,7 +135,9 @@ export default async function ReportsOverviewPage({
           value={earned}
           currency={currency}
           tone="income"
-          change={scope.compare ? delta(earned, insightTotal(priorIncome, currency)) : null}
+          change={
+            scope.compare ? delta(earned, insightTotal(priorIncome, currency, rateTable)) : null
+          }
           hint={scope.compare ? undefined : scope.label}
         />
         <ReportStat
@@ -137,7 +145,9 @@ export default async function ReportsOverviewPage({
           value={spent}
           currency={currency}
           tone="expense"
-          change={scope.compare ? delta(spent, insightTotal(priorExpense, currency)) : null}
+          change={
+            scope.compare ? delta(spent, insightTotal(priorExpense, currency, rateTable)) : null
+          }
           hint={scope.compare ? undefined : scope.label}
         />
         <ReportStat
@@ -175,7 +185,12 @@ export default async function ReportsOverviewPage({
           timezone={session.user.timezone}
           locale={session.user.locale}
         />
-        <CurrencyNotice currency={cashFlow.currency} otherCurrencies={cashFlow.otherCurrencies} />
+        <CurrencyNotice
+          currency={cashFlow.currency}
+          otherCurrencies={cashFlow.otherCurrencies}
+          convertedCurrencies={rateTable ? cashFlow.otherCurrencies : []}
+          rateAsOf={rateTable?.asOf ?? null}
+        />
       </ReportSection>
 
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-print="hide">

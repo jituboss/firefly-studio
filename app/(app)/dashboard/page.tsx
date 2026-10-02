@@ -216,18 +216,14 @@ export default async function DashboardPage({
               previous={prevBalance.value}
             />
           </div>
-          {allConverted.size > 0 ? (
-            <p className="text-muted-foreground text-xs">
-              Foreign-currency spending converted to {currency} using exchange rates as of{' '}
-              {rateTable.asOf ?? 'latest available'}.
-              {allUnconvertible.size > 0
-                ? ` Amounts in ${[...allUnconvertible].sort().join(', ')} could not be converted.`
+          {allConverted.size > 0 || allUnconvertible.size > 0 ? (
+            <p className="text-muted-foreground truncate text-xs">
+              {allConverted.size > 0
+                ? `Includes ${[...allConverted].sort().join(', ')} converted to ${currency}${rateTable.asOf ? ` (rates as of ${rateTable.asOf})` : ''}`
+                : `Amounts in ${[...allUnconvertible].sort().join(', ')} not included — no conversion rate`}
+              {allConverted.size > 0 && allUnconvertible.size > 0
+                ? `. ${[...allUnconvertible].sort().join(', ')} could not be converted`
                 : ''}
-            </p>
-          ) : allUnconvertible.size > 0 ? (
-            <p className="text-muted-foreground text-xs">
-              Amounts in {[...allUnconvertible].sort().join(', ')} are not included — no conversion
-              rate available.
             </p>
           ) : null}
         </>
