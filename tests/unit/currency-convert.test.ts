@@ -20,19 +20,21 @@ describe('convertSummaryEntries', () => {
     expect(result.unconvertible).toEqual([]);
   });
 
-  it('sums a single currency without conversion', () => {
+  it('sums a single currency without conversion, preserving sign', () => {
     const result = convertSummaryEntries(
       { 'spent-in-BDT': { monetary_value: -5000, currency_code: 'BDT' } },
       'spent-in-',
       'BDT',
       rateTable,
     );
-    expect(result.value).toBe('5000');
+    // Sign is preserved: spent is negative on the wire, KpiTile renders the
+    // magnitude with showSign={false}.
+    expect(result.value).toBe('-5000');
     expect(result.convertedCurrencies).toEqual([]);
     expect(result.unconvertible).toEqual([]);
   });
 
-  it('sums multiple entries in the target currency', () => {
+  it('sums multiple entries in the target currency, preserving sign', () => {
     const result = convertSummaryEntries(
       {
         'spent-in-BDT': { monetary_value: -5000, currency_code: 'BDT' },
@@ -42,10 +44,10 @@ describe('convertSummaryEntries', () => {
       'BDT',
       rateTable,
     );
-    expect(result.value).toBe('8000');
+    expect(result.value).toBe('-8000');
   });
 
-  it('converts multi-currency entries to the target currency', () => {
+  it('converts multi-currency entries to the target currency, preserving sign', () => {
     const result = convertSummaryEntries(
       {
         'spent-in-BDT': { monetary_value: -5000, currency_code: 'BDT' },
@@ -55,8 +57,8 @@ describe('convertSummaryEntries', () => {
       'BDT',
       rateTable,
     );
-    // 5000 BDT + 62.04 USD → BDT (USD→BDT = 1/0.0081)
-    const expected = 5000 + 62.04 / 0.0081;
+    // -5000 BDT + (-62.04 USD → BDT) — sign preserved, both negative
+    const expected = -(5000 + 62.04 / 0.0081);
     expect(Number(result.value)).toBeCloseTo(expected, 2);
     expect(result.convertedCurrencies).toEqual(['USD']);
     expect(result.unconvertible).toEqual([]);
@@ -73,7 +75,7 @@ describe('convertSummaryEntries', () => {
       'BDT',
       rateTable,
     );
-    expect(result.value).toBe('5000');
+    expect(result.value).toBe('-5000');
     expect(result.unconvertible).toEqual(['JPY']);
     expect(result.convertedCurrencies).toEqual([]);
   });
@@ -107,6 +109,39 @@ describe('convertSummaryEntries', () => {
     expect(result.value).toBe('100000');
     expect(result.convertedCurrencies).toEqual([]);
     expect(result.unconvertible).toEqual([]);
+  });
+
+  it('balance-in-* preserves sign for negative foreign-currency entries', () => {
+    // The real-world bug: Firefly returns balance-in-USD as -66.99 (negative),
+    // but abs() flipped it to +66.99, inflating the total by ~2x the USD amount.
+    const result = convertSummaryEntries(
+      {
+        'balance-in-BDT': { monetary_value: 297769, currency_code: 'BDT' },
+        'balance-in-USD': { monetary_value: -66.99, currency_code: 'USD' },
+      },
+      'balance-in-',
+      'BDT',
+      rateTable,
+    );
+    // 297769 + (-66.99 USD → BDT) — the negative USD balance must SUBTRACT.
+    const expected = 297769 - 66.99 / 0.0081;
+    expect(Number(result.value)).toBeCloseTo(expected, 2);
+    expect(result.convertedCurrencies).toEqual(['USD']);
+  });
+
+  it('net-worth-in-* preserves sign for negative foreign-currency entries', () => {
+    const result = convertSummaryEntries(
+      {
+        'net-worth-in-BDT': { monetary_value: 1191175.24, currency_code: 'BDT' },
+        'net-worth-in-USD': { monetary_value: -94.78, currency_code: 'USD' },
+      },
+      'net-worth-in-',
+      'BDT',
+      rateTable,
+    );
+    const expected = 1191175.24 - 94.78 / 0.0081;
+    expect(Number(result.value)).toBeCloseTo(expected, 2);
+    expect(result.convertedCurrencies).toEqual(['USD']);
   });
 });
 

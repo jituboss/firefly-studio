@@ -77,7 +77,21 @@ export function convertSummaryEntries(
     };
   }
 
-  // With a rate table, sum every currency converted to the target.
+  // Firefly's `/summary/basic` returns SIGNED values for every key:
+  //   spent-in-*  → negative (expense is a debit)
+  //   earned-in-* → positive
+  //   balance-in-* → signed (earned − spent, can be negative)
+  //   net-worth-in-* → signed (assets − liabilities, can be negative)
+  //
+  // The old code (pre-v0.13.3) returned the raw monetary_value without
+  // abs(), and KpiTile rendered it with showSign={false} to display the
+  // magnitude. The v0.13.3 conversion code wrapped every value in abs(),
+  // which was correct for spent/earned (always one sign) but WRONG for
+  // balance and net-worth: a negative foreign-currency balance had its
+  // sign flipped, inflating the total instead of subtracting from it.
+  //
+  // Fix: preserve the sign for all summary entries. The tile's showSign
+  // and tone props handle display; the arithmetic must keep the sign.
   if (rateTable) {
     let total = toDecimal(0);
     const convertedCurrencies: string[] = [];
@@ -86,10 +100,10 @@ export function convertSummaryEntries(
     for (const [, entry] of matches) {
       const code = entry.currency_code.toUpperCase();
       const target = targetCurrency.toUpperCase();
-      const magnitude = abs(entry.monetary_value).toString();
+      const rawValue = String(entry.monetary_value);
 
       if (code === target) {
-        total = add(total, magnitude);
+        total = add(total, rawValue);
         continue;
       }
 
@@ -99,7 +113,7 @@ export function convertSummaryEntries(
         continue;
       }
 
-      const convertedValue = convert(magnitude, code, target, rateTable);
+      const convertedValue = convert(rawValue, code, target, rateTable);
       if (convertedValue === null) {
         if (!unconvertible.includes(code)) unconvertible.push(code);
         continue;
