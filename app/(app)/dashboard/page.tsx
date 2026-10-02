@@ -142,15 +142,6 @@ export default async function DashboardPage({
   const prevSpent = summaryValue(previousSummary, 'spent-in-', currency, rateTable);
   const prevBalance = summaryValue(previousSummary, 'balance-in-', currency, rateTable);
 
-  // Collect disclosure info: if any KPI converted foreign currencies, show a
-  // single note under the grid.
-  const allConverted = new Set<string>();
-  const allUnconvertible = new Set<string>();
-  for (const kpi of [netWorth, spent, earned, balance]) {
-    for (const code of kpi.convertedCurrencies) allConverted.add(code);
-    for (const code of kpi.unconvertible) allUnconvertible.add(code);
-  }
-
   // `/chart/account/overview?preselected=all` reports EVERY asset and liability
   // account, including archived ones and ones the user flagged out of net
   // worth. Firefly's own net-worth figure skips both. Without matching that,
@@ -216,16 +207,6 @@ export default async function DashboardPage({
               previous={prevBalance.value}
             />
           </div>
-          {allConverted.size > 0 || allUnconvertible.size > 0 ? (
-            <p className="text-muted-foreground truncate text-xs">
-              {allConverted.size > 0
-                ? `Includes ${[...allConverted].sort().join(', ')} converted to ${currency}${rateTable.asOf ? ` (rates as of ${rateTable.asOf})` : ''}`
-                : `Amounts in ${[...allUnconvertible].sort().join(', ')} not included — no conversion rate`}
-              {allConverted.size > 0 && allUnconvertible.size > 0
-                ? `. ${[...allUnconvertible].sort().join(', ')} could not be converted`
-                : ''}
-            </p>
-          ) : null}
         </>
       ),
     },

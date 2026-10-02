@@ -60,8 +60,6 @@ export default async function AccountDetailPage({
   }
 
   const a = account.attributes;
-  const currency = a.currency_code ?? connection.primaryCurrency;
-  const decimals = a.currency_decimal_places ?? 2;
   const bucket = accountBucket(a.type);
   // The insight endpoints only answer for asset and liability accounts; asking
   // for a merchant's "money in" would return an empty array and render a pair
@@ -88,6 +86,15 @@ export default async function AccountDetailPage({
         })
       : Promise.resolve({ data: [], meta: {} }),
   ]);
+
+  // The account's own currency is the right display currency when Firefly
+  // provides it. For expense/revenue accounts Firefly may leave
+  // `currency_code` null, in which case the chart data carries the actual
+  // currency — deriving from the chart avoids mislabelling a USD expense
+  // account as BDT (the connection's primary currency).
+  const chartCurrency = chart[0]?.currency_code ?? null;
+  const currency = a.currency_code ?? chartCurrency ?? connection.primaryCurrency;
+  const decimals = a.currency_decimal_places ?? 2;
 
   const trend = buildBalanceTrend(chart, currency);
   const moneyOut = expense[0];
@@ -165,7 +172,7 @@ export default async function AccountDetailPage({
           }
         >
           <span className="flex flex-wrap items-baseline gap-1.5">
-            <Amount value={trend.change} currency={currency} size="xl" compact tone="auto" />
+            <Amount value={trend.change} currency={trend.currency} size="xl" compact tone="auto" />
             {trend.changePercent === null ? null : (
               <span className={`text-xs ${trend.change >= 0 ? 'text-income' : 'text-expense'}`}>
                 {trend.changePercent >= 0 ? '+' : ''}
