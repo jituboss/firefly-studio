@@ -10,6 +10,25 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.13.6] - 2026-10-02
+
+**Fix: Remove dashboard disclosure note and fix expense account currency label.**
+
+### Fixed
+
+- **Removed the currency conversion disclosure note from the dashboard.** The
+  note that appeared below the KPI tiles ("Includes USD converted to BDT...")
+  has been removed entirely — it was breaking the layout. Conversion logic is
+  unchanged; only the disclosure UI was removed.
+
+- **Expense accounts with foreign-currency transactions now show the correct
+  currency.** When an expense account's `currency_code` is null (common for
+  expense/revenue accounts), the display currency is now derived from the
+  chart data instead of falling back to the connection's primary currency.
+  This fixes a bug where a USD expense account showed "BDT 66.99" for a
+  $66.99 USD transaction. The Change tile also uses the chart's actual
+  currency rather than the page-level fallback.
+
 ## [0.13.5] - 2026-10-02
 
 **Fix: Dashboard disclosure note layout and reports overview currency conversion.**
