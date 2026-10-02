@@ -10,6 +10,22 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-10-02
+
+**Fix: Balance and Net worth KPI tiles inflated by foreign-currency sign error.**
+
+### Fixed
+
+- **The Balance and Net worth KPI tiles on the dashboard no longer inflate
+  when foreign-currency entries are negative.** The v0.13.3 conversion code
+  applied `abs()` to every `/summary/basic` value before summing, which was
+  correct for `spent-in-*` and `earned-in-*` but wrong for `balance-in-*` and
+  `net-worth-in-*` — signed values where a negative foreign-currency balance
+  (e.g. `balance-in-USD: -66.99`) had its sign flipped to positive, adding
+  ~7K to the total instead of subtracting. The fix preserves the sign for all
+  summary entries; `KpiTile`'s `showSign={false}` and tone props handle the
+  display.
+
 ## [0.13.3] - 2026-10-02
 
 **Multi-currency conversion across all surfaces.**
