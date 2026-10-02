@@ -10,6 +10,19 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.13.7] - 2026-10-02
+
+**Fix: Duplicate budget rows in budget report when budgets have multi-currency transactions.**
+
+### Fixed
+
+- **The budget report no longer shows duplicate rows for budgets with
+  transactions in multiple currencies.** Firefly's `/chart/budget/overview`
+  returns one entry per (budget, currency) pair — so a budget with both BDT
+  and USD spending appeared twice in the report. The `buildBudgetReport`
+  function now groups entries by budget name using a Map, summing converted
+  amounts across currencies into a single row per budget.
+
 ## [0.13.6] - 2026-10-02
 
 **Fix: Remove dashboard disclosure note and fix expense account currency label.**
