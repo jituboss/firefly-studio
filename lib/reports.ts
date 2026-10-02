@@ -640,16 +640,25 @@ export function buildBudgetReport(
       : ([...codes].sort()[0] ?? wanted);
   const convertedCurrencies = new Set<string>();
 
-  const rows: BudgetReportRow[] = [];
-  let totalBudgeted = toDecimal(0);
-  let totalSpent = toDecimal(0);
-  let totalOverspent = toDecimal(0);
+  // Group entries by budget name. Firefly's /chart/budget/overview returns one
+  // entry per (budget, currency) pair — so a budget with both BDT and USD
+  // transactions appears twice. Without grouping, the report shows duplicate
+  // rows for the same budget. We sum all currency variants (converted to the
+  // report currency when a rate table is available) into a single row per budget.
+  const grouped = new Map<
+    string,
+    {
+      budgeted: ReturnType<typeof toDecimal>;
+      spent: ReturnType<typeof toDecimal>;
+      overspent: ReturnType<typeof toDecimal>;
+      left: ReturnType<typeof toDecimal>;
+    }
+  >();
 
   for (const entry of series) {
     const code = (entry.currency_code ?? '').toUpperCase();
     if (code && code !== currency) {
       if (!rateTable) continue;
-      // Convert this entry's figures to the report currency
       const rate = rateFor(rateTable, code, currency.toUpperCase());
       if (rate === null) continue;
       convertedCurrencies.add(code);
@@ -671,18 +680,36 @@ export function buildBudgetReport(
 
     if (budgeted.isZero() && spent.isZero()) continue;
 
-    totalBudgeted = add(totalBudgeted, budgeted);
-    totalSpent = add(totalSpent, spent);
-    totalOverspent = add(totalOverspent, overspent);
+    const key = entry.label;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.budgeted = add(existing.budgeted, budgeted);
+      existing.spent = add(existing.spent, spent);
+      existing.overspent = add(existing.overspent, overspent);
+      existing.left = add(existing.left, left);
+    } else {
+      grouped.set(key, { budgeted, spent, overspent, left });
+    }
+  }
+
+  const rows: BudgetReportRow[] = [];
+  let totalBudgeted = toDecimal(0);
+  let totalSpent = toDecimal(0);
+  let totalOverspent = toDecimal(0);
+
+  for (const [name, g] of grouped) {
+    totalBudgeted = add(totalBudgeted, g.budgeted);
+    totalSpent = add(totalSpent, g.spent);
+    totalOverspent = add(totalOverspent, g.overspent);
 
     rows.push({
-      name: entry.label,
-      budgeted: budgeted.toString(),
-      spent: spent.toString(),
-      left: left.toString(),
-      overspent: overspent.toString(),
-      usage: budgeted.isZero() ? 0 : divide(spent, budgeted).times(100).toNumber(),
-      variance: subtract(budgeted, spent).toString(),
+      name,
+      budgeted: g.budgeted.toString(),
+      spent: g.spent.toString(),
+      left: g.left.toString(),
+      overspent: g.overspent.toString(),
+      usage: g.budgeted.isZero() ? 0 : divide(g.spent, g.budgeted).times(100).toNumber(),
+      variance: subtract(g.budgeted, g.spent).toString(),
     });
   }
 
