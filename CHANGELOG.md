@@ -10,6 +10,16 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-26
+
+**Maintenance: PostCSS 8.5.31.** No changes to the app itself.
+
+### Changed
+
+- PostCSS 8.5.28 → 8.5.31 (with nanoid 3.3.20), from Dependabot. PostCSS
+  runs at build time to process the stylesheets; nothing about the running
+  app changes.
+
 ## [0.14.0] - 2026-10-26
 
 **Security: October 2026 Node.js, PHP and dependency advisories.** Upgrade
