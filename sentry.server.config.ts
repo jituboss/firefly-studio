@@ -1,5 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 
+import { SENTRY_DATA_COLLECTION } from '@/lib/sentry-data-collection';
+
 /**
  * E1-10 — server-side error reporting.
  *
@@ -13,7 +15,7 @@ if (process.env.SENTRY_DSN) {
     environment: process.env.NODE_ENV,
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
     // We never want request bodies or headers: they carry the Bearer PAT.
-    sendDefaultPii: false,
+    dataCollection: SENTRY_DATA_COLLECTION,
     beforeSend(event) {
       // Belt and braces alongside the Pino redaction list. An exception message
       // can embed a URL with credentials, or a header dump from a fetch failure.

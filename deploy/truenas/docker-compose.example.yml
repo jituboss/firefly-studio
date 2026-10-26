@@ -204,7 +204,7 @@ services:
   # -------------------------------------------------------------------------
   firefly:
     container_name: firefly_iii
-    image: fireflyiii/core:version-6.5.5
+    image: fireflyiii/core:version-6.7.9
     restart: unless-stopped
     ports:
       - '30808:8080'

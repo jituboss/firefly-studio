@@ -20,8 +20,23 @@ allowBuilds:
 # CSS, but a high advisory in the dependency audit is not something to sit on,
 # and our own direct dependency is already on the patched line. 8.4 -> 8.5 is
 # a minor bump on a stable API; the build and the test suite are the check.
+#
+# The rest are transitive pins whose parents have not yet released against the
+# patched line (October 2026 audit). Each is scoped to the vulnerable range so
+# it stops applying on its own once the parent moves past it, and each stays
+# inside the major the parent asked for.
+#   dompurify     jspdf          GHSA-cg2g-xh64-v4q7 (critical), GHSA-mrv2-3pqr-j5jr
+#   sharp         next, webpack  GHSA-wq5f-xc86-pv6w (high)
+#   source-map-js next > postcss GHSA-68fv-2mgg-jv7q (high)
+#   vite          @sentry/nextjs GHSA-587h-7wmj-h5pm (high) and five lesser ones
+#   fast-uri      webpack > ajv  GHSA-w74x-v6f9-j3xg and three lesser ones
 overrides:
   postcss: ^8.5.28
+  dompurify@<3.4.17: ^3.4.17
+  sharp: ^0.35.5
+  source-map-js@<1.2.2: ^1.2.2
+  vite@>=8.0.0 <8.3.3: ^8.3.5
+  fast-uri@>=3.0.0 <3.1.9: ^3.1.9
 
 # E23-06 — the dependency audit runs at `moderate` in CI, so anything we
 # consciously accept has to be written down here rather than hidden behind a

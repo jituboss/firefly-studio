@@ -29,7 +29,7 @@ SQL is inlined as a `configs:` entry rather than being a second file to place.
 | Service    | Image                            | Published | Notes                                 |
 | ---------- | -------------------------------- | --------- | ------------------------------------- |
 | `app`      | `jituboss/firefly-studio:latest` | 3000      | Firefly Studio itself                 |
-| `firefly`  | `fireflyiii/core:version-6.5.5`  | 8080      | the ledger it is a client for         |
+| `firefly`  | `fireflyiii/core:version-6.7.9`  | 8080      | the ledger it is a client for         |
 | `postgres` | `postgres:16-alpine`             | —         | both applications, separate databases |
 | `redis`    | `redis:7-alpine`                 | —         | the Firefly response cache            |
 
