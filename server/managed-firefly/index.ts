@@ -154,6 +154,16 @@ async function mintToken(baseUrl: string, jar: Jar, name: string): Promise<strin
   });
 
   if (response.status !== 200 && response.status !== 201) {
+    // Firefly 6.6 drops and recreates Passport's tables on upgrade, which leaves
+    // no personal access client behind: every mint then answers 500 until an
+    // administrator creates one. Verified against 6.7.9.
+    const failure = (await response.json().catch(() => null)) as { message?: string } | null;
+    if (failure?.message?.includes('Personal access client not found')) {
+      throw new ManagedProvisioningError(
+        'The managed Firefly instance has no personal access client, so it cannot issue tokens. This happens after upgrading Firefly III to 6.6 or later. An administrator must run `php artisan passport:client --personal --provider=users` in the Firefly container.',
+        true,
+      );
+    }
     throw new ManagedProvisioningError(
       `Firefly refused to create an access token (HTTP ${response.status}).`,
     );

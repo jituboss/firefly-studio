@@ -29,7 +29,13 @@ that are being exploited in the wild.
   PHP 8.5.3, which is exposed to CVE-2026-109618 and CVE-2026-109619 (both
   unauthenticated remote code execution, CVSS 9.2). 6.7.9 ships PHP 8.5.12 and
   OpenSSL 3.5.7. This covers `docker-compose.yml` and the TrueNAS example.
-  Firefly runs its own database migrations when it starts on the new image.
+  **Read before upgrading it:** Firefly 6.6 drops and recreates its OAuth
+  tables, so every Personal Access Token is revoked and every connection has
+  to be re-established. No new token can be issued until an administrator
+  runs `php artisan passport:client --personal --provider=users` once. The
+  steps are in `deploy/truenas/README.md` under "Upgrading Firefly III from
+  6.5 to 6.6 or later". Back up the database first; the migration only goes
+  forward.
 - **The dependency audit is clean again.** It had 28 findings, 3 of them
   critical:
   `next` 15.5.28 (GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r), `@sentry/nextjs`
@@ -45,6 +51,10 @@ that are being exploited in the wild.
   explicitly in one shared policy (`lib/sentry-data-collection.ts`), so
   nothing new leaves the app when Sentry is enabled. Sentry remains off unless
   a DSN is configured.
+- **Managed onboarding names the fix when Firefly cannot issue tokens.** When
+  the managed instance has no personal access client, which is the state a
+  6.6+ upgrade leaves behind, Studio now shows the operator the command to run
+  instead of "Firefly refused to create an access token (HTTP 500)".
 - Routine dependency updates from Dependabot: React 19.3.1, TanStack Query,
   Table and Virtual, Radix, drizzle-orm, pino, pg, lucide-react,
   jspdf-autotable, and the dev toolchain (Playwright 1.64, Prettier, PostCSS,

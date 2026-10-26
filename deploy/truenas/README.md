@@ -241,6 +241,29 @@ the same work with none of the exposure:
 cd /path/to/the/stack && docker compose pull app && docker compose up -d app && docker image prune -f
 ```
 
+### Upgrading Firefly III from 6.5 to 6.6 or later
+
+`fireflyiii/core` is pinned and moves only when you change the pin. The jump
+from 6.5.x to 6.7.9 (needed for PHP 8.5.12 and the October 2026 PHP RCE fixes)
+crosses a Firefly migration that **drops and recreates every OAuth table**:
+
+- **Every Personal Access Token is revoked.** Each Firefly Studio connection
+  stops working at once. People who brought their own token create a new one
+  in Firefly (Options → Profile → OAuth) and paste it under Settings →
+  Connection. Managed accounts get a fresh token the next time the user picks
+  the managed instance again.
+- **No token can be minted until a personal access client exists.** Firefly's
+  own profile page and the managed onboarding both fail with HTTP 500 until
+  you run this once, after the new image has started:
+
+  ```bash
+  docker exec firefly_iii php artisan passport:client --personal \
+    --provider=users --name="Firefly III Personal Access Client" --no-interaction
+  ```
+
+Back up the Postgres volume first. Firefly's migrations only go forward, so the
+way back to 6.5.5 is a restore, not a downgrade.
+
 ### Which tag to follow
 
 `latest` crosses minor versions, and before 1.0 a minor bump is where breaking
