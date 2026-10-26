@@ -10,6 +10,56 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-26
+
+**Security: October 2026 Node.js, PHP and dependency advisories.** Upgrade
+recommended for everyone. If you run the bundled Firefly III, update its image
+too. The one you have runs a PHP with two critical remote-code-execution bugs
+that are being exploited in the wild.
+
+### Security
+
+- **The image now runs Node.js 24.22.1**, the October 21 security release:
+  an out-of-bounds write in the bundled Brotli decoder that can lead to remote
+  code execution (CVE-2026-111497), three High-rated TLS hostname and DNS
+  fixes, a bundled OpenSSL bump and an updated root certificate store. The base
+  image is now pinned to the patch instead of floating on `node:24-alpine`, and
+  OS packages (libssl3, libcrypto3, musl) are upgraded at build time.
+- **The bundled Firefly III moves from 6.5.5 to 6.7.9.** The 6.5.5 image ships
+  PHP 8.5.3, which is exposed to CVE-2026-109618 and CVE-2026-109619 (both
+  unauthenticated remote code execution, CVSS 9.2). 6.7.9 ships PHP 8.5.12 and
+  OpenSSL 3.5.7. This covers `docker-compose.yml` and the TrueNAS example.
+  **Read before upgrading it:** Firefly 6.6 drops and recreates its OAuth
+  tables, so every Personal Access Token is revoked and every connection has
+  to be re-established. No new token can be issued until an administrator
+  runs `php artisan passport:client --personal --provider=users` once. The
+  steps are in `deploy/truenas/README.md` under "Upgrading Firefly III from
+  6.5 to 6.6 or later". Back up the database first; the migration only goes
+  forward.
+- **The dependency audit is clean again.** It had 28 findings, 3 of them
+  critical:
+  `next` 15.5.28 (GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r), `@sentry/nextjs`
+  11 (GHSA-mchm-gjx6-7h55), `nodemailer` 10.2.1, `zod` 4.6.7, `vitest` 5.0.5,
+  and overrides for transitive `dompurify`, `sharp`, `source-map-js`, `vite`
+  and `fast-uri` where the parent has not yet released a fix.
+
+### Changed
+
+- **Sentry SDK 10 → 11.** SDK 11 removes `sendDefaultPii` and replaces it with
+  `dataCollection`, whose defaults collect headers, cookies, request bodies,
+  query strings and stack-frame locals. All of that is now switched off
+  explicitly in one shared policy (`lib/sentry-data-collection.ts`), so
+  nothing new leaves the app when Sentry is enabled. Sentry remains off unless
+  a DSN is configured.
+- **Managed onboarding names the fix when Firefly cannot issue tokens.** When
+  the managed instance has no personal access client, which is the state a
+  6.6+ upgrade leaves behind, Studio now shows the operator the command to run
+  instead of "Firefly refused to create an access token (HTTP 500)".
+- Routine dependency updates from Dependabot: React 19.3.1, TanStack Query,
+  Table and Virtual, Radix, drizzle-orm, pino, pg, lucide-react,
+  jspdf-autotable, and the dev toolchain (Playwright 1.64, Prettier, PostCSS,
+  axe-core).
+
 ## [0.13.7] - 2026-10-02
 
 **Fix: Duplicate budget rows in budget report when budgets have multi-currency transactions.**

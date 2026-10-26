@@ -29,7 +29,7 @@ SQL is inlined as a `configs:` entry rather than being a second file to place.
 | Service    | Image                            | Published | Notes                                 |
 | ---------- | -------------------------------- | --------- | ------------------------------------- |
 | `app`      | `jituboss/firefly-studio:latest` | 3000      | Firefly Studio itself                 |
-| `firefly`  | `fireflyiii/core:version-6.5.5`  | 8080      | the ledger it is a client for         |
+| `firefly`  | `fireflyiii/core:version-6.7.9`  | 8080      | the ledger it is a client for         |
 | `postgres` | `postgres:16-alpine`             | —         | both applications, separate databases |
 | `redis`    | `redis:7-alpine`                 | —         | the Firefly response cache            |
 
@@ -240,6 +240,29 @@ the same work with none of the exposure:
 ```bash
 cd /path/to/the/stack && docker compose pull app && docker compose up -d app && docker image prune -f
 ```
+
+### Upgrading Firefly III from 6.5 to 6.6 or later
+
+`fireflyiii/core` is pinned and moves only when you change the pin. The jump
+from 6.5.x to 6.7.9 (needed for PHP 8.5.12 and the October 2026 PHP RCE fixes)
+crosses a Firefly migration that **drops and recreates every OAuth table**:
+
+- **Every Personal Access Token is revoked.** Each Firefly Studio connection
+  stops working at once. People who brought their own token create a new one
+  in Firefly (Options → Profile → OAuth) and paste it under Settings →
+  Connection. Managed accounts get a fresh token the next time the user picks
+  the managed instance again.
+- **No token can be minted until a personal access client exists.** Firefly's
+  own profile page and the managed onboarding both fail with HTTP 500 until
+  you run this once, after the new image has started:
+
+  ```bash
+  docker exec firefly_iii php artisan passport:client --personal \
+    --provider=users --name="Firefly III Personal Access Client" --no-interaction
+  ```
+
+Back up the Postgres volume first. Firefly's migrations only go forward, so the
+way back to 6.5.5 is a restore, not a downgrade.
 
 ### Which tag to follow
 

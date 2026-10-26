@@ -16,6 +16,8 @@
  * A DSN is a write-only ingest key rather than a secret, but it is still only
  * present when explicitly configured.
  */
+import { SENTRY_DATA_COLLECTION } from '@/lib/sentry-data-collection';
+
 type TransitionHook = (href: string, navigationType: string) => void;
 
 let captureRouterTransitionStart: TransitionHook | undefined;
@@ -28,7 +30,7 @@ if (dsn) {
       dsn,
       environment: process.env.NODE_ENV,
       tracesSampleRate: 0.1,
-      sendDefaultPii: false,
+      dataCollection: SENTRY_DATA_COLLECTION,
     });
     captureRouterTransitionStart = Sentry.captureRouterTransitionStart as TransitionHook;
   });

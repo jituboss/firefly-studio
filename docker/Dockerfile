@@ -11,9 +11,15 @@
 # `corepack: not found` and the image never gets past its second layer. It is
 # also the wrong support line for a self-hosted finance app — an odd-numbered
 # release is EOL in months, where 24 is supported into 2028.
-FROM node:24-alpine AS base
+#
+# Pinned to the patch, not just the major. 24.22.1 is the October 2026 security
+# release (Brotli RCE CVE-2026-111497, three High TLS/DNS fixes, a bundled
+# OpenSSL bump), and a floating `24-alpine` let a cached layer quietly keep the
+# vulnerable runtime. Dependabot proposes the next patch; `apk upgrade` picks up
+# OS fixes (libssl3, libcrypto3, musl) that land between base-image refreshes.
+FROM node:24.22.1-alpine AS base
 ENV PNPM_HOME="/pnpm" PATH="/pnpm:$PATH"
-RUN corepack enable && apk add --no-cache libc6-compat
+RUN corepack enable && apk upgrade --no-cache && apk add --no-cache libc6-compat
 
 # --- dependencies ----------------------------------------------------------
 FROM base AS deps
