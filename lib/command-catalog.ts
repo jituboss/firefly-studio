@@ -133,6 +133,13 @@ export const COMMANDS: readonly CommandEntry[] = [
     keywords: 'add expense income transfer',
   },
   {
+    id: 'import-transactions',
+    label: 'Import transactions',
+    href: '/transactions/import',
+    group: 'Create',
+    keywords: 'upload xlsx excel spreadsheet csv bulk',
+  },
+  {
     id: 'new-account',
     label: 'New account',
     href: '/accounts/new',

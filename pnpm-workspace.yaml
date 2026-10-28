@@ -49,6 +49,14 @@ overrides:
 # never as a server. No esbuild dev server is started by anything in this
 # repository, in development or in production, so the vector does not exist
 # here. Revisit when drizzle-kit drops @esbuild-kit.
+#
+# GHSA-w5hq-g745-h8pq — uuid <11.1.1 misses a bounds check in v3/v5/v6 when the
+# caller passes its own output buffer. It reaches us through exceljs (the XLSX
+# import), which asks for uuid ^8 and calls `v4()` with no buffer in exactly one
+# place (conditional-formatting rule ids, on WRITE). The patch is three majors
+# ahead of what exceljs declares, so an override would break the rule above;
+# the vulnerable functions are never called. Revisit when exceljs moves.
 auditConfig:
   ignoreGhsas:
     - GHSA-67mh-4wv8-2f99
+    - GHSA-w5hq-g745-h8pq

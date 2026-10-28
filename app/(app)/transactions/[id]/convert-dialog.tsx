@@ -4,15 +4,27 @@ import * as React from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Shuffle } from 'lucide-react';
+import {
+  AccountPicker,
+  NO_ACCOUNT,
+  type PickedAccount,
+} from '@/components/transactions/account-picker';
 import { convertTransactionAction } from '@/server/firefly/transaction-actions';
 import {
   CONVERTIBLE_TYPES,
-  SIDE_LABELS,
   TYPE_LABELS,
+  describeConversion,
   planConversion,
   type SplitLike,
   type TransactionType,
 } from '@/lib/transaction-convert';
+import {
+  KIND_LABELS,
+  destinationKinds,
+  pairProblem,
+  sourceKinds,
+  type AccountKind,
+} from '@/lib/account-matrix';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import {
@@ -22,7 +34,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Combobox } from '@/components/ui/combobox';
 import { Label } from '@/components/ui/input';
 import { FormMessage } from '@/components/auth/form-shell';
 
@@ -97,6 +108,11 @@ export function ConvertDialog({ id, splits }: { id: string; splits: SplitLike[] 
  * split — omitting one deletes it — and the browser only ever held the splits
  * that were on screen when the page rendered. Anything sent from here is a
  * stale copy of data whose loss is silent.
+ *
+ * Both sides are editable. The plan pre-fills whatever can survive — the
+ * account you own, or both accounts reversed — but a conversion out of a loan
+ * payment, say, may legitimately need both sides replaced, and a dialog that
+ * only ever asked for one side could not express it.
  */
 function ConvertForm({
   id,
@@ -110,61 +126,73 @@ function ConvertForm({
   onClose: () => void;
 }) {
   const [state, action] = useActionState(convertTransactionAction, {});
-  const [accountName, setAccountName] = React.useState('');
-  const [accountId, setAccountId] = React.useState('');
-
   const first = splits[0]!;
   const plan = planConversion(first, target);
-  if (!plan || 'error' in plan) return null;
+  const initial = plan && !('error' in plan) ? plan : null;
 
-  const side = SIDE_LABELS[plan.askForKind];
+  const [source, setSource] = React.useState<PickedAccount>(initial?.source ?? NO_ACCOUNT);
+  const [destination, setDestination] = React.useState<PickedAccount>(
+    initial?.destination ?? NO_ACCOUNT,
+  );
+
+  if (!initial) return null;
+
+  const narrowedSource = sourceKinds(target, destination.kind);
+  const narrowedDestination = destinationKinds(target, source.kind);
+  const sourceOptions = narrowedSource.length > 0 ? narrowedSource : sourceKinds(target);
+  const destinationOptions =
+    narrowedDestination.length > 0 ? narrowedDestination : destinationKinds(target);
+  const problem =
+    source.kind && destination.kind ? pairProblem(target, source.kind, destination.kind) : null;
+  const ready = Boolean(source.name.trim() && destination.name.trim()) && !problem;
 
   return (
     <Dialog
       open
       onClose={onClose}
       title={`Change to ${TYPE_LABELS[target].toLowerCase()}`}
-      description={plan.summary}
+      description={describeConversion(target, source.name, destination.name)}
     >
       <form action={action} className="space-y-4">
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="to" value={target} />
-        <input type="hidden" name="accountId" value={accountId} />
-        <input type="hidden" name="accountName" value={accountName} />
+        <input type="hidden" name="sourceId" value={source.id} />
+        <input type="hidden" name="sourceName" value={source.name} />
+        <input type="hidden" name="sourceKind" value={source.kind ?? ''} />
+        <input type="hidden" name="destinationId" value={destination.id} />
+        <input type="hidden" name="destinationName" value={destination.name} />
+        <input type="hidden" name="destinationKind" value={destination.kind ?? ''} />
 
         {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
 
-        <div className="bg-muted/50 rounded-md px-3 py-2 text-sm">
-          <span className="text-muted-foreground">Stays as it is: </span>
-          <span className="font-medium">{plan.keep.name}</span>
-        </div>
+        {initial.swapped ? (
+          <p className="bg-muted/50 rounded-md px-3 py-2 text-sm">
+            The two accounts swap sides: the money now flows the other way between them.
+          </p>
+        ) : null}
 
-        <div className="space-y-1.5">
-          <Label htmlFor="convert-account">{side.label}</Label>
-          <Combobox
-            id="convert-account"
-            endpoint="accounts"
-            extraQuery={{ types: plan.askForFireflyType }}
-            value={accountName}
-            onChange={(value, option) => {
-              setAccountName(value);
-              // The id only counts when it came from the list. Typing over a
-              // chosen option and keeping its id would silently convert to the
-              // account the user just replaced.
-              setAccountId(option && option.name === value ? option.id : '');
-            }}
-            placeholder={side.label}
-            // Asset accounts must already exist; payees and payers do not,
-            // and Firefly creates them from a name the way the entry form does.
-            allowFreeText={plan.askForKind !== 'asset'}
-          />
-          <p className="text-muted-foreground text-xs">{side.hint}</p>
-        </div>
+        <SideField
+          id="convert-source"
+          label="From"
+          kinds={sourceOptions}
+          value={source}
+          onChange={setSource}
+        />
+        <SideField
+          id="convert-destination"
+          label="To"
+          kinds={destinationOptions}
+          value={destination}
+          onChange={setDestination}
+        />
+
+        {problem ? <p className="text-warning text-sm">{problem.message}</p> : null}
 
         {splits.length > 1 ? (
           <p className="text-warning text-xs">
             This transaction has {splits.length} splits. All of them change together — Firefly has
-            no way to convert one split on its own.
+            no way to convert one split on its own. A side you leave as it is keeps each
+            split&apos;s own account.
           </p>
         ) : null}
 
@@ -172,10 +200,37 @@ function ConvertForm({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <SubmitButton disabled={!accountName.trim()} target={target} />
+          <SubmitButton disabled={!ready} target={target} />
         </div>
       </form>
     </Dialog>
+  );
+}
+
+function SideField({
+  id,
+  label,
+  kinds,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  kinds: AccountKind[];
+  value: PickedAccount;
+  onChange: (value: PickedAccount) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <AccountPicker id={id} kinds={kinds} value={value} onChange={onChange} placeholder={label} />
+      <p className="text-muted-foreground text-xs">
+        {kinds.map((kind) => KIND_LABELS[kind].toLowerCase()).join(', ')}
+        {kinds.includes('expense') || kinds.includes('revenue')
+          ? ' · a new name creates the payee or payer'
+          : ''}
+      </p>
+    </div>
   );
 }
 

@@ -17,6 +17,17 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Combobox } from '@/components/ui/combobox';
 import { Select } from '@/components/ui/select';
 import { FormMessage } from '@/components/auth/form-shell';
+import { AccountPicker } from '@/components/transactions/account-picker';
+import {
+  OWN_KINDS,
+  destinationKinds,
+  sourceKinds,
+  type AccountKind,
+  type FlowType,
+} from '@/lib/account-matrix';
+
+/** The select's escape hatch to the full picker: liabilities, archived-free search. */
+const OTHER_ACCOUNT = '__other__';
 
 /**
  * E3-16 / E5-13 — record a transaction without leaving the page you are on.
@@ -180,6 +191,14 @@ export function AddSheet({
   // transaction — the friction this whole panel exists to remove.
   const [account, setAccount] = React.useState(initial?.account ?? assetAccounts[0]?.name ?? '');
   const [counterparty, setCounterparty] = React.useState(initial?.counterparty ?? '');
+  /*
+   * The select only lists asset accounts, because those are what the page
+   * already loaded and what nearly every entry uses. Spending from a loan or a
+   * debt is legitimate (lib/account-matrix.ts), so the select's last option
+   * swaps it for a picker over every account you own.
+   */
+  const [ownKind, setOwnKind] = React.useState<AccountKind | null>('asset');
+  const [ownPicker, setOwnPicker] = React.useState(false);
   const [category, setCategory] = React.useState(initial?.category ?? '');
 
   // The phone bar loads the accounts after opening, so they can arrive after
@@ -199,6 +218,15 @@ export function AddSheet({
   // holding YOUR account swaps sides, and the labels have to swap with it or
   // the form quietly asks for the wrong thing.
   const yourAccountIsSource = type !== 'deposit';
+  const flow = type as FlowType;
+  const ownKinds = OWN_KINDS.filter((kind) =>
+    (yourAccountIsSource ? sourceKinds(flow) : destinationKinds(flow)).includes(kind),
+  );
+  // The other side narrows to what your account can pair with under this type:
+  // a payee for a spend, a payer for income, another of your accounts for a move.
+  const counterpartyKinds = yourAccountIsSource
+    ? destinationKinds(flow, ownKind)
+    : sourceKinds(flow, ownKind);
 
   React.useEffect(() => {
     if (!state.ok) return;
@@ -319,43 +347,58 @@ export function AddSheet({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="qe-counterparty">{shape.destination}</Label>
-          <Combobox
+          <Label htmlFor="qe-counterparty">
+            {yourAccountIsSource ? shape.destination : shape.source}
+          </Label>
+          <AccountPicker
             id="qe-counterparty"
-            endpoint="accounts"
-            value={counterparty}
-            onChange={setCounterparty}
-            placeholder={shape.destination}
-            allowFreeText
+            kinds={counterpartyKinds.length > 0 ? counterpartyKinds : destinationKinds(flow)}
+            value={{ name: counterparty, id: '', kind: null }}
+            onChange={(next) => setCounterparty(next.name)}
+            placeholder={yourAccountIsSource ? shape.destination : shape.source}
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="qe-account">{shape.source}</Label>
+            <Label htmlFor="qe-account">
+              {yourAccountIsSource ? shape.source : shape.destination}
+            </Label>
             {/* A plain select when the accounts are already known — a lookup
                 for a list of four is a spinner in place of an answer. Falls
                 back to the picker if this connection has none loaded. */}
-            {assetAccounts.length > 0 ? (
+            {assetAccounts.length > 0 && !ownPicker ? (
               <Select
                 id="qe-account"
                 value={account}
-                onChange={(event) => setAccount(event.target.value)}
+                onChange={(event) => {
+                  if (event.target.value === OTHER_ACCOUNT) {
+                    setOwnPicker(true);
+                    setAccount('');
+                    setOwnKind(null);
+                    return;
+                  }
+                  setAccount(event.target.value);
+                  setOwnKind('asset');
+                }}
               >
                 {assetAccounts.map((entry) => (
                   <option key={entry.id} value={entry.name}>
                     {entry.name}
                   </option>
                 ))}
+                <option value={OTHER_ACCOUNT}>Loan, debt or other…</option>
               </Select>
             ) : (
-              <Combobox
+              <AccountPicker
                 id="qe-account"
-                endpoint="accounts"
-                extraQuery={{ types: 'Asset account' }}
-                value={account}
-                onChange={setAccount}
-                placeholder={shape.source}
+                kinds={ownKinds}
+                value={{ name: account, id: '', kind: ownKind }}
+                onChange={(next) => {
+                  setAccount(next.name);
+                  setOwnKind(next.kind);
+                }}
+                placeholder={yourAccountIsSource ? shape.source : shape.destination}
               />
             )}
           </div>

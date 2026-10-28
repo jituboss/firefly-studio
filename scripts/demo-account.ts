@@ -4,7 +4,13 @@ import { eq } from 'drizzle-orm';
 import { db, pool } from '@/server/db';
 import { users, userPreferences } from '@/server/db/schema';
 import { hashPassword } from '@/server/auth/password';
-import { createConnection, deleteConnection, listConnections } from '@/server/connections';
+import {
+  createConnection,
+  deleteConnection,
+  getConnectionToken,
+  listConnections,
+  rotateConnectionToken,
+} from '@/server/connections';
 import { probeInstance, probePrimaryCurrency, probeUser } from '@/server/firefly/probe';
 
 /**
@@ -114,7 +120,24 @@ async function main() {
   }
 
   if (attached && attached.baseUrl === FIREFLY_URL) {
-    console.log(`Connection already attached: ${attached.label} (${attached.baseUrl})`);
+    /*
+     * Same URL is not the same as working. Firefly 6.6 drops and recreates
+     * Passport's tables on upgrade, which kills every token issued before it,
+     * and this branch used to report "already attached" over a connection
+     * that could no longer read a thing — a demo that signs in and then fails
+     * on every page. A different token replaces the stored one in place, so
+     * the connection keeps its id and everything hanging off it.
+     */
+    const stored = await getConnectionToken(userId, attached.id);
+    if (stored?.token === FIREFLY_PAT) {
+      console.log(`Connection already attached: ${attached.label} (${attached.baseUrl})`);
+    } else {
+      const remoteUser = await probeUser(PROBE_URL, FIREFLY_PAT);
+      await rotateConnectionToken(userId, attached.id, FIREFLY_PAT, remoteUser);
+      console.log(
+        `Replaced the token on ${attached.label} (${attached.baseUrl}) — now signed in to Firefly as ${remoteUser.email}.`,
+      );
+    }
   } else {
     // Probe first, exactly as onboarding does — a demo account wired to an
     // instance that does not answer is a worse first impression than no demo.

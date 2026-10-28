@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Plus, Trash2 } from 'lucide-react';
 import {
   createTransactionAction,
   updateTransactionAction,
@@ -15,9 +15,19 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
+import { AccountPicker } from '@/components/transactions/account-picker';
 import { FormMessage } from '@/components/auth/form-shell';
 import { Amount } from '@/components/ui/amount';
 import { add } from '@/lib/money';
+import {
+  FLOW_LABELS,
+  KIND_LABELS,
+  destinationKinds,
+  kindFromFirefly,
+  pairProblem,
+  sourceKinds,
+  type AccountKind,
+} from '@/lib/account-matrix';
 import { cn } from '@/lib/utils';
 
 type TxType = 'withdrawal' | 'deposit' | 'transfer';
@@ -26,7 +36,11 @@ const EMPTY: SplitInput = {
   description: '',
   amount: '',
   source_name: '',
+  source_id: '',
+  source_kind: '',
   destination_name: '',
+  destination_id: '',
+  destination_kind: '',
   category_name: '',
   budget_name: '',
   bill_name: '',
@@ -38,15 +52,32 @@ const EMPTY: SplitInput = {
 };
 
 /**
- * Firefly types each side of a transaction by its kind: a withdrawal leaves an
- * asset account for an expense account, a deposit is the reverse, a transfer
- * moves between two asset accounts. The autocomplete is filtered accordingly.
+ * Which kinds each side may hold comes from Firefly's own pair table
+ * (`lib/account-matrix.ts`), narrowed by whatever the other side already
+ * holds. This used to be a three-row map — asset→expense, revenue→asset,
+ * asset→asset — which left every loan, debt, mortgage and the cash account out
+ * of the pickers, so a withdrawal paid from a loan could not even be edited.
+ *
+ * When the other side holds something that cannot pair with this type at all,
+ * the narrowing would leave nothing to pick; the side falls back to everything
+ * the type allows and the form explains the mismatch instead.
  */
-const ACCOUNT_TYPES: Record<TxType, { source: string; destination: string }> = {
-  withdrawal: { source: 'Asset account', destination: 'Expense account' },
-  deposit: { source: 'Revenue account', destination: 'Asset account' },
-  transfer: { source: 'Asset account', destination: 'Asset account' },
-};
+function sideKinds(type: TxType, split: SplitInput) {
+  const sourceKind = kindFromFirefly(split.source_kind);
+  const destinationKind = kindFromFirefly(split.destination_kind);
+  const narrowedSource = sourceKinds(type, destinationKind);
+  const narrowedDestination = destinationKinds(type, sourceKind);
+  return {
+    sourceKind,
+    destinationKind,
+    source: narrowedSource.length > 0 ? narrowedSource : sourceKinds(type),
+    destination: narrowedDestination.length > 0 ? narrowedDestination : destinationKinds(type),
+  };
+}
+
+function kindsHint(kinds: AccountKind[]): string {
+  return kinds.map((kind) => KIND_LABELS[kind].toLowerCase()).join(', ');
+}
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -91,7 +122,6 @@ export function TransactionForm({
   );
 
   const total = add(...splits.map((split) => split.amount));
-  const labels = ACCOUNT_TYPES[type];
 
   function patch(index: number, changes: Partial<SplitInput>) {
     setSplits((current) =>
@@ -107,7 +137,11 @@ export function TransactionForm({
       {
         ...EMPTY,
         source_name: last?.source_name ?? '',
+        source_id: last?.source_id ?? '',
+        source_kind: last?.source_kind ?? '',
         destination_name: last?.destination_name ?? '',
+        destination_id: last?.destination_id ?? '',
+        destination_kind: last?.destination_kind ?? '',
       },
     ]);
   }
@@ -132,22 +166,28 @@ export function TransactionForm({
             role="tab"
             aria-selected={type === option}
             onClick={() => setType(option)}
-            disabled={editing}
             className={cn(
               'flex-1 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors',
               type === option
                 ? 'bg-background shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
-              editing && 'cursor-not-allowed opacity-60',
             )}
           >
             {option}
           </button>
         ))}
       </div>
-      {editing ? (
+      {/*
+        Changing the type while editing is a conversion, and Firefly only
+        performs one when both accounts fit the new type — otherwise it answers
+        200 and changes nothing. The pickers below re-narrow to the new type and
+        the action verifies the result, so this is safe to offer here rather
+        than only behind the detail page's "Change type" dialog.
+      */}
+      {editing && type !== initialType ? (
         <p className="text-muted-foreground -mt-3 text-xs">
-          Firefly III does not allow changing a transaction&apos;s type after creation.
+          Changing from {FLOW_LABELS[initialType].toLowerCase()} to{' '}
+          {FLOW_LABELS[type].toLowerCase()}. Both accounts must fit the new type.
         </p>
       ) : null}
 
@@ -234,40 +274,14 @@ export function TransactionForm({
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor={`source-${index}`}>From ({labels.source})</Label>
-                <Combobox
-                  id={`source-${index}`}
-                  endpoint="accounts"
-                  extraQuery={{ types: labels.source }}
-                  value={split.source_name}
-                  onChange={(value) => patch(index, { source_name: value })}
-                  placeholder="Search accounts…"
-                />
-                <input
-                  type="hidden"
-                  name={`splits[${index}][source_name]`}
-                  value={split.source_name}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`dest-${index}`}>To ({labels.destination})</Label>
-                <Combobox
-                  id={`dest-${index}`}
-                  endpoint="accounts"
-                  extraQuery={{ types: labels.destination }}
-                  value={split.destination_name}
-                  onChange={(value) => patch(index, { destination_name: value })}
-                  placeholder="Search or type a new name…"
-                />
-                <input
-                  type="hidden"
-                  name={`splits[${index}][destination_name]`}
-                  value={split.destination_name}
-                />
-              </div>
-            </div>
+            <SplitAccounts
+              index={index}
+              type={type}
+              split={split}
+              editing={editing}
+              onPatch={(changes) => patch(index, changes)}
+              onSwitchType={setType}
+            />
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
@@ -401,5 +415,138 @@ export function TransactionForm({
 
       <Submit label={editing ? 'Save changes' : 'Create transaction'} />
     </form>
+  );
+}
+
+/**
+ * The two account pickers of one split, plus the explanation when the pair
+ * does not fit the chosen type — with a one-click way out when the pair IS
+ * valid, just for another type, or would be with the sides swapped.
+ */
+function SplitAccounts({
+  index,
+  type,
+  split,
+  editing,
+  onPatch,
+  onSwitchType,
+}: {
+  index: number;
+  type: TxType;
+  split: SplitInput;
+  editing: boolean;
+  onPatch: (changes: Partial<SplitInput>) => void;
+  onSwitchType: (type: TxType) => void;
+}) {
+  const kinds = sideKinds(type, split);
+  const problem =
+    kinds.sourceKind && kinds.destinationKind
+      ? pairProblem(type, kinds.sourceKind, kinds.destinationKind)
+      : null;
+  const swapFixes =
+    kinds.sourceKind && kinds.destinationKind
+      ? pairProblem(type, kinds.destinationKind, kinds.sourceKind) === null
+      : false;
+
+  function swap() {
+    onPatch({
+      source_name: split.destination_name,
+      source_id: split.destination_id,
+      source_kind: split.destination_kind,
+      destination_name: split.source_name,
+      destination_id: split.source_id,
+      destination_kind: split.source_kind,
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={`source-${index}`}>From</Label>
+          <AccountPicker
+            id={`source-${index}`}
+            kinds={kinds.source}
+            value={{
+              name: split.source_name,
+              id: split.source_id,
+              kind: kinds.sourceKind,
+            }}
+            onChange={(next) =>
+              onPatch({ source_name: next.name, source_id: next.id, source_kind: next.kind ?? '' })
+            }
+          />
+          <p className="text-muted-foreground text-xs">{kindsHint(kinds.source)}</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`dest-${index}`}>To</Label>
+          <AccountPicker
+            id={`dest-${index}`}
+            kinds={kinds.destination}
+            value={{
+              name: split.destination_name,
+              id: split.destination_id,
+              kind: kinds.destinationKind,
+            }}
+            onChange={(next) =>
+              onPatch({
+                destination_name: next.name,
+                destination_id: next.id,
+                destination_kind: next.kind ?? '',
+              })
+            }
+          />
+          <p className="text-muted-foreground text-xs">{kindsHint(kinds.destination)}</p>
+        </div>
+      </div>
+
+      {/* The form posts ids when an account was picked from the list. */}
+      {editing && split.transaction_journal_id ? (
+        <input
+          type="hidden"
+          name={`splits[${index}][transaction_journal_id]`}
+          value={split.transaction_journal_id}
+        />
+      ) : null}
+      <input type="hidden" name={`splits[${index}][source_name]`} value={split.source_name} />
+      <input type="hidden" name={`splits[${index}][source_id]`} value={split.source_id} />
+      <input type="hidden" name={`splits[${index}][source_kind]`} value={split.source_kind} />
+      <input
+        type="hidden"
+        name={`splits[${index}][destination_name]`}
+        value={split.destination_name}
+      />
+      <input type="hidden" name={`splits[${index}][destination_id]`} value={split.destination_id} />
+      <input
+        type="hidden"
+        name={`splits[${index}][destination_kind]`}
+        value={split.destination_kind}
+      />
+
+      {problem ? (
+        <div
+          role="status"
+          className="border-warning/40 bg-warning/10 flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"
+        >
+          <span className="min-w-0 flex-1">{problem.message}</span>
+          {problem.suggest ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => onSwitchType(problem.suggest as TxType)}
+            >
+              Make it a {FLOW_LABELS[problem.suggest].toLowerCase()}
+            </Button>
+          ) : null}
+          {swapFixes ? (
+            <Button type="button" size="sm" variant="outline" onClick={swap}>
+              <ArrowLeftRight className="size-4" aria-hidden="true" />
+              Swap sides
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

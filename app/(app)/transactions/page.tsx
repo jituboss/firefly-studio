@@ -29,7 +29,7 @@ import { listSavedViews } from '@/server/saved-views';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { FileUp, Plus } from 'lucide-react';
 import { accountFlowTotals } from '@/lib/account-flow';
 import type { Paged, Transaction, TransactionSplit } from '@/server/firefly/types';
 
@@ -432,6 +432,12 @@ export default async function TransactionsPage({
                     timezone: session.user.timezone,
                   }}
                 />
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/transactions/import">
+                    <FileUp className="size-4" aria-hidden="true" />
+                    <span className="max-sm:sr-only">Import</span>
+                  </Link>
+                </Button>
               </>
             }
           />

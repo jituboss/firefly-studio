@@ -606,6 +606,40 @@ cost someone else a day.
   come from the server. With it off, nothing filters the static items and nothing re-selects
   the top row: typing looked broken. `lib/command-catalog.ts` does both now.
 
+## 7f. Lessons from 0.15.0 — import, account pairs, first-run setup
+
+- **Firefly allows 13 source/destination pairs, and the app knew 3.** The
+  table is `config('firefly.source_dests')`, not in the OpenAPI spec;
+  `lib/account-matrix.ts` transcribes it from the 6.7.9 container. Two facts
+  in it defeat intuition: asset ↔ liability is never a transfer (paying a loan
+  is a withdrawal, borrowing is a deposit), and every allowed pair belongs to
+  exactly one type, so the type is a function of the two accounts. Any new
+  account picker takes its kinds from that module, never a hand-written list.
+- **`/autocomplete/accounts?types=` splits on a bare comma** and validates each
+  part, so `"Asset account, Loan"` is refused for the space.
+- **A cache key that omits a filter serves the wrong list.** The combobox keyed
+  on endpoint + query only, so switching type kept showing the previous type's
+  accounts. It looked like missing accounts.
+- **Firefly 6.6+ recreates Passport's tables on upgrade.** Every token issued
+  before it, including `DEV_FIREFLY_PAT`, then answers 401. The token's `aud`
+  was the old integer client id. A new one can be issued inside the container
+  through Laravel (`User::createToken`) without the user's password.
+- **A server-external package is resolved by Node at run time, and the
+  standalone trace can miss what Node picks.** exceljs's dependency
+  `generator-function` exports a `module-sync` entry that Node 20.19+ prefers
+  and Next's file trace does not copy, so every import route 500'd in the image
+  while working in tests. exceljs is bundled instead (not in
+  `serverExternalPackages`). Probe a new route in the built container, signed
+  out: a 401 proves the module loaded, a 500 does not.
+- **Firefly creates categories and tags from a bare name but silently drops an
+  unknown budget name**, and matches all three case-sensitively. The import
+  resolves names to the ledger's own spelling and creates budgets explicitly.
+- **Available budgets are read-only on 6.7.9** (GET only). The setup's income
+  figure therefore only drives budget suggestions.
+- **A fresh Studio Cloud ledger is registered under the Studio user's email.**
+  Signing up with an address that already exists on the managed Firefly fails
+  ("may already be registered"). That includes the dev ledger's `a@a.com`.
+
 ## 8. Testing approach — what exists and what deliberately doesn't
 
 - **722 Vitest unit tests** in 46 files, over pure `lib/` modules plus four server modules. Run `pnpm test`, or
@@ -840,5 +874,8 @@ Use this map before assuming a feature still needs to be built.
 | PWA (manifest, worker, offline page)                                                         | `app/manifest.ts`, `public/sw.js`, `public/offline.html`, `components/service-worker.tsx`                                                                                                                          |
 | Loading skeletons / prefetch boundaries                                                      | `components/page-skeleton.tsx`, `app/(app)/*/loading.tsx`                                                                                                                                                          |
 | App preferences                                                                              | `app/(settings)/settings/preferences/`, `server/preferences.ts`, `lib/preferences.ts`                                                                                                                              |
+| Transaction import (XLSX/CSV, preview, dedupe, undo)                                         | `app/(app)/transactions/import/`, `lib/import/` (`plan.ts`, `infer.ts`), `server/import/`, `app/api/import/`                                                                                                       |
+| Account pairs + pickers + convert                                                            | `lib/account-matrix.ts`, `components/transactions/account-picker.tsx`, `lib/transaction-convert.ts`                                                                                                                |
+| First-run ledger setup                                                                       | `app/(onboarding)/setup/`, `lib/setup.ts`, `server/setup/`                                                                                                                                                         |
 | Gates                                                                                        | `scripts/check-a11y.mjs`, `scripts/check-bundle.mjs`, `scripts/check-responsive.mjs`, `.gitleaks.toml`                                                                                                             |
 | App shell / navigation / command palette                                                     | `components/app-shell.tsx`, `components/command-palette.tsx`                                                                                                                                                       |

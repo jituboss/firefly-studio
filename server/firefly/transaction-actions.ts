@@ -11,6 +11,7 @@ import {
   planConversion,
   type TransactionType,
 } from '@/lib/transaction-convert';
+import { kindFromFirefly, pairProblem, type FlowType } from '@/lib/account-matrix';
 
 /** E5-06 … E5-10 — the transaction write path. */
 
@@ -20,10 +21,18 @@ export interface TransactionFormState {
 }
 
 export interface SplitInput {
+  /** Only on an edit: which existing split this is. Omitting it recreates the split. */
+  transaction_journal_id?: string;
   description: string;
   amount: string;
   source_name: string;
+  /** Set when the account was picked from the list; the name alone is ambiguous. */
+  source_id: string;
+  /** The picked account's kind (`lib/account-matrix.ts`), for the pair check. */
+  source_kind: string;
   destination_name: string;
+  destination_id: string;
+  destination_kind: string;
   category_name: string;
   budget_name: string;
   bill_name: string;
@@ -67,14 +76,25 @@ function readSplits(formData: FormData, type: string, date: string, currency: st
         .map((tag) => tag.trim())
         .filter(Boolean);
 
+      /*
+       * By id when the account was picked from the list, by name otherwise.
+       * Names are unique per account type only, so "Visa" can be an asset and
+       * an expense at once, and a name lets Firefly choose between them.
+       */
+      const sourceId = field('source_id');
+      const destinationId = field('destination_id');
+
       return compact({
+        transaction_journal_id: field('transaction_journal_id'),
         type,
         date,
         description: field('description'),
         amount: field('amount'),
         currency_code: currency,
-        source_name: field('source_name'),
-        destination_name: field('destination_name'),
+        ...(sourceId ? { source_id: sourceId } : { source_name: field('source_name') }),
+        ...(destinationId
+          ? { destination_id: destinationId }
+          : { destination_name: field('destination_name') }),
         category_name: field('category_name'),
         budget_name: field('budget_name'),
         bill_name: field('bill_name'),
@@ -87,6 +107,27 @@ function readSplits(formData: FormData, type: string, date: string, currency: st
       });
     })
     .filter((split) => split.description && split.amount);
+}
+
+/**
+ * Refuse a pair Firefly would refuse, before asking it. Firefly's own 422 for
+ * this names neither account nor the type that WOULD fit; this does both. Only
+ * checked when the form says what both kinds are — a newly typed payee has no
+ * kind yet, and Firefly creates it as whatever the type needs.
+ */
+function pairError(formData: FormData, type: string): string | null {
+  for (const key of formData.keys()) {
+    const match = /^splits\[(\d+)]\[source_kind]$/.exec(key);
+    if (!match) continue;
+    const source = kindFromFirefly(String(formData.get(key) ?? ''));
+    const destination = kindFromFirefly(
+      String(formData.get(`splits[${match[1]}][destination_kind]`) ?? ''),
+    );
+    if (!source || !destination) continue;
+    const problem = pairProblem(type as FlowType, source, destination);
+    if (problem) return problem.message;
+  }
+  return null;
 }
 
 function buildPayload(formData: FormData) {
@@ -119,6 +160,8 @@ export async function createTransactionAction(
   if (splitCount === 0) {
     return { error: 'Add at least one split with a description and an amount.' };
   }
+  const pair = pairError(formData, String(formData.get('type') ?? 'withdrawal'));
+  if (pair) return { error: pair };
 
   let created: { data: Transaction };
   try {
@@ -144,12 +187,26 @@ export async function updateTransactionAction(
   if (splitCount === 0) {
     return { error: 'Add at least one split with a description and an amount.' };
   }
+  const type = String(formData.get('type') ?? 'withdrawal');
+  const pair = pairError(formData, type);
+  if (pair) return { error: pair };
 
+  let updated: Transaction;
   try {
-    await fireflyWrite(`/v1/transactions/${id}`, 'PUT', payload);
+    updated = (await fireflyWrite<{ data: Transaction }>(`/v1/transactions/${id}`, 'PUT', payload))
+      .data;
   } catch (error) {
     if (error instanceof FireflyRequestError) return { error: error.message };
     throw error;
+  }
+
+  // The form can change the type now, and Firefly answers 200 to a type change
+  // it did not make (lib/transaction-convert.ts). Only believe the response.
+  if (!conversionApplied(updated.attributes.transactions, type as TransactionType)) {
+    return {
+      error:
+        'Firefly saved the transaction but kept its old type. Both accounts have to fit the new type — check the From and To kinds.',
+    };
   }
 
   revalidatePath('/transactions');
@@ -177,12 +234,24 @@ export async function convertTransactionAction(
 ): Promise<TransactionFormState> {
   const id = String(formData.get('id') ?? '');
   const to = String(formData.get('to') ?? '') as TransactionType;
-  const accountId = String(formData.get('accountId') ?? '').trim();
-  const accountName = String(formData.get('accountName') ?? '').trim();
+  const read = (name: string) => String(formData.get(name) ?? '').trim();
+  const source = { id: read('sourceId'), name: read('sourceName'), kind: read('sourceKind') };
+  const destination = {
+    id: read('destinationId'),
+    name: read('destinationName'),
+    kind: read('destinationKind'),
+  };
 
   if (!id) return { error: 'Missing transaction id.' };
-  if (!accountId && !accountName) {
-    return { error: 'Choose the account on the other side of this transaction.' };
+  if ((!source.id && !source.name) || (!destination.id && !destination.name)) {
+    return { error: 'Choose an account on both sides of this transaction.' };
+  }
+
+  const sourceKind = kindFromFirefly(source.kind);
+  const destinationKind = kindFromFirefly(destination.kind);
+  if (sourceKind && destinationKind) {
+    const problem = pairProblem(to, sourceKind, destinationKind);
+    if (problem) return { error: problem.message };
   }
 
   let group: Transaction;
@@ -209,9 +278,11 @@ export async function convertTransactionAction(
 
   const payload = buildConversionPayload(
     splits,
-    plan,
     to,
-    { ...(accountId ? { id: accountId } : {}), name: accountName },
+    {
+      source: { ...(source.id ? { id: source.id } : {}), name: source.name },
+      destination: { ...(destination.id ? { id: destination.id } : {}), name: destination.name },
+    },
     group.attributes.group_title ?? null,
   );
 
@@ -228,7 +299,7 @@ export async function convertTransactionAction(
   if (!conversionApplied(updated.attributes.transactions, to)) {
     return {
       error:
-        'Firefly accepted the change but the transaction is unchanged. That usually means the account on the other side is not the kind this type needs — an expense account for a spend, a revenue account for income, one of your own accounts for a transfer.',
+        'Firefly accepted the change but the transaction is unchanged. That usually means one of the accounts is not a kind this type allows — a transfer, for one, only moves between two of your own accounts of the same family (asset to asset, or liability to liability).',
     };
   }
 
@@ -296,10 +367,15 @@ export async function duplicateTransactionAction(formData: FormData): Promise<vo
 /** Shape a fetched transaction into the form's split inputs. */
 export async function splitsToInputs(splits: TransactionSplit[]): Promise<SplitInput[]> {
   return splits.map((split) => ({
+    transaction_journal_id: split.transaction_journal_id,
     description: split.description,
     amount: split.amount,
     source_name: split.source_name ?? '',
+    source_id: split.source_id ?? '',
+    source_kind: kindFromFirefly(split.source_type) ?? '',
     destination_name: split.destination_name ?? '',
+    destination_id: split.destination_id ?? '',
+    destination_kind: kindFromFirefly(split.destination_type) ?? '',
     category_name: split.category_name ?? '',
     budget_name: split.budget_name ?? '',
     bill_name: split.bill_name ?? '',

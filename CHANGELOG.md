@@ -10,6 +10,80 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-28
+
+**Import your transactions from a spreadsheet, set up a new ledger in two
+minutes, and account pickers that finally show every account Firefly allows.**
+
+### Added
+
+- **Import transactions from Excel or CSV.** Transactions → Import offers a
+  one-sheet template: date, description, amount, source, destination, and
+  optionally category, budget, tags and notes. It comes with three sample rows
+  (an income, a spend and a transfer) written with your own account names. The
+  import skips the samples, so leaving them in is harmless. You never say what
+  type a row is: it is worked out from the two accounts.
+- **The import works out new names for you.** A name your ledger has never seen
+  is read the way a person would read it. If money goes both in and out of it,
+  it is one of your accounts; so is the account a bank export is about, and
+  anything named like one ("Savings", "Visa ••1234", an IBAN). "Car loan" is a
+  loan, "Salary" or "Refund" rows mean money from outside, and a shop that also
+  refunds you is kept as both a payee and a payer, the way Firefly records it.
+  Every guess shows its reason in the preview, where you can change it.
+- **A preview before anything is written.** Rows are sorted into ready, needs
+  attention, duplicates and skipped, with one-click fixes: swap the two sides,
+  skip a row, point a new name at an account you already have, or import a
+  flagged duplicate anyway. A panel lists what the import will set up: new
+  accounts, and which categories, budgets and tags are new and which already
+  exist. Existing ones are matched whatever their capitals, so "groceries"
+  uses your "Groceries".
+- **Duplicates are caught against your ledger.** A row matching a transaction
+  already there (same date, amount, source and destination) is flagged, whether
+  it came from an earlier import or was typed in by hand, so uploading the same
+  file twice is safe. Identical rows are counted rather than merged: two coffees
+  at the same price on the same day are both kept.
+- **Import summary and undo.** After an import: totals by type, the change on
+  each of your accounts, what was created, and the rows that failed, as a
+  workbook you can fix and upload again. **Undo** deletes the imported
+  transactions and, if you like, everything the import created that nothing
+  else uses. A large import runs in chunks with a progress bar, and resumes if
+  the tab is closed.
+- **First-run setup for a new ledger.** A new Studio Cloud ledger now goes
+  through three short screens before the dashboard: your currency (suggested
+  from your timezone), where your money lives (everyday account, savings, cash,
+  plus an optional credit card or loan, each with today's balance), and a plan
+  for the month (your income split into suggested budgets that renew monthly,
+  with a bar showing what is left to save). Matching categories are created
+  too. Any ledger with no accounts yet shows a "Set up your ledger" card on the
+  dashboard.
+
+### Changed
+
+- **Account pickers list every account the transaction can use.** Withdrawals
+  can now come from a loan, debt or mortgage, deposits can go into one, and the
+  cash account appears where Firefly allows it. Once one side is picked, the
+  other narrows to what it can pair with.
+- **The form explains a pair that does not fit.** For example, "Firefly records
+  asset → loan as a withdrawal" comes with a button to switch the type, or to
+  swap the sides when they are the wrong way round. A transaction's type can
+  now be changed while editing it.
+- **Change type works for every conversion.** Both sides can be edited. The
+  dialog keeps the account you own, or swaps the two accounts when that is what
+  the new type needs, such as a loan payment turned into money borrowed.
+- **Quick add** filters the "Paid to" and "Received from" boxes by type, and
+  can record spending from a loan or debt.
+
+### Fixed
+
+- The account picker kept showing the previous type's accounts after switching
+  between withdrawal, deposit and transfer.
+- Accounts are now saved by id. An asset and an expense account with the same
+  name could be confused when only the name was sent.
+- Quick add labelled the two fields the wrong way round for income.
+- `pnpm demo:account` now replaces a dead access token instead of reporting the
+  connection as fine. Upgrading Firefly III to 6.6 or later invalidates every
+  token issued before the upgrade.
+
 ## [0.14.1] - 2026-10-26
 
 **Maintenance: PostCSS 8.5.31.** No changes to the app itself.

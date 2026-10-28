@@ -2,6 +2,7 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { setupStatus } from '@/server/setup/state';
 import { eq } from 'drizzle-orm';
 import { db } from '@/server/db';
 import { userPreferences, users } from '@/server/db/schema';
@@ -386,7 +387,12 @@ export async function completeOnboardingAction(formData: FormData): Promise<void
     })
     .where(eq(users.id, session.user.id));
 
-  redirect('/dashboard');
+  // A Studio Cloud ledger is brand new and empty — no accounts, no budgets,
+  // nothing a dashboard could show. Landing there would be a page of zeroes;
+  // the setup turns it into a working ledger in three screens first. A ledger
+  // the user brought along already has their data and goes straight in.
+  const setup = await setupStatus();
+  redirect(setup.needed && setup.managed ? '/setup' : '/dashboard');
 }
 
 /** E2-21 — where should the wizard resume? */

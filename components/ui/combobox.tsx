@@ -8,6 +8,8 @@ export interface ComboOption {
   id: string;
   name: string;
   hint?: string;
+  /** Firefly's own type title for an account ("Asset account", "Loan"). */
+  type?: string;
 }
 
 /**
@@ -46,6 +48,10 @@ export function Combobox({
   const [active, setActive] = React.useState(0);
   const boxRef = React.useRef<HTMLDivElement>(null);
 
+  // Callers pass the filter inline, so its identity changes every render. The
+  // effect keys on its content instead, or every render restarts the lookup.
+  const filter = JSON.stringify(extraQuery ?? {});
+
   // Per-endpoint memo, so reopening a picker does not refetch.
   const cacheRef = React.useRef(new Map<string, ComboOption[]>());
 
@@ -60,7 +66,13 @@ export function Combobox({
   React.useEffect(() => {
     if (!open) return;
 
-    const key = `${endpoint}:${value}`;
+    /*
+     * The filter is part of the key. It was not, so switching a form from
+     * withdrawal to deposit kept serving the withdrawal's accounts for every
+     * query already typed — the picker looked like it could not find accounts
+     * that were there all along.
+     */
+    const key = `${endpoint}:${filter}:${value}`;
     const cached = cacheRef.current.get(key);
     if (cached) {
       setOptions(cached);
@@ -71,7 +83,11 @@ export function Combobox({
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams({ query: value, limit: '15', ...extraQuery });
+        const params = new URLSearchParams({
+          query: value,
+          limit: '15',
+          ...(JSON.parse(filter) as Record<string, string>),
+        });
         const response = await fetch(`/api/ff/v1/autocomplete/${endpoint}?${params}`, {
           signal: controller.signal,
         });
@@ -80,6 +96,7 @@ export function Combobox({
         const mapped: ComboOption[] = raw.map((row) => ({
           id: String(row.id ?? row.name ?? ''),
           name: String(row.name ?? row.title ?? row.value ?? ''),
+          type: typeof row.type === 'string' ? row.type : undefined,
           hint:
             typeof row.type === 'string'
               ? row.type
@@ -101,7 +118,7 @@ export function Combobox({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [open, value, endpoint, extraQuery]);
+  }, [open, value, endpoint, filter]);
 
   function choose(option: ComboOption) {
     onChange(option.name, option);

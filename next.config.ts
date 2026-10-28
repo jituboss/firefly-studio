@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: 'standalone',
   // `pg` and `pino` must stay on the Node runtime, never bundled for the edge.
+  //
+  // exceljs is deliberately NOT listed. External, it is resolved by Node at run
+  // time, and one of its transitive dependencies (generator-function) exports a
+  // `module-sync` entry that Node 20.19+ prefers but the standalone file trace
+  // does not follow — so the image shipped without the file Node asked for and
+  // every import route 500'd. Bundled, webpack resolves it at build time.
   serverExternalPackages: ['pg', 'pino', 'pino-pretty'],
   typedRoutes: true,
   async headers() {

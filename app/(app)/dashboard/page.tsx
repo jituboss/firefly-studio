@@ -29,7 +29,10 @@ import { buildRateTable, convertSpent } from '@/lib/budget-currency';
 import { convertSummaryEntries } from '@/lib/currency-convert';
 import { buildBalanceTrend } from '@/lib/balance-trend';
 import { toDecimal } from '@/lib/money';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { BalanceTrend } from '@/components/charts/balance-trend';
@@ -407,7 +410,37 @@ export default async function DashboardPage({
       {readFailure() ? (
         <ErrorState kind={classifyError(readFailure())} />
       ) : (
-        <DashboardGrid initialLayout={layout} widgets={widgets} />
+        <>
+          {/*
+            An empty ledger — a fresh Studio Cloud account, or anyone who
+            skipped the setup — has nothing for the widgets below to show. Point
+            at the two-minute setup instead of a grid of zeroes. Gone the moment
+            the ledger has an account of its own.
+          */}
+          {accounts.data.length === 0 ? (
+            <Card className="border-primary/40 bg-primary/5">
+              <CardContent className="flex flex-wrap items-center gap-4 p-5">
+                <Sparkles className="text-primary size-6 shrink-0" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">Set up your ledger in two minutes</p>
+                  <p className="text-muted-foreground text-sm">
+                    Your currency, where your money lives, and a plan for the month — then this page
+                    fills in.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/transactions/import">Import transactions</Link>
+                  </Button>
+                  <Button asChild size="sm">
+                    <Link href="/setup">Start setup</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+          <DashboardGrid initialLayout={layout} widgets={widgets} />
+        </>
       )}
     </div>
   );

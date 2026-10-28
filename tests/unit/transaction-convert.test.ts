@@ -7,6 +7,7 @@ import {
   type ConversionPlan,
   type SplitLike,
 } from '@/lib/transaction-convert';
+import { isAllowed } from '@/lib/account-matrix';
 
 const withdrawal: SplitLike = {
   transaction_journal_id: '10',
@@ -15,6 +16,8 @@ const withdrawal: SplitLike = {
   source_name: 'Everyday Current',
   destination_id: '115',
   destination_name: 'Rewe',
+  source_type: 'Asset account',
+  destination_type: 'Expense account',
 };
 
 const deposit: SplitLike = {
@@ -24,6 +27,8 @@ const deposit: SplitLike = {
   source_name: 'Employer',
   destination_id: '104',
   destination_name: 'Everyday Current',
+  source_type: 'Revenue account',
+  destination_type: 'Asset account',
 };
 
 const transfer: SplitLike = {
@@ -33,6 +38,30 @@ const transfer: SplitLike = {
   source_name: 'Everyday Current',
   destination_id: '106',
   destination_name: 'Emergency Savings',
+  source_type: 'Asset account',
+  destination_type: 'Asset account',
+};
+
+const loanPayment: SplitLike = {
+  transaction_journal_id: '13',
+  type: 'withdrawal',
+  source_id: '104',
+  source_name: 'Everyday Current',
+  source_type: 'Asset account',
+  destination_id: '300',
+  destination_name: 'Car loan',
+  destination_type: 'Loan',
+};
+
+const paidFromLoan: SplitLike = {
+  transaction_journal_id: '14',
+  type: 'withdrawal',
+  source_id: '300',
+  source_name: 'Car loan',
+  source_type: 'Loan',
+  destination_id: '115',
+  destination_name: 'Garage',
+  destination_type: 'Expense account',
 };
 
 const plan = (result: ReturnType<typeof planConversion>): ConversionPlan => {
@@ -63,55 +92,89 @@ describe('planConversion', () => {
     expect(result).toHaveProperty('error');
   });
 
-  it('withdrawal to transfer keeps the source and asks for a destination asset', () => {
+  it('withdrawal to transfer keeps the source and asks for a destination', () => {
     const p = plan(planConversion(withdrawal, 'transfer'));
-    expect(p.keep).toEqual({ side: 'source', id: '104', name: 'Everyday Current' });
-    expect(p.askFor).toBe('destination');
-    expect(p.askForKind).toBe('asset');
+    expect(p.source).toMatchObject({ id: '104', kind: 'asset' });
+    expect(p.destination).toBeNull();
   });
 
   it('withdrawal to deposit moves the kept account from source to destination', () => {
     // The account you own stays yours; it is the FIELD that changes, because a
     // deposit arrives into the destination.
     const p = plan(planConversion(withdrawal, 'deposit'));
-    expect(p.keep).toEqual({ side: 'destination', id: '104', name: 'Everyday Current' });
-    expect(p.askFor).toBe('source');
-    expect(p.askForKind).toBe('revenue');
+    expect(p.destination).toMatchObject({ id: '104' });
+    expect(p.source).toBeNull();
   });
 
-  it('deposit to withdrawal moves it back to source and asks for an expense', () => {
+  it('deposit to withdrawal moves it back to source', () => {
     const p = plan(planConversion(deposit, 'withdrawal'));
-    expect(p.keep).toEqual({ side: 'source', id: '104', name: 'Everyday Current' });
-    expect(p.askFor).toBe('destination');
-    expect(p.askForKind).toBe('expense');
-  });
-
-  it('transfer to withdrawal keeps the source asset', () => {
-    const p = plan(planConversion(transfer, 'withdrawal'));
-    expect(p.keep.id).toBe('104');
-    expect(p.askForKind).toBe('expense');
+    expect(p.source).toMatchObject({ id: '104' });
+    expect(p.destination).toBeNull();
   });
 
   it('transfer to deposit keeps an asset on the destination side', () => {
     const p = plan(planConversion(transfer, 'deposit'));
-    expect(p.keep.side).toBe('destination');
-    expect(p.askForKind).toBe('revenue');
+    expect(p.destination).toMatchObject({ id: '104' });
   });
 
-  it('refuses when there is no asset account to carry across', () => {
-    const orphan = { ...withdrawal, source_id: null, source_name: null };
+  it('a loan payment converted to a deposit swaps the two accounts', () => {
+    // asset → loan is a withdrawal; loan → asset is the deposit of borrowed
+    // money. Both accounts survive, reversed.
+    const p = plan(planConversion(loanPayment, 'deposit'));
+    expect(p.swapped).toBe(true);
+    expect(p.source).toMatchObject({ id: '300', kind: 'loan' });
+    expect(p.destination).toMatchObject({ id: '104', kind: 'asset' });
+  });
+
+  it('a spend from a loan converted to a transfer keeps the loan as the source', () => {
+    // A transfer out of a liability can only go to another liability.
+    const p = plan(planConversion(paidFromLoan, 'transfer'));
+    expect(p.source).toMatchObject({ id: '300', kind: 'loan' });
+    expect(p.destination).toBeNull();
+  });
+
+  it('a spend from a loan converted to a deposit puts the loan on the receiving side', () => {
+    // revenue → loan is allowed, so the loan moves to the destination.
+    const p = plan(planConversion(paidFromLoan, 'deposit'));
+    expect(p.destination).toMatchObject({ id: '300' });
+    expect(p.source).toBeNull();
+  });
+
+  it('never pre-fills a pair Firefly would refuse', () => {
+    for (const split of [withdrawal, deposit, transfer, loanPayment, paidFromLoan]) {
+      for (const to of ['withdrawal', 'deposit', 'transfer'] as const) {
+        const result = planConversion(split, to);
+        if (!result || 'error' in result) continue;
+        if (result.source?.kind && result.destination?.kind) {
+          expect(isAllowed(to, result.source.kind, result.destination.kind)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('refuses when there are no accounts to carry across', () => {
+    const orphan = {
+      ...withdrawal,
+      source_id: null,
+      source_name: null,
+      destination_id: null,
+      destination_name: null,
+    };
     expect(planConversion(orphan, 'transfer')).toHaveProperty('error');
   });
 });
 
 describe('buildConversionPayload', () => {
-  it('sends the kept account and the new counter-account on the right fields', () => {
-    const p = plan(planConversion(withdrawal, 'transfer'));
+  const chosen = (sourceId: string, destination: { id?: string; name: string }) => ({
+    source: { id: sourceId, name: 'x' },
+    destination,
+  });
+
+  it('sends both accounts on the right fields', () => {
     const payload = buildConversionPayload(
       [withdrawal],
-      p,
       'transfer',
-      { id: '106', name: 'Emergency Savings' },
+      chosen('104', { id: '106', name: 'Emergency Savings' }),
       null,
     );
     const [entry] = payload.transactions as Array<Record<string, unknown>>;
@@ -125,12 +188,10 @@ describe('buildConversionPayload', () => {
 
   it('names an account that does not exist yet instead of sending an id', () => {
     // Firefly creates expense and revenue accounts on the fly from a name.
-    const p = plan(planConversion(withdrawal, 'deposit'));
     const payload = buildConversionPayload(
       [withdrawal],
-      p,
       'deposit',
-      { name: 'New Employer' },
+      { source: { name: 'New Employer' }, destination: { id: '104', name: 'Everyday Current' } },
       null,
     );
     const [entry] = payload.transactions as Array<Record<string, unknown>>;
@@ -142,26 +203,55 @@ describe('buildConversionPayload', () => {
     // Verified against 6.5.5: PUTting one split of a two-split group left the
     // group with one split and destroyed the other, with a 200.
     const second: SplitLike = { ...withdrawal, transaction_journal_id: '20' };
-    const p = plan(planConversion(withdrawal, 'transfer'));
     const payload = buildConversionPayload(
       [withdrawal, second],
-      p,
       'transfer',
-      { id: '106', name: 'x' },
+      chosen('104', { id: '106', name: 'x' }),
       'Weekly shop',
     );
     const entries = payload.transactions as Array<Record<string, unknown>>;
     expect(entries.map((e) => e.transaction_journal_id)).toEqual(['10', '20']);
   });
 
-  it('sends group_title above one split, because Firefly 422s without it', () => {
-    const second: SplitLike = { ...withdrawal, transaction_journal_id: '20' };
-    const p = plan(planConversion(withdrawal, 'transfer'));
+  it("keeps each split's own account on a side the user did not replace", () => {
+    // Two splits paid to two shops, converted to deposits: the shops become
+    // irrelevant, but if the user swaps sides each split keeps its OWN payee.
+    const second: SplitLike = {
+      ...withdrawal,
+      transaction_journal_id: '20',
+      destination_id: '116',
+      destination_name: 'Aldi',
+    };
     const payload = buildConversionPayload(
       [withdrawal, second],
-      p,
+      'withdrawal',
+      { source: { id: '104', name: 'Everyday Current' }, destination: { id: '115', name: 'Rewe' } },
+      'Weekly shop',
+    );
+    const entries = payload.transactions as Array<Record<string, unknown>>;
+    expect(entries.map((e) => e.destination_id)).toEqual(['115', '116']);
+  });
+
+  it('carries swapped accounts per split', () => {
+    const payload = buildConversionPayload(
+      [loanPayment],
+      'deposit',
+      {
+        source: { id: '300', name: 'Car loan' },
+        destination: { id: '104', name: 'Everyday Current' },
+      },
+      null,
+    );
+    const [entry] = payload.transactions as Array<Record<string, unknown>>;
+    expect(entry).toMatchObject({ source_id: '300', destination_id: '104' });
+  });
+
+  it('sends group_title above one split, because Firefly 422s without it', () => {
+    const second: SplitLike = { ...withdrawal, transaction_journal_id: '20' };
+    const payload = buildConversionPayload(
+      [withdrawal, second],
       'transfer',
-      { id: '106', name: 'x' },
+      chosen('104', { id: '106', name: 'x' }),
       'Weekly shop',
     );
     expect(payload.group_title).toBe('Weekly shop');
@@ -169,24 +259,20 @@ describe('buildConversionPayload', () => {
 
   it('substitutes a title when a split group somehow has none', () => {
     const second: SplitLike = { ...withdrawal, transaction_journal_id: '20' };
-    const p = plan(planConversion(withdrawal, 'transfer'));
     const payload = buildConversionPayload(
       [withdrawal, second],
-      p,
       'transfer',
-      { id: '106', name: 'x' },
+      chosen('104', { id: '106', name: 'x' }),
       null,
     );
     expect(payload.group_title).toBeTruthy();
   });
 
   it('omits group_title for a single split', () => {
-    const p = plan(planConversion(withdrawal, 'transfer'));
     const payload = buildConversionPayload(
       [withdrawal],
-      p,
       'transfer',
-      { id: '106', name: 'x' },
+      chosen('104', { id: '106', name: 'x' }),
       null,
     );
     expect(payload).not.toHaveProperty('group_title');
@@ -195,12 +281,10 @@ describe('buildConversionPayload', () => {
   it('sets only the converted fields, leaving the rest for Firefly to preserve', () => {
     // Amount, description, category and tags are deliberately absent: a split
     // sent WITH its journal id keeps everything not mentioned.
-    const p = plan(planConversion(withdrawal, 'transfer'));
     const payload = buildConversionPayload(
       [withdrawal],
-      p,
       'transfer',
-      { id: '106', name: 'x' },
+      chosen('104', { id: '106', name: 'x' }),
       null,
     );
     const entry = (payload.transactions as Array<Record<string, unknown>>)[0]!;

@@ -392,6 +392,43 @@ export const notifications = pgTable(
   ],
 );
 
+/**
+ * A spreadsheet import, from upload to undo (server/import).
+ *
+ * The parsed rows, the user's corrections and the per-row results are JSON on
+ * the batch rather than a table of their own: a batch is read and written
+ * whole, at most a few thousand rows, by one user. `committed` is the plan
+ * frozen at the moment the import started, so a chunked commit that resumes
+ * after a closed tab works from the same plan instead of re-deciding it against
+ * a ledger it has already half-changed.
+ */
+export const importBatches = pgTable(
+  'import_batches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    connectionId: uuid('connection_id')
+      .notNull()
+      .references(() => fireflyConnections.id, { onDelete: 'cascade' }),
+    fileName: text('file_name').notNull(),
+    /** preview → importing → done → undone. */
+    status: text('status').notNull().default('preview'),
+    tag: text('tag'),
+    options: jsonb('options').$type<Record<string, unknown>>().notNull().default({}),
+    rows: jsonb('rows').$type<unknown[]>().notNull(),
+    overrides: jsonb('overrides').$type<unknown>().notNull().default({}),
+    /** Fingerprint → count of matching splits already in the ledger, at upload. */
+    ledger: jsonb('ledger').$type<Record<string, number>>().notNull().default({}),
+    committed: jsonb('committed').$type<unknown>(),
+    results: jsonb('results').$type<Record<string, unknown>>().notNull().default({}),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [index('import_batches_user_connection_idx').on(table.userId, table.connectionId)],
+);
+
 // ---------------------------------------------------------------------------
 // Security / operational
 // ---------------------------------------------------------------------------

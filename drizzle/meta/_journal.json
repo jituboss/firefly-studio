@@ -50,6 +50,13 @@
       "when": 1790745793125,
       "tag": "0006_material_blink",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793183984922,
+      "tag": "0007_wealthy_silver_fox",
+      "breakpoints": true
     }
   ]
 }
