@@ -10,6 +10,20 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-29
+
+**The spreadsheet import is easier to find.**
+
+### Changed
+
+- **"Import from Excel" sits next to Add** in the Transactions header, with a
+  label. It used to be a small icon in the filter toolbar, and icon-only on
+  phones.
+- **On a phone, Transactions has an "Import from Excel or CSV" strip** under the
+  title, and the **+** menu offers it right below Expense, Income and Transfer.
+- **An empty Transactions page offers the import** beside "New transaction".
+- The quick-add side panel on desktop points at the import too.
+
 ## [0.15.0] - 2026-10-28
 
 **Import your transactions from a spreadsheet, set up a new ledger in two

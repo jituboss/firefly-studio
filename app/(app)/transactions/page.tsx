@@ -29,7 +29,7 @@ import { listSavedViews } from '@/server/saved-views';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { FileUp, Plus } from 'lucide-react';
+import { ArrowRight, FileSpreadsheet, Plus } from 'lucide-react';
 import { accountFlowTotals } from '@/lib/account-flow';
 import type { Paged, Transaction, TransactionSplit } from '@/server/firefly/types';
 
@@ -348,8 +348,34 @@ export default async function TransactionsPage({
               }))}
               label="Add"
             />
+            {/* Next to Add, with a label on every screen that has the room: this
+                is how most people will first bring a spreadsheet in. */}
+            <Button asChild variant="outline" size="sm" className="max-sm:hidden">
+              <Link href="/transactions/import">
+                <FileSpreadsheet className="text-income size-4" aria-hidden="true" />
+                Import from Excel
+              </Link>
+            </Button>
           </div>
         </div>
+        {/* On a phone the header has no room for a labelled button, and the
+            bottom bar's + is for one entry at a time — so the import gets a
+            strip of its own, full width and a thumb's reach from the title. */}
+        <Link
+          href="/transactions/import"
+          className="border-income/30 bg-income-muted/40 hover:bg-income-muted/70 focus-visible:ring-ring flex items-center gap-3 rounded-lg border px-3 py-2.5 focus-visible:ring-2 focus-visible:outline-none sm:hidden"
+        >
+          <span className="bg-income-muted text-income flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <FileSpreadsheet className="size-5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">Import from Excel or CSV</span>
+            <span className="text-muted-foreground block text-xs">
+              Bring in many transactions at once
+            </span>
+          </span>
+          <ArrowRight className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+        </Link>
         {/*
           The page number is no longer here. It is on the pager directly above
           the table and on the one below it, which is where someone who wants to
@@ -432,12 +458,6 @@ export default async function TransactionsPage({
                     timezone: session.user.timezone,
                   }}
                 />
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/transactions/import">
-                    <FileUp className="size-4" aria-hidden="true" />
-                    <span className="max-sm:sr-only">Import</span>
-                  </Link>
-                </Button>
               </>
             }
           />
@@ -456,12 +476,20 @@ export default async function TransactionsPage({
                   ? 'Try a wider date range, or clear the filters above.'
                   : 'Pick a different date range, or add the first one.'}
               </p>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/transactions/new">
-                  <Plus className="size-4" aria-hidden="true" />
-                  New transaction
-                </Link>
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/transactions/new">
+                    <Plus className="size-4" aria-hidden="true" />
+                    New transaction
+                  </Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href="/transactions/import">
+                    <FileSpreadsheet className="size-4" aria-hidden="true" />
+                    Import from Excel
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : (

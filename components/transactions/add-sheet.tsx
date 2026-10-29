@@ -4,7 +4,14 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useActionState } from 'react';
-import { ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Plus } from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowRight,
+  ArrowUpRight,
+  FileSpreadsheet,
+  Plus,
+} from 'lucide-react';
 import {
   quickAddTransactionAction,
   type QuickAddState,
@@ -439,6 +446,16 @@ export function AddSheet({
           <p className="text-muted-foreground text-xs">
             The panel stays open, so you can add another straight away.
           </p>
+          <Link
+            href="/transactions/import"
+            className="border-income/30 bg-income-muted/40 hover:bg-income-muted/70 flex items-center justify-between gap-3 rounded-lg border px-2.5 py-2 transition-colors"
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">Many at once?</span>
+              <span className="text-muted-foreground text-xs">Import from Excel or CSV</span>
+            </span>
+            <FileSpreadsheet className="text-income size-4 shrink-0" aria-hidden="true" />
+          </Link>
           <Link
             href="/transactions/new"
             className="hover:border-border hover:bg-accent/40 flex items-center justify-between gap-3 rounded-lg border border-transparent px-2.5 py-2 transition-colors"

@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   LogOut,
   Monitor,
+  FileSpreadsheet,
   Moon,
   Paperclip,
   PiggyBank,
@@ -487,6 +488,23 @@ function AddMenu({
             </button>
           ))}
         </div>
+
+        {/* Right under the three kinds, not at the foot of a long list: someone
+            with a spreadsheet should not have to scroll past recent entries. */}
+        <Link
+          href="/transactions/import"
+          onClick={onClose}
+          className="border-income/30 bg-income-muted/40 hover:bg-income-muted/70 focus-visible:ring-ring flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <span className="bg-income-muted text-income flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <FileSpreadsheet className="size-5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">Import from Excel or CSV</span>
+            <span className="text-muted-foreground block text-xs">Many transactions at once</span>
+          </span>
+          <ArrowRight className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+        </Link>
 
         <section aria-labelledby="add-recent" className="space-y-1">
           <div className="flex items-baseline justify-between">
