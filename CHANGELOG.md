@@ -10,6 +10,19 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-11-08
+
+**Routine dependency updates.** Upgrading needs no action.
+
+### Changed
+
+- **The image now runs Node.js 24.22.2** (from 24.22.1), the next patch on the
+  pinned base image.
+- Dependabot updates to the app's runtime dependencies: `@sentry/nextjs`
+  11.10.0, TanStack Query 5.105.0 and Virtual 3.14.24, lucide-react 1.64.0 and
+  nodemailer 10.3.1.
+- PostCSS 8.5.31 → 8.5.32. It runs at build time only.
+
 ## [0.15.1] - 2026-10-29
 
 **The spreadsheet import is easier to find.**

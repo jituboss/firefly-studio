@@ -17,7 +17,7 @@
 # OpenSSL bump), and a floating `24-alpine` let a cached layer quietly keep the
 # vulnerable runtime. Dependabot proposes the next patch; `apk upgrade` picks up
 # OS fixes (libssl3, libcrypto3, musl) that land between base-image refreshes.
-FROM node:24.22.1-alpine AS base
+FROM node:24.22.2-alpine AS base
 ENV PNPM_HOME="/pnpm" PATH="/pnpm:$PATH"
 RUN corepack enable && apk upgrade --no-cache && apk add --no-cache libc6-compat
 
