@@ -10,9 +10,23 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-11-08
+
+**Publishes the 0.15.2 dependency updates.** The 0.15.2 tag never reached Docker
+Hub: its release run stopped at the dependency audit. Upgrading from 0.15.1
+needs no action.
+
+### Security
+
+- Two moderate advisories published after 0.15.1 are recorded as not
+  applicable, with the reasoning in `pnpm-workspace.yaml`: glob
+  (GHSA-3g3m-2fjr-6pw4) and minimatch (GHSA-g3hv-75wg-m249). Both are used only
+  at lint and build time, on patterns from the project's own config, and
+  neither ships in the image.
+
 ## [0.15.2] - 2026-11-08
 
-**Routine dependency updates.** Upgrading needs no action.
+**Routine dependency updates.** Tagged but never published; ships as 0.15.3.
 
 ### Changed
 

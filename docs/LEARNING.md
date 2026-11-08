@@ -640,6 +640,16 @@ cost someone else a day.
   Signing up with an address that already exists on the managed Firefly fails
   ("may already be registered"). That includes the dev ledger's `a@a.com`.
 
+## 7g. Lessons from 0.15.2–0.15.3
+
+- **Check `pnpm audit`'s exit code, not its last lines.** It ends with
+  "N ignored", which reads as all clear even when other advisories fail the gate.
+  0.15.2 was tagged on that misreading and never published. CI runs it at
+  `--audit-level moderate`, so run it locally at the same level.
+- **A red Dependabot PR may just mean main is red.** Advisories land between
+  releases, so the failure on #31 was the same audit that would have failed on
+  main. Run the gate on main before blaming the bump.
+
 ## 8. Testing approach — what exists and what deliberately doesn't
 
 - **722 Vitest unit tests** in 46 files, over pure `lib/` modules plus four server modules. Run `pnpm test`, or

@@ -56,7 +56,20 @@ overrides:
 # place (conditional-formatting rule ids, on WRITE). The patch is three majors
 # ahead of what exceljs declares, so an override would break the rule above;
 # the vulnerable functions are never called. Revisit when exceljs moves.
+#
+# GHSA-3g3m-2fjr-6pw4 (glob >=9 <=14.0.1: an AbortSignal does not stop a walk)
+# and GHSA-g3hv-75wg-m249 (minimatch >=7 <11.0.1: DoS from an amplifying
+# pattern) both need an attacker to supply the pattern, or a caller relying on
+# cancellation over an attacker-shaped tree. They reach us through eslint and
+# typescript-eslint (lint time) and @sentry/bundler-plugins (build time, globbing
+# our own output for source maps), always with patterns from our own config.
+# Neither package is in the runtime image: the standalone trace leaves them out.
+# The fixes are a major ahead of what those parents declare (glob 13, minimatch
+# 3/5/10), so an override would break the rule above. Both advisories appeared
+# after 0.15.1 (early November 2026). Revisit when Sentry and eslint move.
 auditConfig:
   ignoreGhsas:
     - GHSA-67mh-4wv8-2f99
     - GHSA-w5hq-g745-h8pq
+    - GHSA-3g3m-2fjr-6pw4
+    - GHSA-g3hv-75wg-m249
