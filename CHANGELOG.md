@@ -10,6 +10,19 @@ Each released version is published to Docker Hub as
 
 ## [Unreleased]
 
+## [0.15.4] - 2026-11-09
+
+**Routine dependency updates.** Upgrading from 0.15.3 needs no action.
+
+### Changed
+
+- **Next.js 15.5.29** (from 15.5.28), the next patch on the 15.5 line.
+- Dependabot updates to the app's runtime dependencies: `@sentry/nextjs`
+  11.11.0, TanStack Query 5.106.1 and Virtual 3.14.26, and lucide-react 1.69.0.
+- Build and test tooling: Tailwind CSS 4.3.4, Vitest 5.1.0,
+  `@vitejs/plugin-react` 6.2.1, Playwright 1.65.0 and `eslint-config-next`
+  15.5.29. None of it ships in the image.
+
 ## [0.15.3] - 2026-11-08
 
 **Publishes the 0.15.2 dependency updates.** The 0.15.2 tag never reached Docker
